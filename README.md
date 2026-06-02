@@ -38,15 +38,45 @@ uv run --extra dev pytest -q  # 테스트
 uv run uvicorn app.main:app --reload   # 로컬 서버 (:8000)
 ```
 
-## 배포
+## 배포 — k8s (라이브)
+
+bhgman 클러스터(dgx로 닿음, namespace `infra`)에 배포됨. 프론트 landing-astro와
+같은 클러스터에서 Traefik IngressRoute로 `/api/*`만 이 서비스로 라우팅(additive,
+기존 landing 라우트 무영향). 매니페스트: `deploy/k8s/web-back.yaml`.
+
+배포 절차 (실측 검증된 레시피):
+
+```sh
+# 1. 레포를 dgx로 복사
+rsync -az --exclude='.venv' --exclude='.git' metahumotonic_web_back/ dgx:/tmp/metahumotonic_web_back/
+
+# 2. dgx(arm64)에서 빌드 → 인클러스터 registry push
+ssh dgx '
+  cd /tmp/metahumotonic_web_back
+  docker build -t 192.168.0.23:30500/metahumotonic-web-back:0.1.0 .
+  # docker는 NodePort registry를 insecure로 안 봄 → localhost 태그로 push (docker가 localhost는 신뢰)
+  docker tag 192.168.0.23:30500/metahumotonic-web-back:0.1.0 localhost:30500/metahumotonic-web-back:0.1.0
+  docker push localhost:30500/metahumotonic-web-back:0.1.0
+  # kubelet은 certs.d plain-http를 안 먹음 → 이미지를 containerd k8s.io ns로 직접 import
+  docker save 192.168.0.23:30500/metahumotonic-web-back:0.1.0 | sudo ctr -n k8s.io images import -
+  kubectl apply -f deploy/k8s/web-back.yaml
+  kubectl rollout restart deploy/web-back -n infra
+'
+```
+
+> 이미지 갱신 시 태그를 올리고(예 0.1.1) 위 build/import/apply 반복. 파드는
+> `nodeSelector: dgx-worker`로 핀(이미지가 그 노드 containerd에 import됨).
+
+### IngressRoute
+- `web-back-api` (entryPoint `web`, :80) + `web-back-api-tls` (entryPoint `websecure`, :443,
+  `metahumotonic-wildcard-tls`) 둘 다 `Host(metahumotonic.com|www|bhgman.iptime.org) && PathPrefix(/api)`, priority 200.
+- 검증: `curl https://metahumotonic.com/api/stats` → KG 통계 JSON.
+
+## 로컬 (Docker Compose)
 
 ```sh
 docker compose up -d --build   # :8000
 ```
-
-프론트(nginx) 또는 Traefik에서 `/api/*` → 이 서비스로 프록시.
-예: `api.metahumotonic.com` → `web-back:8000`, 또는 프론트 nginx에
-`location /api/ { proxy_pass http://web-back:8000; }`.
 
 ## 환경변수 (`MHB_` prefix)
 

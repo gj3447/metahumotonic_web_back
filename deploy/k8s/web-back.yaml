@@ -1,0 +1,93 @@
+# metahumotonic_web_back — k8s manifests (namespace: infra)
+# Deploy: pushed to in-cluster registry (192.168.0.23:30500), same pattern as ai/discord-bot.
+# Additive: a NEW Deployment + Service + IngressRoute for PathPrefix(/api).
+# The live landing-astro-subpages route (/theories /explore /domains /_astro /legacy)
+# is untouched — /api is currently unserved, so this can only add, never break.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-back
+  namespace: infra
+  labels: { app: web-back }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: web-back }
+  template:
+    metadata:
+      labels: { app: web-back }
+    spec:
+      # Pinned to dgx-worker: image is imported into that node's containerd
+      # (k8s.io ns) directly — the in-cluster registry's certs.d plain-http
+      # config isn't honored by kubelet, so we skip the registry pull.
+      nodeSelector:
+        kubernetes.io/hostname: dgx-worker
+      containers:
+        - name: web-back
+          image: 192.168.0.23:30500/metahumotonic-web-back:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            # First deploy: zero external deps (snapshot fallback + in-memory feedback).
+            # Wire live KG / Mongo in a follow-up once in-cluster addrs + creds are set.
+            - { name: MHB_NEO4J_LIVE, value: "false" }
+            - { name: MHB_MONGO_URI, value: "" }
+            - { name: MHB_CORS_ORIGINS, value: "https://metahumotonic.com,https://www.metahumotonic.com" }
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          resources:
+            requests: { cpu: "25m", memory: "64Mi" }
+            limits: { cpu: "250m", memory: "256Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-back
+  namespace: infra
+  labels: { app: web-back }
+spec:
+  selector: { app: web-back }
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: web-back-api
+  namespace: infra
+spec:
+  entryPoints: [web]
+  routes:
+    - kind: Rule
+      match: (Host(`metahumotonic.com`) || Host(`www.metahumotonic.com`) || Host(`bhgman.iptime.org`)) && PathPrefix(`/api`)
+      priority: 200
+      services:
+        - name: web-back
+          port: 8000
+---
+# HTTPS (websecure) — public traffic arrives on :443; mirror of landing-astro-subpages-tls.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: web-back-api-tls
+  namespace: infra
+spec:
+  entryPoints: [websecure]
+  routes:
+    - kind: Rule
+      match: (Host(`metahumotonic.com`) || Host(`www.metahumotonic.com`)) && PathPrefix(`/api`)
+      priority: 200
+      services:
+        - name: web-back
+          port: 8000
+  tls:
+    secretName: metahumotonic-wildcard-tls
