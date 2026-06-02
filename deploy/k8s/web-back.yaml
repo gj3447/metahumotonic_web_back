@@ -30,10 +30,17 @@ spec:
           ports:
             - containerPort: 8000
           env:
-            # First deploy: zero external deps (snapshot fallback + in-memory feedback).
-            # Wire live KG / Mongo in a follow-up once in-cluster addrs + creds are set.
-            - { name: MHB_NEO4J_LIVE, value: "false" }
-            - { name: MHB_MONGO_URI, value: "" }
+            # Live KG (Neo4j) + persistent feedback (MongoDB), in-cluster (data ns).
+            # Both still degrade gracefully if the dep is unreachable.
+            - { name: MHB_NEO4J_LIVE, value: "true" }
+            - { name: MHB_NEO4J_URI, value: "bolt://neo4j.data.svc.cluster.local:7687" }
+            - { name: MHB_NEO4J_USER, value: "neo4j" }
+            - name: MHB_NEO4J_PASSWORD
+              valueFrom: { secretKeyRef: { name: web-back-secrets, key: neo4j-password } }
+            - name: MHB_MONGO_URI
+              valueFrom: { secretKeyRef: { name: web-back-secrets, key: mongo-uri } }
+            - { name: MHB_MONGO_DB, value: "metahumotonic" }
+            - { name: MHB_MONGO_FEEDBACK_COLLECTION, value: "web_feedback" }
             - { name: MHB_CORS_ORIGINS, value: "https://metahumotonic.com,https://www.metahumotonic.com" }
           readinessProbe:
             httpGet: { path: /health, port: 8000 }
