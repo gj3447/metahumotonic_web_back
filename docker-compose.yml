@@ -1,0 +1,16 @@
+# metahumotonic_web_back — sits next to the static front-end behind Traefik/nginx.
+# Front-end proxies /api/* → this service (api.metahumotonic.com).
+services:
+  web-back:
+    build: .
+    image: metahumotonic-web-back:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      MHB_NEO4J_URI: ${MHB_NEO4J_URI:-bolt://host.docker.internal:7687}
+      MHB_NEO4J_USER: ${MHB_NEO4J_USER:-neo4j}
+      MHB_NEO4J_PASSWORD: ${MHB_NEO4J_PASSWORD:-neo4jpassword}
+      MHB_NEO4J_LIVE: ${MHB_NEO4J_LIVE:-false}
+      MHB_MONGO_URI: ${MHB_MONGO_URI:-}
+      MHB_CORS_ORIGINS: ${MHB_CORS_ORIGINS:-https://metahumotonic.com}
