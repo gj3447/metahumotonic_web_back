@@ -8,12 +8,17 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections import deque
 from datetime import datetime, timezone
 from typing import Any
 
+from .breaker import Breaker
 from .config import settings
 
 log = logging.getLogger("mhb.store")
+
+_TTL_INDEX = "feedback_ttl"
+_MEMORY_CAP = 5000  # bounded in-memory fallback (no infra) — avoids OOM
 
 
 def _now() -> datetime:
@@ -27,11 +32,11 @@ class FeedbackStore:
     def __init__(self) -> None:
         self._client = None
         self._collection = None
-        self._memory: list[dict[str, Any]] = []
-        self._failed = False
+        self._memory: deque[dict[str, Any]] = deque(maxlen=_MEMORY_CAP)
+        self._breaker = Breaker()
 
     async def _get_collection(self):
-        if not settings.mongo_uri or self._failed:
+        if not settings.mongo_uri or self._breaker.is_open():
             return None
         if self._collection is not None:
             return self._collection
@@ -44,24 +49,33 @@ class FeedbackStore:
             ]
             return self._collection
         except Exception as e:  # pragma: no cover - infra dependent
-            self._failed = True
+            self._breaker.trip()
             log.warning("mongo init failed, using in-memory store: %s", e)
             return None
 
     async def ensure_indexes(self) -> None:
         """Create the TTL index so stored feedback auto-expires (PROM16 A3S2:
-        unbounded MongoDB growth). No-op for the in-memory backend or ttl<=0."""
+        unbounded MongoDB growth). Named + conflict-handling so a changed TTL
+        value actually takes effect (Mongo IndexOptionsConflict otherwise)."""
         if settings.feedback_ttl_days <= 0:
             return
         collection = await self._get_collection()
         if collection is None:
             return
+        ttl = settings.feedback_ttl_days * 86400
         try:
             await collection.create_index(
-                "created_at", expireAfterSeconds=settings.feedback_ttl_days * 86400
+                "created_at", name=_TTL_INDEX, expireAfterSeconds=ttl
             )
         except Exception as e:  # pragma: no cover - infra dependent
-            log.warning("feedback TTL index create failed: %s", e)
+            # most likely IndexOptionsConflict (TTL value changed) → recreate
+            try:
+                await collection.drop_index(_TTL_INDEX)
+                await collection.create_index(
+                    "created_at", name=_TTL_INDEX, expireAfterSeconds=ttl
+                )
+            except Exception as e2:
+                log.warning("feedback TTL index ensure failed: %s / %s", e, e2)
 
     async def save(self, doc: dict[str, Any]) -> str:
         record_id = uuid.uuid4().hex
@@ -70,15 +84,17 @@ class FeedbackStore:
         if collection is not None:
             try:
                 await collection.insert_one(dict(record))
+                self._breaker.reset()  # healthy again
                 return record_id
             except Exception as e:  # pragma: no cover - infra dependent
-                self._failed = True
+                self._breaker.trip()
+                self._collection = None
                 log.warning("mongo insert failed, using in-memory store: %s", e)
         self._memory.append(record)
         return record_id
 
     @property
-    def memory(self) -> list[dict[str, Any]]:
+    def memory(self) -> deque[dict[str, Any]]:
         """In-memory records (for the in-memory backend / tests)."""
         return self._memory
 

@@ -1,6 +1,6 @@
 [project]
 name = "metahumotonic-web-back"
-version = "0.5.1"
+version = "0.5.4"
 description = "Backend API for metahumotonic-web — live KG stats + feedback intake (사도 #4 비행기맨 7군단장 정전 surface)"
 readme = "README.md"
 requires-python = ">=3.11"

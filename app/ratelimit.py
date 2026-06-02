@@ -9,11 +9,13 @@ correct at scale yet runs with zero infra in CI / offline.
 
 from __future__ import annotations
 
-import itertools
 import logging
 import threading
 import time
+import uuid
 from collections import defaultdict, deque
+
+from .breaker import Breaker
 
 log = logging.getLogger("mhb.ratelimit")
 
@@ -47,13 +49,11 @@ class SlidingWindowRateLimiter:
 class RateLimiter:
     """Async limiter: Redis sliding-window backend, in-process fallback."""
 
-    _counter = itertools.count()
-
     def __init__(self, max_events: int, window_seconds: int, redis_url: str = "") -> None:
         self._mem = SlidingWindowRateLimiter(max_events, window_seconds)
         self.redis_url = redis_url
         self._redis = None
-        self._redis_failed = False
+        self._breaker = Breaker()
 
     # max_events / window_seconds proxy the in-process engine so there is a
     # single source of truth (and tests can mutate them on the instance).
@@ -74,7 +74,7 @@ class RateLimiter:
         self._mem.window_seconds = v
 
     async def _get_redis(self):
-        if not self.redis_url or self._redis_failed:
+        if not self.redis_url or self._breaker.is_open():
             return None
         if self._redis is not None:
             return self._redis
@@ -86,7 +86,7 @@ class RateLimiter:
             self._redis = client
             return client
         except Exception as e:  # pragma: no cover - infra dependent
-            self._redis_failed = True
+            self._breaker.trip()
             log.warning("redis rate-limit unavailable, using in-process: %s", e)
             return None
 
@@ -95,8 +95,12 @@ class RateLimiter:
         if client is None:
             return self._mem.allow(key)
         try:
-            return await self._allow_redis(client, key)
+            result = await self._allow_redis(client, key)
+            self._breaker.reset()  # healthy again → re-share across replicas
+            return result
         except Exception as e:  # pragma: no cover - infra dependent
+            self._breaker.trip()
+            self._redis = None
             log.warning("redis rate-limit error, falling back in-process: %s", e)
             return self._mem.allow(key)
 
@@ -104,7 +108,9 @@ class RateLimiter:
         now_ms = time.time() * 1000.0
         window_ms = self.window_seconds * 1000.0
         rk = f"mhb:rl:{key}"
-        member = f"{now_ms:.0f}-{next(self._counter)}"
+        # globally-unique member: a class counter resets to 0 per process, so two
+        # replicas could mint identical members → ZADD dedups → undercount.
+        member = f"{now_ms:.0f}-{uuid.uuid4().hex}"
         async with client.pipeline(transaction=True) as pipe:
             pipe.zremrangebyscore(rk, 0, now_ms - window_ms)
             pipe.zadd(rk, {member: now_ms})

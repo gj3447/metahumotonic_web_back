@@ -21,7 +21,7 @@ async def test_honeypot_is_silently_dropped(client):
     )
     assert r.status_code == 200
     assert r.json()["ok"] is True
-    assert store.memory == []  # nothing stored
+    assert len(store.memory) == 0  # nothing stored
 
 
 async def test_missing_required_fields_422(client):

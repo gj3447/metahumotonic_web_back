@@ -49,18 +49,34 @@ class _Req:
         self.client = _C()
 
 
-def test_xff_uses_rightmost_not_spoofable_leftmost():
+def _trust(monkeypatch, on):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "trust_proxy", on)
+
+
+def test_xff_uses_rightmost_not_spoofable_leftmost(monkeypatch):
+    _trust(monkeypatch, True)
     # attacker spoofs leftmost; proxy appends real IP on the right
     req = _Req({"x-forwarded-for": "1.1.1.1, 2.2.2.2, 10.0.0.5"})
     assert _client_key(req) == "10.0.0.5"
 
 
-def test_cf_connecting_ip_wins():
+def test_cf_connecting_ip_wins(monkeypatch):
+    _trust(monkeypatch, True)
     req = _Req({"cf-connecting-ip": "203.0.113.7", "x-forwarded-for": "1.1.1.1, 10.0.0.5"})
     assert _client_key(req) == "203.0.113.7"
 
 
-def test_falls_back_to_peer_without_headers():
+def test_default_no_trust_ignores_forwarded_headers(monkeypatch):
+    # full-verify: trust_proxy defaults False → spoofed headers ignored
+    _trust(monkeypatch, False)
+    req = _Req({"cf-connecting-ip": "1.2.3.4", "x-forwarded-for": "5.6.7.8"})
+    assert _client_key(req) == "9.9.9.9"  # socket peer only
+
+
+def test_falls_back_to_peer_without_headers(monkeypatch):
+    _trust(monkeypatch, True)
     req = _Req({})
     assert _client_key(req) == "9.9.9.9"
 

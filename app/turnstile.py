@@ -26,15 +26,24 @@ async def verify(token: str, remote_ip: str | None = None) -> bool:
         return True  # feature off → always pass
     if not token:
         return False
-    try:
-        import httpx
+    import httpx
 
-        data = {"secret": settings.turnstile_secret, "response": token}
-        if remote_ip:
-            data["remoteip"] = remote_ip
+    data = {"secret": settings.turnstile_secret, "response": token}
+    if remote_ip:
+        data["remoteip"] = remote_ip
+    try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             r = await client.post(_VERIFY_URL, data=data)
-            return bool(r.json().get("success"))
-    except Exception as e:  # pragma: no cover - network dependent
-        log.warning("turnstile verify failed (fail-open): %s", e)
+    except (httpx.TimeoutException, httpx.TransportError) as e:  # pragma: no cover
+        # connectivity-only fail-open: a Cloudflare outage shouldn't block feedback
+        log.warning("turnstile unreachable (fail-open): %s", e)
         return True
+    # any non-connectivity problem (4xx, bad/expired secret, parse) → fail-closed
+    try:
+        body = r.json()
+    except Exception:  # pragma: no cover
+        log.warning("turnstile bad response (fail-closed): status=%s", r.status_code)
+        return False
+    if not body.get("success"):
+        log.warning("turnstile rejected: %s", body.get("error-codes"))
+    return bool(body.get("success"))

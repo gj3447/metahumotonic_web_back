@@ -26,12 +26,14 @@ async def lifespan(app: FastAPI):
     # startup: ensure the feedback TTL index exists (no-op without Mongo)
     await store.ensure_indexes()
     yield
-    # graceful shutdown of lazy clients
+    # graceful shutdown — isolate each close so one failure can't leak the rest
+    import asyncio
+
     from .routers.feedback import _limiter
 
-    await kg.close()
-    await store.close()
-    await _limiter.close()
+    await asyncio.gather(
+        kg.close(), store.close(), _limiter.close(), return_exceptions=True
+    )
 
 
 app = FastAPI(

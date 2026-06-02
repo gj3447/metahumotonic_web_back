@@ -41,3 +41,4 @@ class TTLCache:
 
     def clear(self) -> None:
         self._store.clear()
+        self._locks.clear()

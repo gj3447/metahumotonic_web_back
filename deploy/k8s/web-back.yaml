@@ -35,7 +35,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: web-back
-          image: 192.168.0.23:30500/metahumotonic-web-back:0.5.1
+          image: 192.168.0.23:30500/metahumotonic-web-back:0.5.4
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -61,6 +61,8 @@ spec:
             # PROM16 C6 observability on; Turnstile secret optional (set to enable)
             - { name: MHB_METRICS_ENABLED, value: "true" }
             - { name: MHB_LOG_JSON, value: "true" }
+            # behind Traefik/cloudflared → trust forwarded client-IP headers
+            - { name: MHB_TRUST_PROXY, value: "true" }
           readinessProbe:
             httpGet: { path: /ready, port: 8000 }   # PROM16 C5: dependency-aware
             initialDelaySeconds: 3

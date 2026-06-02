@@ -50,9 +50,10 @@ class Settings(BaseSettings):
     # --- Feedback rate limit (per client IP) ---
     feedback_max_per_window: int = 5
     feedback_window_seconds: int = 600
-    # PROM16 C2/A3S2: trust the reverse proxy's appended client IP (rightmost
-    # X-Forwarded-For / CF-Connecting-IP) instead of the spoofable leftmost.
-    trust_proxy: bool = True
+    # PROM16 C2/A3S2 + full-verify: only trust forwarded client-IP headers when
+    # explicitly behind a trusted proxy. Default OFF so a directly-exposed
+    # instance can't be IP-spoofed; the k8s deployment sets MHB_TRUST_PROXY=true.
+    trust_proxy: bool = False
 
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

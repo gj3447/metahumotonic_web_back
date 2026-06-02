@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class StatsContract(BaseModel):
@@ -52,6 +52,22 @@ class FeedbackRequest(BaseModel):
     honeypot: str = Field(default="", max_length=255)
     # Cloudflare Turnstile token (only required when turnstile_secret is set)
     turnstile_token: str = Field(default="", max_length=4096)
+
+    @field_validator("subject", "email")
+    @classmethod
+    def _single_line(cls, v: str) -> str:
+        # single-line fields: reject CR/LF & control chars (header/log injection)
+        if any(ord(ch) < 32 for ch in v):
+            raise ValueError("control characters are not allowed")
+        return v
+
+    @field_validator("body")
+    @classmethod
+    def _body_ctrl(cls, v: str) -> str:
+        # body is multi-line (textarea): allow \n \r \t, reject other control chars
+        if any(ord(ch) < 32 and ch not in "\n\r\t" for ch in v):
+            raise ValueError("control characters are not allowed")
+        return v
 
 
 class FeedbackResponse(BaseModel):
