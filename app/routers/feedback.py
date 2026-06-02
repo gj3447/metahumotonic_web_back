@@ -14,14 +14,15 @@ from fastapi.responses import JSONResponse
 
 from ..config import settings
 from ..contracts import FeedbackRequest, FeedbackResponse
-from ..ratelimit import SlidingWindowRateLimiter
+from ..ratelimit import RateLimiter
 from ..store import store
 
 router = APIRouter(prefix="/api")
 
-_limiter = SlidingWindowRateLimiter(
+_limiter = RateLimiter(
     max_events=settings.feedback_max_per_window,
     window_seconds=settings.feedback_window_seconds,
+    redis_url=settings.redis_url,
 )
 
 
@@ -48,7 +49,7 @@ async def post_feedback(payload: FeedbackRequest, request: Request):
     if payload.honeypot:
         return FeedbackResponse(ok=True)
 
-    if not _limiter.allow(_client_key(request)):
+    if not await _limiter.allow(_client_key(request)):
         return JSONResponse(
             status_code=429,
             content={"reason": "rate_limited"},

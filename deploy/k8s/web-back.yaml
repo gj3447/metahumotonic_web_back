@@ -28,7 +28,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: web-back
-          image: 192.168.0.23:30500/metahumotonic-web-back:0.2.0
+          image: 192.168.0.23:30500/metahumotonic-web-back:0.3.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -47,6 +47,9 @@ spec:
               valueFrom: { secretKeyRef: { name: web-back-secrets, key: mongo-uri } }
             - { name: MHB_MONGO_DB, value: "metahumotonic" }
             - { name: MHB_MONGO_FEEDBACK_COLLECTION, value: "web_feedback" }
+            # PROM16 C2: distributed rate limit (in-cluster Redis, data ns)
+            - name: MHB_REDIS_URL
+              valueFrom: { secretKeyRef: { name: web-back-secrets, key: redis-url } }
             - { name: MHB_CORS_ORIGINS, value: "https://metahumotonic.com,https://www.metahumotonic.com" }
           readinessProbe:
             httpGet: { path: /ready, port: 8000 }   # PROM16 C5: dependency-aware

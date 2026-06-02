@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # --- KG stats cache (PROM16 C1: avoid count(n) full scan per request) ---
     stats_cache_ttl_seconds: int = 120
 
+    # --- Redis (PROM16 C2: distributed rate limit) ---
+    # empty → in-process limiter (survives single-replica but resets on restart)
+    redis_url: str = ""
+
     # --- CORS ---
     # comma-separated origins allowed to call this API from the browser
     cors_origins: str = "https://metahumotonic.com,http://localhost:4321"

@@ -2,13 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# install deps first for layer caching
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir \
-    "fastapi>=0.115" "uvicorn[standard]>=0.32" "neo4j>=5.26" \
-    "motor>=3.6" "pydantic>=2.9" "pydantic-settings>=2.6"
-
+# Install from pyproject so runtime deps never drift from the hardcoded list
+# (a stale list silently shipped an image without `redis`, v0.3.0).
+COPY pyproject.toml README.md ./
 COPY app ./app
+RUN pip install --no-cache-dir .
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \

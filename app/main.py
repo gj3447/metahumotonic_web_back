@@ -23,8 +23,11 @@ async def lifespan(app: FastAPI):
     await store.ensure_indexes()
     yield
     # graceful shutdown of lazy clients
+    from .routers.feedback import _limiter
+
     await kg.close()
     await store.close()
+    await _limiter.close()
 
 
 app = FastAPI(
