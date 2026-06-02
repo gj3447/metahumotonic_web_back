@@ -97,6 +97,23 @@ lifespan은 있으나 k8s 레벨 `preStop` + `terminationGracePeriodSeconds` + u
 
 ---
 
+## 구현 상태 (2026-06-02)
+
+**구현·배포 완료** (v0.2.0 → v0.4.0):
+- C1 stats TTL 캐시(120s) · Mongo 피드백 TTL(365d) · XFF 앱-측 교정(cf-connecting-ip/rightmost)
+- C2 Redis 분산 레이트리밋(sorted-set 슬라이딩윈도우, graceful 폴백)
+- C3 graceful shutdown(preStop+graceTerm60) · C5 헬스 분리(/health·/ready)
+- C6 관측성: Prometheus `/metrics` + structlog (uvicorn 액세스로그 JSON화는 minor 후속)
+- C4 HA: replicas 2 + PDB(minAvailable1) + RollingUpdate(maxUnavailable0) — same-node
+- Turnstile 백엔드 검증 scaffold(env-gated, `MHB_TURNSTILE_SECRET` 설정 시 활성)
+- Dockerfile `pip install .`(pyproject) — 의존성 드리프트 방지
+
+**의도적 보류** (정직 공시 — 위험/가치 부적합):
+- **IP-attribution (Traefik forwardedHeaders)**: Traefik이 Helm 관리 + replicas 1 + Recreate → 변경 시 사이트 전체 ingress 수초 다운 + Helm 드리프트. 0-스팸 개인 피드백폼엔 부적합. **정확한 fix**: Helm values `ports.web.forwardedHeaders.trustedIPs`(cloudflared/pod CIDR + Cloudflare 대역) — Helm으로 persist되게. 앱은 이미 cf-connecting-ip 우선이라 Traefik이 넘기는 순간 per-IP 자동 동작.
+- **true multi-node HA / containerd certs.d fix (OQ1)**: dgx-worker에 vLLM(GPU) 가동 중 → containerd 재시작 위험. same-node replicas 2로 대체(pod-crash·rollout 무중단 확보, node-failure는 SPOF로 수용=OQ2).
+- **Turnstile 활성화 (OQ3)**: Cloudflare 대시보드 site key 필요(외부 인증). scaffold만 ready.
+- **C7 타입 클라이언트**: 프론트가 plain-JS 정적 사이트라 가치 대비 과함. 필요 시 openapi-typescript로 즉시 가능.
+
 ## 부록: 16셀 출처 요약
 
 | 셀 | 한줄 |

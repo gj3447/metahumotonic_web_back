@@ -11,9 +11,16 @@ metadata:
   namespace: infra
   labels: { app: web-back }
 spec:
-  replicas: 1
+  # PROM16 C4: 2 replicas (now safe — rate limit is Redis-shared). Both pinned
+  # to dgx-worker (image lives in that node's containerd; we avoid a GPU-node
+  # containerd restart). Survives pod crash + gives zero-downtime rollouts;
+  # node failure remains a SPOF (acceptable per OQ2 for a personal site).
+  replicas: 2
   selector:
     matchLabels: { app: web-back }
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
   template:
     metadata:
       labels: { app: web-back }
@@ -28,7 +35,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: web-back
-          image: 192.168.0.23:30500/metahumotonic-web-back:0.3.0
+          image: 192.168.0.23:30500/metahumotonic-web-back:0.4.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -51,6 +58,9 @@ spec:
             - name: MHB_REDIS_URL
               valueFrom: { secretKeyRef: { name: web-back-secrets, key: redis-url } }
             - { name: MHB_CORS_ORIGINS, value: "https://metahumotonic.com,https://www.metahumotonic.com" }
+            # PROM16 C6 observability on; Turnstile secret optional (set to enable)
+            - { name: MHB_METRICS_ENABLED, value: "true" }
+            - { name: MHB_LOG_JSON, value: "true" }
           readinessProbe:
             httpGet: { path: /ready, port: 8000 }   # PROM16 C5: dependency-aware
             initialDelaySeconds: 3
@@ -75,6 +85,17 @@ spec:
   ports:
     - port: 8000
       targetPort: 8000
+---
+# PROM16 C4: keep 1 pod available during voluntary disruptions (node drain).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web-back
+  namespace: infra
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app: web-back }
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute

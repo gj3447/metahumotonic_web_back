@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     # empty → in-process limiter (survives single-replica but resets on restart)
     redis_url: str = ""
 
+    # --- Observability (PROM16 C6) ---
+    metrics_enabled: bool = True       # expose Prometheus /metrics
+    log_json: bool = True              # structured JSON logs (structlog)
+
+    # --- Turnstile bot defense (PROM16 A3S3/A3S4, OQ3) ---
+    # empty → disabled (current behavior). Set the Cloudflare Turnstile secret
+    # to require + verify a cf-turnstile-response token on feedback.
+    turnstile_secret: str = ""
+
     # --- CORS ---
     # comma-separated origins allowed to call this API from the browser
     cors_origins: str = "https://metahumotonic.com,http://localhost:4321"

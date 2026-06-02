@@ -50,6 +50,8 @@ class FeedbackRequest(BaseModel):
     body: str = Field(min_length=1, max_length=5000)
     email: str = Field(default="", max_length=255)
     honeypot: str = Field(default="", max_length=255)
+    # Cloudflare Turnstile token (only required when turnstile_secret is set)
+    turnstile_token: str = Field(default="", max_length=4096)
 
 
 class FeedbackResponse(BaseModel):

@@ -16,6 +16,7 @@ from ..config import settings
 from ..contracts import FeedbackRequest, FeedbackResponse
 from ..ratelimit import RateLimiter
 from ..store import store
+from ..turnstile import verify as verify_turnstile
 
 router = APIRouter(prefix="/api")
 
@@ -48,6 +49,10 @@ async def post_feedback(payload: FeedbackRequest, request: Request):
     # Bot trap: pretend success, store nothing.
     if payload.honeypot:
         return FeedbackResponse(ok=True)
+
+    # Turnstile (no-op unless a secret is configured)
+    if not await verify_turnstile(payload.turnstile_token, _client_key(request)):
+        return JSONResponse(status_code=403, content={"reason": "challenge_failed"})
 
     if not await _limiter.allow(_client_key(request)):
         return JSONResponse(

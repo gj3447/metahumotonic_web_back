@@ -13,8 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import __version__
 from .config import settings
 from .kg import kg
+from .observability import configure_logging, instrument
 from .routers import domains, feedback, meta, skills, stats
 from .store import store
+
+configure_logging()
 
 
 @asynccontextmanager
@@ -49,3 +52,5 @@ app.include_router(stats.router)
 app.include_router(domains.router)
 app.include_router(skills.router)
 app.include_router(feedback.router)
+
+instrument(app)  # Prometheus /metrics (PROM16 C6)
