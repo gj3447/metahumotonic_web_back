@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 
 from ..config import settings
 from ..contracts import FeedbackRequest, FeedbackResponse
+from ..netutil import client_key as _client_key
 from ..ratelimit import RateLimiter
 from ..store import store
 from ..turnstile import verify as verify_turnstile
@@ -25,23 +26,6 @@ _limiter = RateLimiter(
     window_seconds=settings.feedback_window_seconds,
     redis_url=settings.redis_url,
 )
-
-
-def _client_key(request: Request) -> str:
-    # PROM16 A3S2: the leftmost X-Forwarded-For entry is client-controllable
-    # (spoofable → an attacker could exhaust another IP's quota). Behind our
-    # proxy chain, trust the value the proxy itself appended:
-    #   1. CF-Connecting-IP (set by Cloudflare/cloudflared, not forwardable)
-    #   2. rightmost X-Forwarded-For entry (appended by Traefik)
-    #   3. socket peer
-    if settings.trust_proxy:
-        cf = request.headers.get("cf-connecting-ip")
-        if cf:
-            return cf.strip()
-        fwd = request.headers.get("x-forwarded-for")
-        if fwd:
-            return fwd.split(",")[-1].strip()
-    return request.client.host if request.client else "unknown"
 
 
 @router.post("/feedback", response_model=FeedbackResponse)

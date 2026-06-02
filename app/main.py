@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import __version__
 from .config import settings
 from .kg import kg
+from .middleware import RequestLoggingMiddleware
 from .observability import configure_logging, instrument
 from .routers import domains, feedback, meta, skills, stats
 from .store import store
@@ -40,6 +41,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# logging added first → inner; CORS added last → outermost, so our synthesized
+# 500 (except branch) flows back out through CORS and gets ACAO headers — a
+# cross-origin client can read the 500 body. [gate F-cors]
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list(),
