@@ -75,7 +75,7 @@ spec:
   entryPoints: [web]
   routes:
     - kind: Rule
-      match: (Host(`metahumotonic.com`) || Host(`www.metahumotonic.com`) || Host(`bhgman.iptime.org`)) && PathPrefix(`/api`)
+      match: (Host(`metahumotonic.com`) || Host(`www.metahumotonic.com`) || Host(`bhgman.iptime.org`)) && (PathPrefix(`/api/stats`) || PathPrefix(`/api/domains`) || PathPrefix(`/api/skills`) || PathPrefix(`/api/feedback`))
       priority: 200
       services:
         - name: web-back
@@ -91,7 +91,7 @@ spec:
   entryPoints: [websecure]
   routes:
     - kind: Rule
-      match: (Host(`metahumotonic.com`) || Host(`www.metahumotonic.com`)) && PathPrefix(`/api`)
+      match: (Host(`metahumotonic.com`) || Host(`www.metahumotonic.com`)) && (PathPrefix(`/api/stats`) || PathPrefix(`/api/domains`) || PathPrefix(`/api/skills`) || PathPrefix(`/api/feedback`))
       priority: 200
       services:
         - name: web-back
