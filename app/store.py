@@ -16,8 +16,9 @@ from .config import settings
 log = logging.getLogger("mhb.store")
 
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def _now() -> datetime:
+    # BSON Date (tz-aware) — required for the Mongo TTL index to expire records.
+    return datetime.now(timezone.utc)
 
 
 class FeedbackStore:
@@ -47,9 +48,24 @@ class FeedbackStore:
             log.warning("mongo init failed, using in-memory store: %s", e)
             return None
 
+    async def ensure_indexes(self) -> None:
+        """Create the TTL index so stored feedback auto-expires (PROM16 A3S2:
+        unbounded MongoDB growth). No-op for the in-memory backend or ttl<=0."""
+        if settings.feedback_ttl_days <= 0:
+            return
+        collection = await self._get_collection()
+        if collection is None:
+            return
+        try:
+            await collection.create_index(
+                "created_at", expireAfterSeconds=settings.feedback_ttl_days * 86400
+            )
+        except Exception as e:  # pragma: no cover - infra dependent
+            log.warning("feedback TTL index create failed: %s", e)
+
     async def save(self, doc: dict[str, Any]) -> str:
         record_id = uuid.uuid4().hex
-        record = {"_id": record_id, "created_at": _now_iso(), **doc}
+        record = {"_id": record_id, "created_at": _now(), **doc}
         collection = await self._get_collection()
         if collection is not None:
             try:

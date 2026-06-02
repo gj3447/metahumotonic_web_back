@@ -26,10 +26,19 @@ _limiter = SlidingWindowRateLimiter(
 
 
 def _client_key(request: Request) -> str:
-    # Honor reverse-proxy header (Traefik/nginx) then fall back to socket peer.
-    fwd = request.headers.get("x-forwarded-for")
-    if fwd:
-        return fwd.split(",")[0].strip()
+    # PROM16 A3S2: the leftmost X-Forwarded-For entry is client-controllable
+    # (spoofable → an attacker could exhaust another IP's quota). Behind our
+    # proxy chain, trust the value the proxy itself appended:
+    #   1. CF-Connecting-IP (set by Cloudflare/cloudflared, not forwardable)
+    #   2. rightmost X-Forwarded-For entry (appended by Traefik)
+    #   3. socket peer
+    if settings.trust_proxy:
+        cf = request.headers.get("cf-connecting-ip")
+        if cf:
+            return cf.strip()
+        fwd = request.headers.get("x-forwarded-for")
+        if fwd:
+            return fwd.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 

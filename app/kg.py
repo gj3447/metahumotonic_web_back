@@ -12,6 +12,7 @@ from typing import Any
 
 from neo4j import AsyncGraphDatabase
 
+from .cache import TTLCache
 from .config import settings
 from .contracts import DomainRecord, SkillRecord, StatsContract
 
@@ -78,6 +79,7 @@ class KGClient:
     def __init__(self) -> None:
         self._driver = None
         self._failed = False
+        self._cache = TTLCache(settings.stats_cache_ttl_seconds)
 
     async def _get_driver(self):
         if not settings.neo4j_live or self._failed:
@@ -109,6 +111,9 @@ class KGClient:
             return None
 
     async def get_stats(self) -> StatsContract:
+        return await self._cache.get_or_set("stats", self._fetch_stats)
+
+    async def _fetch_stats(self) -> StatsContract:
         rows = await self._run(_STATS_CYPHER)
         if rows:
             r = rows[0]
@@ -123,6 +128,9 @@ class KGClient:
         return _STATS_FALLBACK
 
     async def get_domains(self) -> list[DomainRecord]:
+        return await self._cache.get_or_set("domains", self._fetch_domains)
+
+    async def _fetch_domains(self) -> list[DomainRecord]:
         rows = await self._run(_DOMAINS_CYPHER)
         if rows:
             return [DomainRecord(**r) for r in rows]

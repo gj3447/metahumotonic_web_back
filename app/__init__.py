@@ -4,4 +4,4 @@ Drop-in for the front-end's build-time `/api/*` contract (Astro static site),
 now served live: KG stats from Neo4j + feedback intake to MongoDB.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

@@ -23,10 +23,16 @@ spec:
       # config isn't honored by kubelet, so we skip the registry pull.
       nodeSelector:
         kubernetes.io/hostname: dgx-worker
+      # PROM16 C3: let in-flight requests drain before SIGTERM; preStop holds
+      # the pod in Terminating long enough for Traefik to deregister it.
+      terminationGracePeriodSeconds: 60
       containers:
         - name: web-back
-          image: 192.168.0.23:30500/metahumotonic-web-back:0.1.0
+          image: 192.168.0.23:30500/metahumotonic-web-back:0.2.0
           imagePullPolicy: IfNotPresent
+          lifecycle:
+            preStop:
+              exec: { command: ["sh", "-c", "sleep 8"] }
           ports:
             - containerPort: 8000
           env:
@@ -43,13 +49,14 @@ spec:
             - { name: MHB_MONGO_FEEDBACK_COLLECTION, value: "web_feedback" }
             - { name: MHB_CORS_ORIGINS, value: "https://metahumotonic.com,https://www.metahumotonic.com" }
           readinessProbe:
-            httpGet: { path: /health, port: 8000 }
+            httpGet: { path: /ready, port: 8000 }   # PROM16 C5: dependency-aware
             initialDelaySeconds: 3
             periodSeconds: 10
           livenessProbe:
-            httpGet: { path: /health, port: 8000 }
+            httpGet: { path: /health, port: 8000 }   # liveness = process only
             initialDelaySeconds: 5
             periodSeconds: 20
+            failureThreshold: 3
           resources:
             requests: { cpu: "25m", memory: "64Mi" }
             limits: { cpu: "250m", memory: "256Mi" }

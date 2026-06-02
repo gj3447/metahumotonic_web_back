@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     mongo_uri: str = ""  # empty → in-memory store (no infra needed)
     mongo_db: str = "metahumotonic"
     mongo_feedback_collection: str = "web_feedback"
+    # auto-expire stored feedback after N days (TTL index); 0 disables
+    feedback_ttl_days: int = 365
+
+    # --- KG stats cache (PROM16 C1: avoid count(n) full scan per request) ---
+    stats_cache_ttl_seconds: int = 120
 
     # --- CORS ---
     # comma-separated origins allowed to call this API from the browser
@@ -32,6 +37,9 @@ class Settings(BaseSettings):
     # --- Feedback rate limit (per client IP) ---
     feedback_max_per_window: int = 5
     feedback_window_seconds: int = 600
+    # PROM16 C2/A3S2: trust the reverse proxy's appended client IP (rightmost
+    # X-Forwarded-For / CF-Connecting-IP) instead of the spoofable leftmost.
+    trust_proxy: bool = True
 
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
