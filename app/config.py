@@ -29,6 +29,16 @@ class Settings(BaseSettings):
 
     # --- KG stats cache (PROM16 C1: avoid count(n) full scan per request) ---
     stats_cache_ttl_seconds: int = 120
+    # research feeds are near-static (PROM-cycle outputs) → cache longer
+    research_cache_ttl_seconds: int = 300
+    # per-query server-side budget so a slow KG fails soft fast (not a 30s hang)
+    kg_query_timeout_seconds: float = 10.0
+    # bound the LRU caches so attacker-controlled cache keys (?cycle/?domain/
+    # ?offset) can't grow memory without bound
+    cache_max_entries: int = 512
+    # hard ceiling on ?offset so deep pagination can't be used to mint unbounded
+    # distinct cache keys / scan deep into a 12k+ label
+    research_max_offset: int = 10000
 
     # --- Redis (PROM16 C2: distributed rate limit) ---
     # empty → in-process limiter (survives single-replica but resets on restart)

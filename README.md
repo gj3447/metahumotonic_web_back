@@ -14,7 +14,16 @@
 | GET | `/api/stats` | KG 통계 (nodes/rels/labels/relTypes/domains/skills) — Neo4j 실시간, 실패 시 스냅샷 |
 | GET | `/api/domains` | 도메인 허브 목록 |
 | GET | `/api/skills` | 스킬 목록 (7군단장 + infra/meta) |
+| GET | `/api/research/summary` | 연구 본체 집계 (findings/lessons/papers/validations/consensus/decisions) + `source`(live\|snapshot) |
+| GET | `/api/research/findings` | 최신 ResearchFinding (PROM 사이클 산출, `?limit&offset&cycle`) |
+| GET | `/api/research/lessons` | 최신 Lesson (오답노트 wrong→truth, `?limit&offset`) |
+| GET | `/api/research/papers` | Paper 코퍼스 (`?limit&offset&domain`) |
+| GET | `/api/research/consensus` | PROM 사이클 합의 (`?limit`) |
+| GET | `/api/research/recent` | 타입 통합 최신순 피드 (`?limit`) |
+| GET | `/api/research/agent` | AI 에이전트용 기계가독 라이브 피드 (집계 + 최신 findings/lessons) |
 | POST | `/api/feedback` | 피드백 접수 — 허니팟 + IP 레이트리밋 → MongoDB |
+
+모든 `/api/research/*`는 캐시(~5분) + fail-soft (KG 다운 시 빈 리스트/스냅샷, 절대 500 안 냄).
 
 `/api/*` 응답 shape은 프론트의 `src/lib/kg.ts` / `feedback-form.js` 계약을 그대로 따른다 (drop-in).
 
@@ -53,24 +62,28 @@ rsync -az --exclude='.venv' --exclude='.git' metahumotonic_web_back/ dgx:/tmp/me
 # 2. dgx(arm64)에서 빌드 → 인클러스터 registry push
 ssh dgx '
   cd /tmp/metahumotonic_web_back
-  docker build -t 192.168.0.23:30500/metahumotonic-web-back:0.1.0 .
+  docker build -t 192.168.0.23:30500/metahumotonic-web-back:0.6.0 .
   # docker는 NodePort registry를 insecure로 안 봄 → localhost 태그로 push (docker가 localhost는 신뢰)
-  docker tag 192.168.0.23:30500/metahumotonic-web-back:0.1.0 localhost:30500/metahumotonic-web-back:0.1.0
-  docker push localhost:30500/metahumotonic-web-back:0.1.0
+  docker tag 192.168.0.23:30500/metahumotonic-web-back:0.6.0 localhost:30500/metahumotonic-web-back:0.6.0
+  docker push localhost:30500/metahumotonic-web-back:0.6.0
   # kubelet은 certs.d plain-http를 안 먹음 → 이미지를 containerd k8s.io ns로 직접 import
-  docker save 192.168.0.23:30500/metahumotonic-web-back:0.1.0 | sudo ctr -n k8s.io images import -
+  docker save 192.168.0.23:30500/metahumotonic-web-back:0.6.0 | sudo ctr -n k8s.io images import -
   kubectl apply -f deploy/k8s/web-back.yaml
   kubectl rollout restart deploy/web-back -n infra
 '
 ```
 
-> 이미지 갱신 시 태그를 올리고(예 0.1.1) 위 build/import/apply 반복. 파드는
+> 이미지 갱신 시 태그를 올리고(예 0.6.1) 위 build/import/apply 반복. 파드는
 > `nodeSelector: dgx-worker`로 핀(이미지가 그 노드 containerd에 import됨).
+> **새 `/api/*` prefix를 추가하면 IngressRoute match에도 그 prefix를 넣어야** 공개 도메인에서 닿는다 (경로 고정 방식).
 
 ### IngressRoute
-- `web-back-api` (entryPoint `web`, :80) + `web-back-api-tls` (entryPoint `websecure`, :443,
-  `metahumotonic-wildcard-tls`) 둘 다 `Host(metahumotonic.com|www|bhgman.iptime.org) && PathPrefix(/api)`, priority 200.
-- 검증: `curl https://metahumotonic.com/api/stats` → KG 통계 JSON.
+- 둘 다 명시적 per-path prefix 매칭(전체 `/api`가 아님), priority 200:
+  `PathPrefix(/api/stats | /api/domains | /api/skills | /api/research | /api/feedback)`.
+- `web-back-api` (entryPoint `web`, :80): `Host(metahumotonic.com | www | bhgman.iptime.org)`.
+- `web-back-api-tls` (entryPoint `websecure`, :443, `metahumotonic-wildcard-tls`):
+  `Host(metahumotonic.com | www)` — **bhgman.iptime.org 없음** (와일드카드 인증서가 그 호스트를 검증 못 함 → HTTP 전용).
+- 검증: `curl https://metahumotonic.com/api/stats` → KG 통계 JSON · `curl https://metahumotonic.com/api/research/summary` → 연구 집계 JSON.
 
 ## 로컬 (Docker Compose)
 
