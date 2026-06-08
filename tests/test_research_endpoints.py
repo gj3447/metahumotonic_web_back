@@ -204,6 +204,80 @@ async def test_null_name_finding_row_is_dropped_not_500(client, monkeypatch):
     assert names == ["rf-real"]  # null-name dropped, real one kept
 
 
+async def test_drain_preserves_nested_lists_and_maps():
+    """The neighbors query returns a collected list-of-maps — the sanitizer must
+    keep that structure (only temporal SCALARS get stringified, recursively)."""
+
+    class FakeDateTime:
+        def __str__(self):
+            return "2026-06-08T00:00:00Z"
+
+    class FakeResult:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def __aiter__(self):
+            self._it = iter(self._rows)
+            return self
+
+        async def __anext__(self):
+            try:
+                return next(self._it)
+            except StopIteration:
+                raise StopAsyncIteration
+
+    rows = [dict(
+        degree=3,
+        neighbors=[
+            {"direction": "out", "type": "ABOUT", "name": "gaptopic:x",
+             "labels": ["KnowledgeHub", "GapTopicHub"], "when": FakeDateTime()},
+        ],
+    )]
+    out = await kg._drain(FakeResult(rows))
+    nb = out[0]["neighbors"]
+    assert isinstance(nb, list) and isinstance(nb[0], dict)        # structure kept
+    assert nb[0]["labels"] == ["KnowledgeHub", "GapTopicHub"]      # inner list kept
+    assert nb[0]["when"] == "2026-06-08T00:00:00Z"                 # inner DateTime stringified
+
+
+async def test_neighbors_endpoint(client, monkeypatch):
+    async def fake_run(cypher, **params):
+        if "COUNT { (n)--() } AS degree" in cypher:
+            return [{
+                "degree": 2,
+                "neighbors": [
+                    {"direction": "out", "type": "ABOUT",
+                     "name": "gaptopic:CHU", "labels": ["GapTopicHub"]},
+                    {"direction": "in", "type": "HAS_RESEARCH",
+                     "name": "lesson-x", "labels": ["Lesson"]},
+                ],
+            }]
+        return None
+
+    monkeypatch.setattr(kg, "_run", fake_run)
+    r = await client.get("/api/research/neighbors?name=rf-1&limit=50")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["found"] is True and d["degree"] == 2 and d["truncated"] is False
+    assert {n["type"] for n in d["neighbors"]} == {"ABOUT", "HAS_RESEARCH"}
+
+
+async def test_neighbors_not_found_and_failsoft(client, monkeypatch):
+    async def fake_run(cypher, **params):
+        return None  # node not found / KG down
+
+    monkeypatch.setattr(kg, "_run", fake_run)
+    r = await client.get("/api/research/neighbors?name=does-not-exist")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["found"] is False and d["degree"] == 0 and d["neighbors"] == []
+
+
+async def test_neighbors_requires_name_and_caps_limit(client):
+    assert (await client.get("/api/research/neighbors")).status_code == 422  # name required
+    assert (await client.get("/api/research/neighbors?name=x&limit=201")).status_code == 422
+
+
 async def test_ttlcache_is_bounded_lru():
     from app.cache import TTLCache
 

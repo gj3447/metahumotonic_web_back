@@ -20,6 +20,7 @@
 | GET | `/api/research/papers` | Paper 코퍼스 (`?limit&offset&domain`) |
 | GET | `/api/research/consensus` | PROM 사이클 합의 (`?limit`) |
 | GET | `/api/research/recent` | 타입 통합 최신순 피드 (`?limit`) |
+| GET | `/api/research/neighbors` | 노드의 라이브 타입별 연결(걷기) — `?name=<노드명>&limit` (cap 200, 차수 노출) |
 | GET | `/api/research/agent` | AI 에이전트용 기계가독 라이브 피드 (집계 + 최신 findings/lessons) |
 | POST | `/api/feedback` | 피드백 접수 — 허니팟 + IP 레이트리밋 → MongoDB |
 

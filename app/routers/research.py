@@ -16,6 +16,7 @@ from ..contracts import (
     ConsensusRecord,
     FindingRecord,
     LessonRecord,
+    NodeNeighbors,
     PaperRecord,
     RecentItem,
     ResearchSummary,
@@ -74,6 +75,19 @@ async def get_recent(
 ) -> list[RecentItem]:
     """Unified newest-first activity feed across research types."""
     return await kg.get_recent(limit=limit)
+
+
+@router.get("/neighbors", response_model=NodeNeighbors)
+async def get_neighbors(
+    name: str = Query(..., min_length=1, max_length=512),
+    limit: int = Query(50, ge=1, le=200),
+) -> NodeNeighbors:
+    """A node's living connections — walk the graph instead of reading a flat card.
+
+    Returns typed in/out edges (capped); `degree` is the true degree so a client
+    can show how much was truncated. Works for any node by `name`.
+    """
+    return await kg.get_neighbors(name=name, limit=limit)
 
 
 @router.get("/agent", response_model=AgentFeed)

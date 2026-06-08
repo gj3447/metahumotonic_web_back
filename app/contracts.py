@@ -167,6 +167,29 @@ class RecentItem(BaseModel):
     createdAt: str = ""
 
 
+class GraphNeighbor(BaseModel):
+    """One typed edge from a node (the connective tissue Longinus binds)."""
+
+    direction: Literal["out", "in"]
+    type: str
+    name: str = ""
+    labels: list[str] = []
+
+
+class NodeNeighbors(BaseModel):
+    """GET /api/research/neighbors — a node's living connections (capped).
+
+    Makes any node a doorway: walk from it to its real typed neighbors instead
+    of reading a flat card. `truncated` is true when degree exceeds the cap.
+    """
+
+    name: str
+    found: bool
+    degree: int
+    neighbors: list[GraphNeighbor]
+    truncated: bool = False
+
+
 class AgentFeed(BaseModel):
     """GET /api/research/agent — compact, machine-readable feed for AI agents.
 

@@ -20,7 +20,9 @@ from .contracts import (
     ConsensusRecord,
     DomainRecord,
     FindingRecord,
+    GraphNeighbor,
     LessonRecord,
+    NodeNeighbors,
     PaperRecord,
     RecentItem,
     ResearchSummary,
@@ -185,6 +187,28 @@ ORDER BY ts DESC, name
 LIMIT $limit
 """
 
+# Node neighbors — make any node a doorway. Bare-name match (no global name
+# index) is a scan, but capped + cached + 10s-timeout fail-soft. The collected
+# neighbor list is capped to $limit; degree is the true (uncapped) degree so the
+# client can show "truncated". COUNT{} + scoped CALL keep it one round-trip.
+_NEIGHBORS_CYPHER = """
+MATCH (n {name: $name})
+WITH n LIMIT 1
+WITH n, COUNT { (n)--() } AS degree
+CALL {
+  WITH n
+  MATCH (n)-[r]->(m)
+  RETURN 'out' AS direction, type(r) AS rtype, m.name AS mname, labels(m) AS lbls
+  UNION ALL
+  WITH n
+  MATCH (n)<-[r]-(m)
+  RETURN 'in' AS direction, type(r) AS rtype, m.name AS mname, labels(m) AS lbls
+}
+WITH degree, collect({direction: direction, type: rtype,
+                      name: coalesce(mname, ''), labels: lbls})[0..$limit] AS neighbors
+RETURN degree, neighbors
+"""
+
 # Fallback summary — magnitudes measured 2026-06-08 (used only when KG is down;
 # the live path overrides these on every healthy query).
 _RESEARCH_SUMMARY_FALLBACK = ResearchSummary(
@@ -216,6 +240,18 @@ def _as_int(v: Any) -> int | None:
 
 def _as_bool(v: Any) -> bool | None:
     return bool(v) if isinstance(v, bool) else (None if v is None else bool(v))
+
+
+def _sanitize(v: Any) -> Any:
+    """Coerce native neo4j scalar types (DateTime/Date/Duration/…) to str while
+    PRESERVING list/dict structure (so collected neighbor maps survive)."""
+    if isinstance(v, (str, int, float, bool, type(None))):
+        return v
+    if isinstance(v, list):
+        return [_sanitize(x) for x in v]
+    if isinstance(v, dict):
+        return {k: _sanitize(x) for k, x in v.items()}
+    return str(v)
 
 
 def _safe_map(rows: list[dict], builder, label: str) -> list:
@@ -284,14 +320,11 @@ class KGClient:
 
     @staticmethod
     async def _drain(result) -> list[dict]:
-        # Coerce native neo4j types (DateTime/Date/Duration/…) to strings at the
-        # boundary so they never reach a str-typed Pydantic contract and 500.
+        # Sanitize native neo4j types at the boundary so they never reach a
+        # str-typed Pydantic contract and 500 — recursively, to keep collected
+        # neighbor lists/maps intact.
         return [
-            {
-                k: (v if isinstance(v, (str, int, float, bool, type(None)))
-                    else str(v))
-                for k, v in dict(r).items()
-            }
+            {k: _sanitize(v) for k, v in dict(r).items()}
             async for r in result
         ]
 
@@ -466,6 +499,30 @@ class KGClient:
         # newest first; blank timestamps sink to the bottom
         items.sort(key=lambda it: it.createdAt or "", reverse=True)
         return items[:limit]
+
+    async def get_neighbors(self, name: str, limit: int = 50) -> NodeNeighbors:
+        limit = max(1, min(int(limit), 200))
+        key = f"neighbors:{name}:{limit}"
+
+        async def _produce() -> NodeNeighbors:
+            rows = await self._run(_NEIGHBORS_CYPHER, name=name, limit=limit)
+            if not rows:  # None (KG down) OR [] (node not found) → not found, no 500
+                return NodeNeighbors(name=name, found=False, degree=0, neighbors=[])
+            r = rows[0]
+            degree = int(r["degree"])
+            nbrs = [
+                GraphNeighbor(
+                    direction=x["direction"], type=x["type"],
+                    name=x.get("name") or "", labels=x.get("labels") or [],
+                )
+                for x in (r["neighbors"] or [])
+            ]
+            return NodeNeighbors(
+                name=name, found=True, degree=degree, neighbors=nbrs,
+                truncated=degree > limit,
+            )
+
+        return await self._research_cache.get_or_set(key, _produce)
 
     async def close(self) -> None:
         if self._driver is not None:
