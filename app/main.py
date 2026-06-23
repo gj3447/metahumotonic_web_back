@@ -15,7 +15,7 @@ from .config import settings
 from .kg import kg
 from .middleware import RequestLoggingMiddleware
 from .observability import configure_logging, instrument
-from .routers import domains, feedback, meta, research, skills, stats
+from .routers import domains, feedback, kg_proxy, meta, research, skills, stats
 from .store import store
 
 configure_logging()
@@ -60,5 +60,6 @@ app.include_router(domains.router)
 app.include_router(skills.router)
 app.include_router(research.router)
 app.include_router(feedback.router)
+app.include_router(kg_proxy.router)
 
 instrument(app)  # Prometheus /metrics (PROM16 C6)

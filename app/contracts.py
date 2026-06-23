@@ -81,6 +81,26 @@ class ErrorResponse(BaseModel):
     reason: str
 
 
+class CypherRequest(BaseModel):
+    """POST /api/kg/{read,write} body — a raw Cypher query + bind params.
+
+    `params` are passed as Neo4j bind parameters (never string-interpolated),
+    so the query itself is parameterized and injection-safe.
+    """
+
+    query: str = Field(min_length=1, max_length=20000)
+    params: dict = Field(default_factory=dict)
+
+
+class CypherResponse(BaseModel):
+    """Result of a proxy Cypher query — rows already sanitized to JSON scalars."""
+
+    rows: list[dict]
+    count: int
+    mode: Literal["read", "write"]
+    truncated: bool = False
+
+
 # --------------------------------------------------------------------------- #
 # Research surface — live view of the crystallized research body in the KG.    #
 # These power /api/research/* (humans via /research page, agents via /agent).  #

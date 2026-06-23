@@ -23,8 +23,33 @@
 | GET | `/api/research/neighbors` | 노드의 라이브 타입별 연결(걷기) — `?name=<노드명>&limit` (cap 200, 차수 노출) |
 | GET | `/api/research/agent` | AI 에이전트용 기계가독 라이브 피드 (집계 + 최신 findings/lessons) |
 | POST | `/api/feedback` | 피드백 접수 — 허니팟 + IP 레이트리밋 → MongoDB |
+| POST | `/api/kg/read` | **외부용 raw Cypher (읽기 전용)** — `X-API-Key` 게이트, Neo4j READ 트랜잭션(쓰기 서버 거부) |
+| POST | `/api/kg/write` | **외부용 raw Cypher (쓰기)** — write 키만, WRITE 트랜잭션 |
 
 모든 `/api/research/*`는 캐시(~5분) + fail-soft (KG 다운 시 빈 리스트/스냅샷, 절대 500 안 냄).
+
+### KG Cypher 프록시 (외부 read/write 분리)
+
+Community Neo4j는 RBAC가 없어서 read/write 권한 분리를 이 API 계층에서 강제한다.
+키 2개를 발급하고(`MHB_KG_READ_KEY` / `MHB_KG_WRITE_KEY`, 미설정 시 503으로 비활성),
+read 키는 Neo4j **READ 트랜잭션**으로 실행 → 쓰기 Cypher를 넣어도 *서버가* 거부한다
+(`Writing in read access mode not allowed`). write 키는 WRITE 트랜잭션이며 `/api/kg/read`에도 통과(상위 권한).
+
+```bash
+# 읽기 (read 키)
+curl -X POST https://metahumotonic.com/api/kg/read \
+  -H "X-API-Key: $KG_READ_KEY" -H 'Content-Type: application/json' \
+  -d '{"query":"MATCH (n) RETURN count(n) AS nodes"}'
+
+# 쓰기 (write 키) — 파라미터는 $바인딩으로 (문자열 보간 금지, 인젝션 안전)
+curl -X POST https://metahumotonic.com/api/kg/write \
+  -H "X-API-Key: $KG_WRITE_KEY" -H 'Content-Type: application/json' \
+  -d '{"query":"MERGE (n:Note {id:$id}) SET n.body=$body RETURN n","params":{"id":"x","body":"hi"}}'
+```
+
+응답: `{"rows":[...], "count":N, "mode":"read|write", "truncated":bool}`.
+에러: 키 누락/오류 → 401, 키 미설정 → 503, KG 도달불가 → 502, 잘못된 Cypher/READ tx 쓰기 시도 → 400.
+행 수는 `MHB_KG_PROXY_MAX_ROWS`(기본 1000)로 상한.
 
 `/api/*` 응답 shape은 프론트의 `src/lib/kg.ts` / `feedback-form.js` 계약을 그대로 따른다 (drop-in).
 
@@ -36,6 +61,7 @@
 
 외부 의존(Neo4j·Mongo)은 전부 **graceful degrade** — 설정 안 하면:
 - `MHB_NEO4J_LIVE=false` → KG 스냅샷 fallback 값
+- `MHB_NEO4J_FALLBACK_URIS=` → primary Bolt 실패 시 comma-separated backup URI 순회
 - `MHB_MONGO_URI=` (빈값) → 피드백 인메모리 저장
 
 덕분에 인프라 0으로 로컬·CI에서 그대로 돈다.
@@ -80,7 +106,7 @@ ssh dgx '
 
 ### IngressRoute
 - 둘 다 명시적 per-path prefix 매칭(전체 `/api`가 아님), priority 200:
-  `PathPrefix(/api/stats | /api/domains | /api/skills | /api/research | /api/feedback)`.
+  `PathPrefix(/api/stats | /api/domains | /api/skills | /api/research | /api/feedback | /api/kg)`.
 - `web-back-api` (entryPoint `web`, :80): `Host(metahumotonic.com | www | bhgman.iptime.org)`.
 - `web-back-api-tls` (entryPoint `websecure`, :443, `metahumotonic-wildcard-tls`):
   `Host(metahumotonic.com | www)` — **bhgman.iptime.org 없음** (와일드카드 인증서가 그 호스트를 검증 못 함 → HTTP 전용).
@@ -94,5 +120,5 @@ docker compose up -d --build   # :8000
 
 ## 환경변수 (`MHB_` prefix)
 
-`.env.example` 참조. 핵심: `MHB_NEO4J_*` (KG 읽기) / `MHB_MONGO_URI` (피드백 저장) /
+`.env.example` 참조. 핵심: `MHB_NEO4J_*` (KG 읽기; `MHB_NEO4J_FALLBACK_URIS`는 comma-separated backup Bolt URI) / `MHB_MONGO_URI` (피드백 저장) /
 `MHB_CORS_ORIGINS` / `MHB_FEEDBACK_MAX_PER_WINDOW` · `MHB_FEEDBACK_WINDOW_SECONDS`.

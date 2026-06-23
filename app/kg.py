@@ -12,6 +12,7 @@ import logging
 from typing import Any
 
 from neo4j import AsyncGraphDatabase
+from neo4j.exceptions import Neo4jError
 
 from .breaker import Breaker
 from .cache import TTLCache
@@ -31,6 +32,14 @@ from .contracts import (
 )
 
 log = logging.getLogger("mhb.kg")
+
+
+class KGUnavailable(RuntimeError):
+    """No configured Neo4j URI was reachable (connection-level failure).
+
+    The proxy router maps this to 502 — distinct from a query-level Neo4jError
+    (bad Cypher / write-in-read-tx) which maps to 400.
+    """
 
 # --- Canonical fallback (the real 13 DomainHub nodes, measured 2026-06-08) ---
 # Mirrors the live /api/domains so an outage degrades to the same SHAPE the live
@@ -274,6 +283,7 @@ class KGClient:
 
     def __init__(self) -> None:
         self._driver = None
+        self._drivers: dict[str, Any] = {}
         self._breaker = Breaker()  # time-based, not a permanent latch
         self._cache = TTLCache(
             settings.stats_cache_ttl_seconds, settings.cache_max_entries
@@ -282,41 +292,70 @@ class KGClient:
             settings.research_cache_ttl_seconds, settings.cache_max_entries
         )
 
-    async def _get_driver(self):
-        if not settings.neo4j_live or self._breaker.is_open():
-            return None
-        if self._driver is not None:
-            return self._driver
+    @staticmethod
+    def _configured_uris() -> list[str]:
+        uris = [settings.neo4j_uri]
+        uris.extend(
+            u.strip() for u in settings.neo4j_fallback_uris.split(",") if u.strip()
+        )
+        deduped: list[str] = []
+        for uri in uris:
+            if uri and uri not in deduped:
+                deduped.append(uri)
+        return deduped
+
+    async def _get_driver(self, uri: str):
+        if uri in self._drivers:
+            return self._drivers[uri]
         try:
-            self._driver = AsyncGraphDatabase.driver(
-                settings.neo4j_uri,
+            driver = AsyncGraphDatabase.driver(
+                uri,
                 auth=(settings.neo4j_user, settings.neo4j_password),
             )
-            return self._driver
+            self._drivers[uri] = driver
+            self._driver = driver
+            return driver
         except Exception as e:  # pragma: no cover - infra dependent
-            self._breaker.trip()
-            log.warning("neo4j driver init failed, using snapshot: %s", e)
+            log.warning("neo4j driver init failed for %s: %s", uri, e)
             return None
 
-    async def _run(self, cypher: str, **params: Any) -> list[dict] | None:
-        driver = await self._get_driver()
+    async def _drop_driver(self, uri: str) -> None:
+        driver = self._drivers.pop(uri, None)
         if driver is None:
-            return None
+            return
         try:
-            async with driver.session() as session:
-                result = await asyncio.wait_for(
-                    session.run(cypher, **params),
-                    timeout=settings.kg_query_timeout_seconds,
-                )
-                rows = await asyncio.wait_for(
-                    self._drain(result), timeout=settings.kg_query_timeout_seconds
-                )
-            self._breaker.reset()  # healthy again
-            return rows
-        except Exception as e:  # pragma: no cover - infra dependent
-            self._breaker.trip()
-            log.warning("neo4j query failed, using snapshot: %s", e)
+            await driver.close()
+        except Exception:  # pragma: no cover - cleanup best effort
+            pass
+        if self._driver is driver:
+            self._driver = next(iter(self._drivers.values()), None)
+
+    async def _run(self, cypher: str, **params: Any) -> list[dict] | None:
+        if not settings.neo4j_live or self._breaker.is_open():
             return None
+        last_error: Exception | None = None
+        for uri in self._configured_uris():
+            driver = await self._get_driver(uri)
+            if driver is None:
+                continue
+            try:
+                async with driver.session() as session:
+                    result = await asyncio.wait_for(
+                        session.run(cypher, **params),
+                        timeout=settings.kg_query_timeout_seconds,
+                    )
+                    rows = await asyncio.wait_for(
+                        self._drain(result), timeout=settings.kg_query_timeout_seconds
+                    )
+                self._breaker.reset()  # healthy again
+                return rows
+            except Exception as e:  # pragma: no cover - infra dependent
+                last_error = e
+                await self._drop_driver(uri)
+                log.warning("neo4j query failed for %s: %s", uri, e)
+        self._breaker.trip()
+        log.warning("neo4j all configured URIs failed, using snapshot: %s", last_error)
+        return None
 
     @staticmethod
     async def _drain(result) -> list[dict]:
@@ -327,6 +366,48 @@ class KGClient:
             {k: _sanitize(v) for k, v in dict(r).items()}
             async for r in result
         ]
+
+    # --- Raw Cypher proxy (read/write split for external clients) ----------- #
+    # Unlike _run (which is gated by neo4j_live + breaker and falls back to a
+    # snapshot for the public read endpoints), the proxy MUST connect live and
+    # surface errors — a silent fallback would lie to an external write client.
+    # Access mode is the real enforcement: a READ tx makes the SERVER reject any
+    # write, so the read key cannot mutate the graph even with malicious Cypher.
+    async def run_cypher(
+        self, cypher: str, params: dict[str, Any], *, write: bool
+    ) -> list[dict]:
+        last_error: Exception | None = None
+        for uri in self._configured_uris():
+            driver = await self._get_driver(uri)
+            if driver is None:
+                continue
+            try:
+                async with driver.session(
+                    default_access_mode=("WRITE" if write else "READ"),
+                    database=settings.neo4j_database,
+                ) as session:
+                    async def _work(tx):
+                        result = await tx.run(cypher, params)
+                        return await asyncio.wait_for(
+                            self._drain(result),
+                            timeout=settings.kg_query_timeout_seconds,
+                        )
+
+                    runner = session.execute_write if write else session.execute_read
+                    rows = await asyncio.wait_for(
+                        runner(_work),
+                        timeout=settings.kg_query_timeout_seconds,
+                    )
+                return rows[: settings.kg_proxy_max_rows]
+            except Neo4jError:
+                # query-level error (bad Cypher / write-in-read tx) — do NOT
+                # retry other URIs or swallow it; the client must see why.
+                raise
+            except Exception as e:  # connection-level — try the next URI
+                last_error = e
+                await self._drop_driver(uri)
+                log.warning("kg proxy query failed for %s: %s", uri, e)
+        raise KGUnavailable(str(last_error) if last_error else "no KG URI reachable")
 
     async def get_stats(self) -> StatsContract:
         return await self._cache.get_or_set("stats", self._fetch_stats)
@@ -525,9 +606,9 @@ class KGClient:
         return await self._research_cache.get_or_set(key, _produce)
 
     async def close(self) -> None:
-        if self._driver is not None:
-            await self._driver.close()
-            self._driver = None
+        for uri in list(self._drivers):
+            await self._drop_driver(uri)
+        self._driver = None
 
 
 kg = KGClient()

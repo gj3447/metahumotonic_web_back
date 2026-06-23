@@ -16,9 +16,24 @@ class Settings(BaseSettings):
     # --- Neo4j (read-only KG queries) ---
     # bhgman KG: bolt://100.64.0.3:7687 (Tailscale) — see reference_neo4j_gds_vector_available
     neo4j_uri: str = "bolt://localhost:7687"
+    # comma-separated backup Bolt URIs, tried in order when neo4j_uri fails
+    neo4j_fallback_uris: str = ""
     neo4j_user: str = "neo4j"
     neo4j_password: str = "neo4jpassword"
+    neo4j_database: str = "neo4j"
     neo4j_live: bool = False  # opt-in; default off → snapshot fallback (CI / offline)
+
+    # --- KG Cypher proxy (read/write split for external clients) ---
+    # Community Neo4j has no RBAC, so read/write separation is enforced HERE:
+    # the read key runs in a Neo4j READ transaction (server rejects writes),
+    # the write key runs in a WRITE transaction. Empty key → that endpoint is
+    # disabled (503), so the proxy is opt-in and stays off in CI/offline.
+    # The write key is a superset: it is also accepted on /api/kg/read.
+    kg_read_key: str = ""
+    kg_write_key: str = ""
+    # hard ceiling on rows returned per proxy query (defense against a client
+    # draining a 90k-node label in one request)
+    kg_proxy_max_rows: int = 1000
 
     # --- MongoDB (feedback intake) ---
     mongo_uri: str = ""  # empty → in-memory store (no infra needed)
