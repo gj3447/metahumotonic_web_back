@@ -30,6 +30,8 @@
 
 ### KG Cypher 프록시 (외부 read/write 분리)
 
+> 외부 클라이언트 연결 매뉴얼: [`docs/KG_PROXY_CONNECT.md`](docs/KG_PROXY_CONNECT.md) (키·예제·에러코드·키회전).
+
 Community Neo4j는 RBAC가 없어서 read/write 권한 분리를 이 API 계층에서 강제한다.
 키 2개를 발급하고(`MHB_KG_READ_KEY` / `MHB_KG_WRITE_KEY`, 미설정 시 503으로 비활성),
 read 키는 Neo4j **READ 트랜잭션**으로 실행 → 쓰기 Cypher를 넣어도 *서버가* 거부한다
