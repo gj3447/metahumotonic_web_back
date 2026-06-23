@@ -35,7 +35,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: web-back
-          image: 192.168.0.23:30500/metahumotonic-web-back:0.7.1
+          image: 192.168.0.23:30500/metahumotonic-web-back:0.7.2
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
