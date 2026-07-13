@@ -52,7 +52,10 @@ mcp__lakatotree__submit_result     <tree> <tag> value script novel_measured   # 
 CI(GitHub 호스티드)는 ZeroTier airo KG에 못 닿으므로 판정층은 **로컬/에이전트 tier**
 (MCP 경유)로 돈다. 값소유·판정은 airo KG 박스(딜타워/Mac serve)에서.
 
-## 조율 (OMD) — 규율
+## 조율 (OMD) — 라이브 작업큐 ✅
+
+**서로소 오빗 4개가 coord db에 등록됨** → N 세션 동시 편집 안전. 백로그·드라이버(2-verb
+`begin`/`complete_task`)·규율 정본: [`OMD_PARALLEL.md`](OMD_PARALLEL.md).
 
 여러 세션이 이 repo를 병렬 편집하면 편집 *전* write-set을 lease한다(예외 없음):
 
