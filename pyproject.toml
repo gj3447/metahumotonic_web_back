@@ -27,7 +27,17 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+# _vendor/test_ooptdd_vendor_drift.py = the vendored ooptdd integrity guard (sha256
+# vs manifest); include it so CI RED-s if the vendored core is tampered/lagged.
+testpaths = ["tests", "_vendor/test_ooptdd_vendor_drift.py"]
+
+# ooptdd (측정 layer / positive-TDD) — vendored self-contained at _vendor/ooptdd.
+# The gate tests use the library API directly (no pip install / plugin needed).
+# In prod, set MHB_OOPTDD_OO_URL + OOPTDD_OO_PASSWORD to ship trace to OpenObserve.
+[tool.ooptdd]
+backend = "memory"     # default: zero-infra in-process store (CI/offline)
+service = "mhb.web_back"
+verify = "warn"        # off | warn | strict — never overrides your assert by default
 
 [build-system]
 requires = ["hatchling"]

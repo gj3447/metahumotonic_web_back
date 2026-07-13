@@ -6,6 +6,8 @@
 
 > Layer 분리: 이 레포 = web 백엔드 서비스. SYMPOSIUM/THEORY(논문) · bhgman_tool(7군단장 도구)과는 다른 layer.
 
+> **개발 규율**: 이 repo는 PI 3층 개발스택(조율 OMD / 측정 ooptdd / 판정 LakatoTree) 위에서 개발한다 — [`docs/DEV_STACK.md`](docs/DEV_STACK.md). 측정층(ooptdd)은 `_vendor/ooptdd`에 vendored, 피드백 durable 게이트가 CI-enforced.
+
 ## 엔드포인트
 
 | Method | Path | 설명 |

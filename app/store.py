@@ -12,6 +12,7 @@ from collections import deque
 from datetime import datetime, timezone
 from typing import Any
 
+from . import trace
 from .breaker import Breaker
 from .config import settings
 
@@ -80,17 +81,25 @@ class FeedbackStore:
     async def save(self, doc: dict[str, Any]) -> str:
         record_id = uuid.uuid4().hex
         record = {"_id": record_id, "created_at": _now(), **doc}
+        # ooptdd 측정: `feedback_received` is always emitted (the request was handled),
+        # but `feedback_durably_stored` fires ONLY on a real Mongo insert. When Mongo
+        # silently degrades to the in-memory fallback the durable event is absent — so
+        # a gate reading the store back goes RED even though save() still returns an id
+        # (the "green and blind" self-report ooptdd refuses to trust).
+        trace.emit("feedback_received", cid=record_id, kind=doc.get("type", ""))
         collection = await self._get_collection()
         if collection is not None:
             try:
                 await collection.insert_one(dict(record))
                 self._breaker.reset()  # healthy again
+                trace.emit("feedback_durably_stored", cid=record_id, backend="mongo")
                 return record_id
             except Exception as e:  # pragma: no cover - infra dependent
                 self._breaker.trip()
                 self._collection = None
                 log.warning("mongo insert failed, using in-memory store: %s", e)
         self._memory.append(record)
+        trace.emit("feedback_stored_in_memory", cid=record_id, backend="memory")
         return record_id
 
     @property
