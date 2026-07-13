@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import secrets
 
+import structlog
 from fastapi import APIRouter, Header, HTTPException
 from neo4j.exceptions import Neo4jError
 
@@ -25,6 +26,8 @@ from ..contracts import CypherRequest, CypherResponse
 from ..kg import KGUnavailable, kg
 
 router = APIRouter(prefix="/api/kg")
+
+log = structlog.get_logger("mhb.kg_proxy")
 
 
 def _authorize(provided: str | None, *accepted: str) -> None:
@@ -47,17 +50,21 @@ def _authorize(provided: str | None, *accepted: str) -> None:
 
 
 async def _execute(body: CypherRequest, *, write: bool) -> CypherResponse:
+    mode = "write" if write else "read"
     try:
         rows = await kg.run_cypher(body.query, body.params, write=write)
     except KGUnavailable as e:
+        log.warning("kg_proxy_query_failed", mode=mode, error=str(e))
         raise HTTPException(status_code=502, detail=f"KG unreachable: {e}") from e
     except Neo4jError as e:
         # bad Cypher, or a write attempted through the read endpoint's READ tx
+        log.warning("kg_proxy_query_failed", mode=mode, error=str(e.message or e))
         raise HTTPException(status_code=400, detail=str(e.message or e)) from e
     truncated = len(rows) >= settings.kg_proxy_max_rows
+    log.info("kg_proxy_query", mode=mode, rows=len(rows), truncated=truncated)
     return CypherResponse(
         rows=rows, count=len(rows),
-        mode="write" if write else "read", truncated=truncated,
+        mode=mode, truncated=truncated,
     )
 
 
