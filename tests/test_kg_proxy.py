@@ -8,6 +8,7 @@ without a live Neo4j.
 from __future__ import annotations
 
 import pytest
+import structlog
 from neo4j.exceptions import ClientError
 
 from app import kg as kg_mod
@@ -123,3 +124,39 @@ async def test_bad_cypher_maps_to_400(client, keys, monkeypatch):
         headers={"X-API-Key": READ_KEY},
     )
     assert r.status_code == 400
+
+
+# --- structured audit log --------------------------------------------------- #
+
+async def test_read_emits_audit_log(client, keys, stub_cypher):
+    with structlog.testing.capture_logs() as logs:
+        r = await client.post(
+            "/api/kg/read",
+            json={"query": "MATCH (n) RETURN n LIMIT 1", "params": {}},
+            headers={"X-API-Key": READ_KEY},
+        )
+    assert r.status_code == 200
+    audit = [e for e in logs if e["event"] == "kg_proxy_query"]
+    assert len(audit) == 1
+    ev = audit[0]
+    assert ev["mode"] == "read"
+    assert ev["rows"] == 1
+    assert ev["truncated"] is False
+    assert ev["log_level"] == "info"
+
+
+async def test_failed_query_emits_audit_log(client, keys, monkeypatch):
+    async def _down(*a, **k):
+        raise kg_mod.KGUnavailable("no route")
+
+    monkeypatch.setattr(kg_mod.kg, "run_cypher", _down)
+    with structlog.testing.capture_logs() as logs:
+        r = await client.post(
+            "/api/kg/read", json={"query": "RETURN 1"},
+            headers={"X-API-Key": READ_KEY},
+        )
+    assert r.status_code == 502
+    failed = [e for e in logs if e["event"] == "kg_proxy_query_failed"]
+    assert len(failed) == 1
+    assert failed[0]["mode"] == "read"
+    assert failed[0]["log_level"] == "warning"
