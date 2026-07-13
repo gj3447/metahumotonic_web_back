@@ -35,6 +35,20 @@ def configure_logging() -> None:
     )
 
 
+def get_logger(name: str):
+    """Return a structlog logger bound to ``name``.
+
+    Single entry point for routers/stores to obtain a consistent structured
+    logger (JSON in prod via ``configure_logging``, console in dev). Safe to
+    call whether or not ``configure_logging()`` has run yet — structlog uses
+    its default config until then. structlog is imported lazily to mirror this
+    module's convention.
+    """
+    import structlog
+
+    return structlog.get_logger(name)
+
+
 def instrument(app) -> None:
     if not settings.metrics_enabled:
         return
