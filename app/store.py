@@ -69,8 +69,14 @@ class FeedbackStore:
 
     async def ensure_indexes(self) -> None:
         """Create the TTL index so stored feedback auto-expires (PROM16 A3S2:
-        unbounded MongoDB growth). Named + conflict-handling so a changed TTL
-        value actually takes effect (Mongo IndexOptionsConflict otherwise)."""
+        unbounded MongoDB growth).
+
+        Mongo identifies an index by its key pattern, not only by its name. An
+        older deployment may therefore already own ``created_at_1`` with the
+        desired TTL. Reusing that compatible index avoids an
+        IndexOptionsConflict; an incompatible legacy index is replaced by its
+        actual name before the canonical named index is created.
+        """
         if settings.feedback_ttl_days <= 0:
             return
         collection = await self._get_collection()
@@ -78,18 +84,23 @@ class FeedbackStore:
             return
         ttl = settings.feedback_ttl_days * 86400
         try:
+            existing = None
+            async for index in collection.list_indexes():
+                key = index.get("key", {})
+                if list(key.items()) == [("created_at", 1)]:
+                    existing = index
+                    break
+
+            if existing is not None:
+                if existing.get("expireAfterSeconds") == ttl:
+                    return
+                await collection.drop_index(existing["name"])
+
             await collection.create_index(
                 "created_at", name=_TTL_INDEX, expireAfterSeconds=ttl
             )
         except Exception as e:  # pragma: no cover - infra dependent
-            # most likely IndexOptionsConflict (TTL value changed) → recreate
-            try:
-                await collection.drop_index(_TTL_INDEX)
-                await collection.create_index(
-                    "created_at", name=_TTL_INDEX, expireAfterSeconds=ttl
-                )
-            except Exception as e2:
-                log.warning("feedback TTL index ensure failed: %s / %s", e, e2)
+            log.warning("feedback TTL index ensure failed: %s", e)
 
     async def save_result(self, doc: dict[str, Any]) -> FeedbackSaveResult:
         record_id = uuid.uuid4().hex
