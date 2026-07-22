@@ -35,7 +35,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: web-back
-          image: 192.168.0.23:30500/metahumotonic-web-back:0.7.2
+          image: 192.168.0.23:30500/metahumotonic-web-back:0.8.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -58,6 +58,13 @@ spec:
               valueFrom: { secretKeyRef: { name: web-back-secrets, key: mongo-uri } }
             - { name: MHB_MONGO_DB, value: "metahumotonic" }
             - { name: MHB_MONGO_FEEDBACK_COLLECTION, value: "web_feedback" }
+            # Never acknowledge public feedback unless Mongo confirmed the write.
+            - { name: MHB_FEEDBACK_REQUIRE_DURABLE, value: "true" }
+            # Optional: when absent, the internal feedback inbox is disabled.
+            - name: MHB_FEEDBACK_ADMIN_KEY
+              valueFrom:
+                secretKeyRef:
+                  { name: web-back-secrets, key: feedback-admin-key, optional: true }
             # PROM16 C2: distributed rate limit (in-cluster Redis, data ns)
             - name: MHB_REDIS_URL
               valueFrom: { secretKeyRef: { name: web-back-secrets, key: redis-url } }

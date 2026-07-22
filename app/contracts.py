@@ -6,9 +6,10 @@ backend is a drop-in for the Astro build-time endpoints.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class StatsContract(BaseModel):
@@ -45,21 +46,46 @@ class FeedbackRequest(BaseModel):
     `honeypot` must stay empty; a non-empty value marks a bot (handled silently).
     """
 
-    type: Literal["general", "bug", "feature"] = "general"
+    type: Literal["general", "bug", "feature", "thesis", "compute", "collaboration"] = "general"
     subject: str = Field(min_length=1, max_length=255)
     body: str = Field(min_length=1, max_length=5000)
     email: str = Field(default="", max_length=255)
+    source_path: str = Field(default="/", max_length=500)
+    contact_consent: bool = False
     honeypot: str = Field(default="", max_length=255)
     # Cloudflare Turnstile token (only required when turnstile_secret is set)
     turnstile_token: str = Field(default="", max_length=4096)
 
-    @field_validator("subject", "email")
+    @field_validator("subject", "email", "source_path")
     @classmethod
     def _single_line(cls, v: str) -> str:
         # single-line fields: reject CR/LF & control chars (header/log injection)
         if any(ord(ch) < 32 for ch in v):
             raise ValueError("control characters are not allowed")
+        return v.strip()
+
+    @field_validator("subject")
+    @classmethod
+    def _subject_has_visible_text(cls, v: str) -> str:
+        if not v:
+            raise ValueError("subject must contain visible text")
         return v
+
+    @field_validator("email")
+    @classmethod
+    def _email_requires_basic_shape(cls, v: str) -> str:
+        value = v.strip()
+        if value and ("@" not in value or value.startswith("@") or value.endswith("@")):
+            raise ValueError("invalid email address")
+        return value
+
+    @field_validator("source_path")
+    @classmethod
+    def _source_is_local_path(cls, v: str) -> str:
+        value = v.strip() or "/"
+        if not value.startswith("/") or value.startswith("//"):
+            raise ValueError("source_path must be a local absolute path")
+        return value
 
     @field_validator("body")
     @classmethod
@@ -67,12 +93,60 @@ class FeedbackRequest(BaseModel):
         # body is multi-line (textarea): allow \n \r \t, reject other control chars
         if any(ord(ch) < 32 and ch not in "\n\r\t" for ch in v):
             raise ValueError("control characters are not allowed")
-        return v
+        value = v.strip()
+        if not value:
+            raise ValueError("body must contain visible text")
+        return value
+
+    @model_validator(mode="after")
+    def _contact_requires_consent(self):
+        if self.email and not self.contact_consent:
+            raise ValueError("contact_consent is required when email is provided")
+        return self
 
 
 class FeedbackResponse(BaseModel):
     ok: bool = True
     id: str | None = None
+    status: Literal["stored", "accepted"] = "accepted"
+
+
+class FeedbackRecord(BaseModel):
+    """One operator-visible inbox item. Network identifiers are never exposed."""
+
+    id: str
+    created_at: datetime
+    type: Literal["general", "bug", "feature", "thesis", "compute", "collaboration"]
+    subject: str
+    body: str
+    email: str = ""
+    source_path: str = "/"
+    contact_consent: bool = False
+    status: Literal["new", "reviewed", "archived", "spam"] = "new"
+    operator_note: str = ""
+    reviewed_at: datetime | None = None
+
+
+class FeedbackInboxResponse(BaseModel):
+    items: list[FeedbackRecord]
+    count: int
+
+
+class FeedbackTriageRequest(BaseModel):
+    status: Literal["reviewed", "archived", "spam"]
+    operator_note: str = Field(default="", max_length=1000)
+
+    @field_validator("operator_note")
+    @classmethod
+    def _note_control_chars(cls, v: str) -> str:
+        if any(ord(ch) < 32 and ch not in "\n\r\t" for ch in v):
+            raise ValueError("control characters are not allowed")
+        return v.strip()
+
+
+class FeedbackTriageResponse(BaseModel):
+    ok: bool = True
+    item: FeedbackRecord
 
 
 class ErrorResponse(BaseModel):

@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     mongo_feedback_collection: str = "web_feedback"
     # auto-expire stored feedback after N days (TTL index); 0 disables
     feedback_ttl_days: int = 365
+    # Production can reject a submission instead of falsely acknowledging an
+    # in-memory fallback that would disappear on restart.
+    feedback_require_durable: bool = False
+    # Optional operator inbox key. Empty keeps GET /internal/feedback disabled.
+    feedback_admin_key: str = ""
 
     # --- KG stats cache (PROM16 C1: avoid count(n) full scan per request) ---
     stats_cache_ttl_seconds: int = 120
@@ -67,6 +72,9 @@ class Settings(BaseSettings):
     # empty → disabled (current behavior). Set the Cloudflare Turnstile secret
     # to require + verify a cf-turnstile-response token on feedback.
     turnstile_secret: str = ""
+    turnstile_hostname: str = "metahumotonic.com"
+    turnstile_action: str = "feedback_submit"
+    turnstile_fail_open: bool = False
 
     # --- CORS ---
     # comma-separated origins allowed to call this API from the browser

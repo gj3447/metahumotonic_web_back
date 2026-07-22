@@ -1,9 +1,7 @@
 """Cloudflare Turnstile verification (PROM16 A3S3/A3S4).
 
-Disabled unless `turnstile_secret` is set — so it's a no-op today and becomes
-active the moment a Cloudflare Turnstile secret is configured (the matching
-site key goes on the frontend widget). Fails open on a Cloudflare outage so a
-verification-endpoint blip never blocks all feedback.
+Disabled unless `turnstile_secret` is set. Once enabled, tokens must match the
+configured hostname and action, and verification fails closed by default.
 """
 
 from __future__ import annotations
@@ -35,9 +33,8 @@ async def verify(token: str, remote_ip: str | None = None) -> bool:
         async with httpx.AsyncClient(timeout=5.0) as client:
             r = await client.post(_VERIFY_URL, data=data)
     except (httpx.TimeoutException, httpx.TransportError) as e:  # pragma: no cover
-        # connectivity-only fail-open: a Cloudflare outage shouldn't block feedback
-        log.warning("turnstile unreachable (fail-open): %s", e)
-        return True
+        log.warning("turnstile unreachable: %s", e)
+        return settings.turnstile_fail_open
     # any non-connectivity problem (4xx, bad/expired secret, parse) → fail-closed
     try:
         body = r.json()
@@ -46,4 +43,11 @@ async def verify(token: str, remote_ip: str | None = None) -> bool:
         return False
     if not body.get("success"):
         log.warning("turnstile rejected: %s", body.get("error-codes"))
-    return bool(body.get("success"))
+        return False
+    if settings.turnstile_hostname and body.get("hostname") != settings.turnstile_hostname:
+        log.warning("turnstile hostname mismatch: %s", body.get("hostname"))
+        return False
+    if settings.turnstile_action and body.get("action") != settings.turnstile_action:
+        log.warning("turnstile action mismatch: %s", body.get("action"))
+        return False
+    return True

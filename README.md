@@ -24,7 +24,10 @@
 | GET | `/api/research/recent` | 타입 통합 최신순 피드 (`?limit`) |
 | GET | `/api/research/neighbors` | 노드의 라이브 타입별 연결(걷기) — `?name=<노드명>&limit` (cap 200, 차수 노출) |
 | GET | `/api/research/agent` | AI 에이전트용 기계가독 라이브 피드 (집계 + 최신 findings/lessons) |
-| POST | `/api/feedback` | 피드백 접수 — 허니팟 + IP 레이트리밋 → MongoDB |
+| POST | `/api/feedback` | 공개 피드백 접수 — 허니팟 + IP 레이트리밋 → MongoDB |
+| GET | `/internal/feedback` | 내부 피드백 inbox — `X-API-Key`, public Ingress 미노출 |
+| PATCH | `/internal/feedback/{id}` | 내부 triage — `reviewed|archived|spam` 상태 전이 |
+| DELETE | `/internal/feedback/{id}` | 내부 영구삭제 — 연락처 포함 레코드 제거 |
 | POST | `/api/kg/read` | **외부용 raw Cypher (읽기 전용)** — `X-API-Key` 게이트, Neo4j READ 트랜잭션(쓰기 서버 거부) |
 | POST | `/api/kg/write` | **외부용 raw Cypher (쓰기)** — write 키만, WRITE 트랜잭션 |
 
@@ -58,8 +61,19 @@ curl -X POST https://metahumotonic.com/api/kg/write \
 `/api/*` 응답 shape은 프론트의 `src/lib/kg.ts` / `feedback-form.js` 계약을 그대로 따른다 (drop-in).
 
 ### 피드백 계약
-- body: `{ type, subject, body, email?, honeypot? }` (`type` ∈ general|bug|feature)
-- `200 {ok, id}` 성공 · `200 {ok}` 봇(허니팟) 무음 처리 · `429 {reason}` 레이트리밋 · `422` 검증 실패
+- body: `{ type, subject, body, email?, source_path?, contact_consent?, honeypot? }`
+- `type` ∈ `general|bug|feature|thesis|compute|collaboration`
+- `200 {ok, id, status}` 성공 · `200 {ok}` 봇(허니팟) 무음 처리 · `429 {reason}` 레이트리밋 · `422` 검증 실패
+- 운영 환경의 `MHB_FEEDBACK_REQUIRE_DURABLE=true`에서는 MongoDB 쓰기가 확인되지 않으면 `503 storage_unavailable`을 반환하여 유실을 성공으로 위장하지 않는다.
+- 원본 IP와 User-Agent는 레이트리밋 계산에만 사용하며 피드백 문서에는 저장하지 않는다.
+
+운영자 inbox는 `MHB_FEEDBACK_ADMIN_KEY`를 설정해야만 열린다. 본문과 선택적 이메일을 포함하므로 `/internal/*`은 공개 Ingress에 연결하지 않는다. 클러스터 안에서 호출하거나 `kubectl port-forward`를 사용한다.
+
+```sh
+kubectl -n infra port-forward svc/web-back 8000:8000
+curl 'http://127.0.0.1:8000/internal/feedback?limit=50' \
+  -H "X-API-Key: $MHB_FEEDBACK_ADMIN_KEY"
+```
 
 ## 무인프라 구동
 
@@ -93,18 +107,18 @@ rsync -az --exclude='.venv' --exclude='.git' metahumotonic_web_back/ dgx:/tmp/me
 # 2. dgx(arm64)에서 빌드 → 인클러스터 registry push
 ssh dgx '
   cd /tmp/metahumotonic_web_back
-  docker build -t 192.168.0.23:30500/metahumotonic-web-back:0.6.0 .
+  docker build -t 192.168.0.23:30500/metahumotonic-web-back:0.8.0 .
   # docker는 NodePort registry를 insecure로 안 봄 → localhost 태그로 push (docker가 localhost는 신뢰)
-  docker tag 192.168.0.23:30500/metahumotonic-web-back:0.6.0 localhost:30500/metahumotonic-web-back:0.6.0
-  docker push localhost:30500/metahumotonic-web-back:0.6.0
+  docker tag 192.168.0.23:30500/metahumotonic-web-back:0.8.0 localhost:30500/metahumotonic-web-back:0.8.0
+  docker push localhost:30500/metahumotonic-web-back:0.8.0
   # kubelet은 certs.d plain-http를 안 먹음 → 이미지를 containerd k8s.io ns로 직접 import
-  docker save 192.168.0.23:30500/metahumotonic-web-back:0.6.0 | sudo ctr -n k8s.io images import -
+  docker save 192.168.0.23:30500/metahumotonic-web-back:0.8.0 | sudo ctr -n k8s.io images import -
   kubectl apply -f deploy/k8s/web-back.yaml
   kubectl rollout restart deploy/web-back -n infra
 '
 ```
 
-> 이미지 갱신 시 태그를 올리고(예 0.6.1) 위 build/import/apply 반복. 파드는
+> 이미지 갱신 시 태그를 올리고 위 build/import/apply 반복. 파드는
 > `nodeSelector: dgx-worker`로 핀(이미지가 그 노드 containerd에 import됨).
 > **새 `/api/*` prefix를 추가하면 IngressRoute match에도 그 prefix를 넣어야** 공개 도메인에서 닿는다 (경로 고정 방식).
 
@@ -125,4 +139,5 @@ docker compose up -d --build   # :8000
 ## 환경변수 (`MHB_` prefix)
 
 `.env.example` 참조. 핵심: `MHB_NEO4J_*` (KG 읽기; `MHB_NEO4J_FALLBACK_URIS`는 comma-separated backup Bolt URI) / `MHB_MONGO_URI` (피드백 저장) /
-`MHB_CORS_ORIGINS` / `MHB_FEEDBACK_MAX_PER_WINDOW` · `MHB_FEEDBACK_WINDOW_SECONDS`.
+`MHB_CORS_ORIGINS` / `MHB_FEEDBACK_MAX_PER_WINDOW` · `MHB_FEEDBACK_WINDOW_SECONDS` /
+`MHB_FEEDBACK_REQUIRE_DURABLE` / `MHB_FEEDBACK_ADMIN_KEY`.

@@ -7,7 +7,8 @@
 #
 #   green : feedback_received == 1  AND  feedback_durably_stored == 1
 #   RED   : Mongo dropped → feedback_received == 1 but feedback_durably_stored == 0
-#           (endpoint still returned 200 {ok,id} — the silent loss ooptdd exists to catch)
+#           (local fail-soft mode may return 200 accepted; production strict mode
+#            returns 503, while this independent gate still proves the write itself)
 #
 # KG: project_metahumotonic_web_integrate_core_dev_tech_2026_07_13
 cid_env: OOPTDD_CID

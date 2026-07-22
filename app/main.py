@@ -60,6 +60,7 @@ app.include_router(domains.router)
 app.include_router(skills.router)
 app.include_router(research.router)
 app.include_router(feedback.router)
+app.include_router(feedback.internal_router)
 app.include_router(kg_proxy.router)
 
 instrument(app)  # Prometheus /metrics (PROM16 C6)

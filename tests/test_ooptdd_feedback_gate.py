@@ -1,9 +1,9 @@
 """ooptdd positive-TDD gate over the feedback pipeline — the 측정 layer in anger.
 
-The point: `POST /api/feedback` returns `200 {ok, id}` whether the record landed
-in Mongo or silently fell back to in-memory. A return-value test can't tell the
-difference. These tests read the *emitted trace* back and positively assert the
-durable write — and prove the gate goes RED on a silent loss the endpoint hides.
+The point: local fail-soft mode can return `200 {ok, id, status=accepted}` when a
+record falls back to memory; production sets `feedback_require_durable=true` and
+returns 503 instead. In both modes these tests read the emitted trace back and
+positively assert whether the durable write itself happened.
 
 # KG: project_metahumotonic_web_integrate_core_dev_tech_2026_07_13, project_lakatotree_oo_ptdd_2026_06_14
 """
@@ -62,9 +62,9 @@ async def test_gate_green_when_durably_stored():
     assert result["ok"], f"expected GREEN durable gate, got: {result}"
 
 
-async def test_gate_red_on_silent_loss_that_endpoint_hides():
+async def test_gate_red_on_non_durable_fallback():
     trace.reset()
-    # Mongo drops the write; save() STILL returns an id (the lie).
+    # The low-level fail-soft save still returns an id; the trace stays honest.
     record_id = await _save_feedback(_DroppingCollection())
     assert record_id  # self-report is a cheerful green — the bug
 
