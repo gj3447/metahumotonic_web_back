@@ -141,3 +141,19 @@ docker compose up -d --build   # :8000
 `.env.example` 참조. 핵심: `MHB_NEO4J_*` (KG 읽기; `MHB_NEO4J_FALLBACK_URIS`는 comma-separated backup Bolt URI) / `MHB_MONGO_URI` (피드백 저장) /
 `MHB_CORS_ORIGINS` / `MHB_FEEDBACK_MAX_PER_WINDOW` · `MHB_FEEDBACK_WINDOW_SECONDS` /
 `MHB_FEEDBACK_REQUIRE_DURABLE` / `MHB_FEEDBACK_ADMIN_KEY`.
+
+## 공개 소스와 라이선스
+
+이 백엔드는 누구나 사용·연구·수정할 수 있도록 공개되어 있습니다.
+
+- 저장소: [github.com/gj3447/metahumotonic_web_back](https://github.com/gj3447/metahumotonic_web_back)
+- 현재 공개 릴리스의 Corresponding Source: [`v0.8.0-public.1`](https://github.com/gj3447/metahumotonic_web_back/tree/v0.8.0-public.1)
+- 라이선스: [GNU AGPL v3.0 only](LICENSE)
+- 벤더 코드 및 출처: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+
+AGPL은 수정한 백엔드를 네트워크 서비스로 운영하는 경우 그 서비스의 사용자에게
+해당 수정본의 Corresponding Source를 제공하도록 요구합니다. 상업적 사용과 유료
+서비스 운영도 허용되지만, 자유로운 수정·검증·재배포의 권리를 제거할 수는 없습니다.
+
+프런트엔드 [metahumotonic-web](https://github.com/gj3447/metahumotonic-web)은
+별도 저작물이며 MIT License를 유지합니다.

@@ -1,0 +1,11 @@
+ooptdd vendored snapshot
+Copyright (C) 2026 Ra Gyeongjun (라경준)
+
+Source: https://github.com/gj3447/ooptdd
+Snapshot version: 0.4.0
+License: GNU AGPL-3.0-or-later
+
+This snapshot was incorporated into metahumotonic_web_back by consumer commit
+42fdf522e036e38edc1f22ef69bac8bd87e8df18 on 2026-07-13. The import came from
+an upstream working tree, so no exact clean upstream commit was recorded. Refer
+to ../ooptdd_vendor_manifest.json for the exact SHA-256 file map.

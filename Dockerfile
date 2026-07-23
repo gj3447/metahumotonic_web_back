@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install from pyproject so runtime deps never drift from the hardcoded list
 # (a stale list silently shipped an image without `redis`, v0.3.0).
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md LICENSE NOTICE THIRD_PARTY_NOTICES.md ./
 COPY app ./app
 RUN pip install --no-cache-dir .
 

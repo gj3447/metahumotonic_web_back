@@ -19,7 +19,9 @@ class Settings(BaseSettings):
     # comma-separated backup Bolt URIs, tried in order when neo4j_uri fails
     neo4j_fallback_uris: str = ""
     neo4j_user: str = "neo4j"
-    neo4j_password: str = "neo4jpassword"
+    # Credentials are never supplied by defaults; live mode must receive one
+    # through MHB_NEO4J_PASSWORD or another deployment secret surface.
+    neo4j_password: str = ""
     neo4j_database: str = "neo4j"
     neo4j_live: bool = False  # opt-in; default off → snapshot fallback (CI / offline)
 

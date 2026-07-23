@@ -1,4 +1,13 @@
 {
+  "source": {
+    "repository": "https://github.com/gj3447/ooptdd",
+    "version": "0.4.0",
+    "consumer_snapshot_commit": "42fdf522e036e38edc1f22ef69bac8bd87e8df18",
+    "snapshot_date": "2026-07-13",
+    "upstream_commit": null,
+    "provenance": "working-tree snapshot; files are identified by the SHA-256 map below",
+    "license": "AGPL-3.0-or-later"
+  },
   "files": {
     "__init__.py": "3227f72e2a5a5facc4808762011dd6fbf67d25dab6174aac474475ad27a21a09",
     "assertions.py": "f1cfdecd6fc6d125341517eedf144a28da85ea2336ac23a3432309d1eb90f2cc",
