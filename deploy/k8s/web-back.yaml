@@ -46,11 +46,9 @@ spec:
             # Live KG (Neo4j) + persistent feedback (MongoDB), in-cluster (data ns).
             # Both still degrade gracefully if the dep is unreachable.
             - { name: MHB_NEO4J_LIVE, value: "true" }
-            # Verified 2026-06-12: public web-back was timing out against the
-            # in-cluster DNS path and falling back to snapshot; Tailscale Bolt
-            # answers direct read Cypher (`MATCH (n) RETURN count(n)`).
-            - { name: MHB_NEO4J_URI, value: "bolt://100.64.0.3:7687" }
-            - { name: MHB_NEO4J_FALLBACK_URIS, value: "bolt://neo4j.data.svc.cluster.local:7687" }
+            # Canonical KG moved to Proxmox data-01 on 2026-07-19.
+            - { name: MHB_NEO4J_URI, value: "bolt://192.168.0.25:7687" }
+            - { name: MHB_NEO4J_FALLBACK_URIS, value: "" }
             - { name: MHB_NEO4J_USER, value: "neo4j" }
             - name: MHB_NEO4J_PASSWORD
               valueFrom: { secretKeyRef: { name: web-back-secrets, key: neo4j-password } }
@@ -89,6 +87,13 @@ spec:
             httpGet: { path: /ready, port: 8000 }   # PROM16 C5: dependency-aware
             initialDelaySeconds: 3
             periodSeconds: 10
+          # Mongo/Redis degrade gracefully, but their driver connection timeout can
+          # delay the first HTTP listener. Do not let liveness kill a healthy
+          # fail-soft startup before it has had a chance to bind the port.
+          startupProbe:
+            httpGet: { path: /health, port: 8000 }
+            periodSeconds: 5
+            failureThreshold: 18
           livenessProbe:
             httpGet: { path: /health, port: 8000 }   # liveness = process only
             initialDelaySeconds: 5
