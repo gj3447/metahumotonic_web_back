@@ -35,7 +35,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: web-back
-          image: 192.168.0.23:30500/metahumotonic-web-back:0.8.0
+          image: 192.168.0.23:30500/metahumotonic-web-back:0.9.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -135,7 +135,7 @@ spec:
   entryPoints: [web]
   routes:
     - kind: Rule
-      match: (Host(`metahumotonic.com`) || Host(`www.metahumotonic.com`) || Host(`bhgman.iptime.org`)) && (PathPrefix(`/api/stats`) || PathPrefix(`/api/domains`) || PathPrefix(`/api/skills`) || PathPrefix(`/api/research`) || PathPrefix(`/api/feedback`) || PathPrefix(`/api/kg`))
+      match: (Host(`metahumotonic.com`) || Host(`www.metahumotonic.com`) || Host(`bhgman.iptime.org`)) && (PathPrefix(`/api/stats`) || PathPrefix(`/api/domains`) || PathPrefix(`/api/skills`) || PathPrefix(`/api/research`) || PathPrefix(`/api/feedback`) || PathPrefix(`/api/kg`) || PathPrefix(`/api/mcp`))
       priority: 200
       services:
         - name: web-back
@@ -151,7 +151,7 @@ spec:
   entryPoints: [websecure]
   routes:
     - kind: Rule
-      match: (Host(`metahumotonic.com`) || Host(`www.metahumotonic.com`)) && (PathPrefix(`/api/stats`) || PathPrefix(`/api/domains`) || PathPrefix(`/api/skills`) || PathPrefix(`/api/research`) || PathPrefix(`/api/feedback`) || PathPrefix(`/api/kg`))
+      match: (Host(`metahumotonic.com`) || Host(`www.metahumotonic.com`)) && (PathPrefix(`/api/stats`) || PathPrefix(`/api/domains`) || PathPrefix(`/api/skills`) || PathPrefix(`/api/research`) || PathPrefix(`/api/feedback`) || PathPrefix(`/api/kg`) || PathPrefix(`/api/mcp`))
       priority: 200
       services:
         - name: web-back

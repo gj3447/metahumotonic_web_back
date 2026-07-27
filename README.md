@@ -122,9 +122,51 @@ ssh dgx '
 > `nodeSelector: dgx-worker`로 핀(이미지가 그 노드 containerd에 import됨).
 > **새 `/api/*` prefix를 추가하면 IngressRoute match에도 그 prefix를 넣어야** 공개 도메인에서 닿는다 (경로 고정 방식).
 
+> **2026-07-27 실측 갱신 (0.9.0):** 현재 라이브 서빙 경로는 dgx 파드가 아니라
+> **VM100 (cpu-edge-01, 192.168.0.24) docker** 다 — `web-back-pve-1`(:18210) /
+> `web-back-pve-2`(:18211)가 `metahumotonic-web-back:<ver>-x86` 이미지로 돌고,
+> k3s `EndpointSlice`가 192.168.0.24:18210을 가리킨다 (landing의 `-pve` 패턴과 동일).
+> 배포는 `bhgman` 경유 ssh로 VM100에 접속해 `~/dgx-cpu/web-back/src`를 갱신 →
+> `docker build -t metahumotonic-web-back:<ver>-x86 .` → 컨테이너를 한 대씩 재생성
+> (`docker inspect`로 기존 env를 그대로 추출해 재사용, 포트 18210/18211,
+> `--restart unless-stopped`). 위 dgx 레시피는 구 경로 기록으로 남긴다.
+
+## MCP 레지스트리 (`/api/mcp/*` + `mhb-mcp` CLI)
+
+정적 `/mcp/manifest.json`을 대체하는 **라이브 MCP 레지스트리**. MongoDB
+`mcp_servers` 컬렉션이 source of truth이고, HTTP는 전부 공개 읽기전용 — 쓰기는
+CLI(`mhb-mcp`)로만 한다. Mongo가 죽으면 `source: "snapshot"` 빈 페이로드로
+fail-soft (절대 500 없음), 정상이면 `source: "live"`. ~5분 캐시.
+
+- `GET /api/mcp/servers` — 등록 서버 목록
+- `GET /api/mcp/servers/{name}` — 단일 엔트리
+- `GET /api/mcp/manifest` — `metahumotonic/mcp-registry@1` 라이브 매니페스트
+- `GET /api/mcp/health` — 서버별 최근 verify 결과 (status/verified_at/last_probe_at)
+
+CLI (설치된 환경에서 `mhb-mcp`, 또는 `uv run mhb-mcp`):
+
+```sh
+mhb-mcp seed manifest.json        # Mongo에 초기 적재 (upsert, 멱등)
+mhb-mcp list [--json]             # 목록 (표 또는 JSON)
+mhb-mcp show <name>               # 단일 조회
+mhb-mcp upsert <name> --set status=unused --set 'connection={"recipe":"http","url":"..."}'
+mhb-mcp upsert <name> --file server.json
+mhb-mcp remove <name>
+mhb-mcp verify [name]             # 레시피별 프로브 → status/verified_at 기록
+mhb-mcp export [--out m.json]     # Mongo → manifest.json (정적 폐백 갱신용)
+```
+
+verify 프로브: `local-tunnel` → TCP connect(127.0.0.1:port) · `http` → GET ·
+`ssh-stdio` → `ssh -o BatchMode=yes <alias> true` · 로컬 실행 레시피(`local-npx`
+등)는 프로브 불가 → `skip`으로 정직하게 기록. 실패 시 status=`unreachable`,
+성공 시 status=`verified` + verified_at 갱신.
+
+Mongo 대상 해석 순서: `--mongo-uri` → `MHB_MONGO_URI` env → `MONGO_PASSWORD`
+env가 있으면 맥북 터널 기본값(`127.0.0.1:37017`). **시크릿은 env로만 — 코드/커밋에 넣지 않는다.**
+
 ### IngressRoute
 - 둘 다 명시적 per-path prefix 매칭(전체 `/api`가 아님), priority 200:
-  `PathPrefix(/api/stats | /api/domains | /api/skills | /api/research | /api/feedback | /api/kg)`.
+  `PathPrefix(/api/stats | /api/domains | /api/skills | /api/research | /api/feedback | /api/kg | /api/mcp)`.
 - `web-back-api` (entryPoint `web`, :80): `Host(metahumotonic.com | www | bhgman.iptime.org)`.
 - `web-back-api-tls` (entryPoint `websecure`, :443, `metahumotonic-wildcard-tls`):
   `Host(metahumotonic.com | www)` — **bhgman.iptime.org 없음** (와일드카드 인증서가 그 호스트를 검증 못 함 → HTTP 전용).

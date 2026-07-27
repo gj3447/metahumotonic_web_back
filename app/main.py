@@ -13,9 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import __version__
 from .config import settings
 from .kg import kg
+from .mcp_store import registry as mcp_registry_store
 from .middleware import RequestLoggingMiddleware
 from .observability import configure_logging, instrument
-from .routers import domains, feedback, kg_proxy, meta, research, skills, stats
+from .routers import domains, feedback, kg_proxy, mcp_registry, meta, research, skills, stats
 from .store import store
 
 configure_logging()
@@ -25,6 +26,8 @@ configure_logging()
 async def lifespan(app: FastAPI):
     # startup: ensure the feedback TTL index exists (no-op without Mongo)
     await store.ensure_indexes()
+    # startup: ensure the MCP registry unique-name index (no-op without Mongo)
+    await mcp_registry_store.ensure_indexes()
     yield
     # graceful shutdown — isolate each close so one failure can't leak the rest
     import asyncio
@@ -32,7 +35,11 @@ async def lifespan(app: FastAPI):
     from .routers.feedback import _limiter
 
     await asyncio.gather(
-        kg.close(), store.close(), _limiter.close(), return_exceptions=True
+        kg.close(),
+        store.close(),
+        mcp_registry_store.close(),
+        _limiter.close(),
+        return_exceptions=True,
     )
 
 
@@ -62,5 +69,6 @@ app.include_router(research.router)
 app.include_router(feedback.router)
 app.include_router(feedback.internal_router)
 app.include_router(kg_proxy.router)
+app.include_router(mcp_registry.router)
 
 instrument(app)  # Prometheus /metrics (PROM16 C6)

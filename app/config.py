@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     mongo_uri: str = ""  # empty → in-memory store (no infra needed)
     mongo_db: str = "metahumotonic"
     mongo_feedback_collection: str = "web_feedback"
+    # --- MCP registry (Mongo-backed live manifest; writes via mhb-mcp CLI) ---
+    mcp_registry_collection: str = "mcp_servers"
+    mcp_registry_cache_ttl_seconds: int = 300
     # auto-expire stored feedback after N days (TTL index); 0 disables
     feedback_ttl_days: int = 365
     # Production can reject a submission instead of falsely acknowledging an

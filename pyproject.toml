@@ -1,6 +1,6 @@
 [project]
 name = "metahumotonic-web-back"
-version = "0.8.0"
+version = "0.9.0"
 description = "Backend API for metahumotonic-web — live KG stats + feedback intake (사도 #4 비행기맨 7군단장 정전 surface)"
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -31,6 +31,9 @@ dev = [
 Homepage = "https://metahumotonic.com"
 Repository = "https://github.com/gj3447/metahumotonic_web_back"
 Issues = "https://github.com/gj3447/metahumotonic_web_back/issues"
+
+[project.scripts]
+mhb-mcp = "app.cli:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
