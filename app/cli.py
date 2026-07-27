@@ -22,8 +22,16 @@ Usage:
     mhb-mcp show NAME                  # one entry as JSON
     mhb-mcp upsert NAME [--set k=v ...] | [--file server.json]
     mhb-mcp remove NAME
+    mhb-mcp import .mcp.json           # bulk-import a standard MCP client config
     mhb-mcp verify [NAME]              # probe reachability, record results
     mhb-mcp export [--out manifest.json]
+    mhb-mcp vault init --password PW [--file seed.json] [--from-mcp-json .mcp.json]
+                       [--mc-config config.json --mc-alias bhgman] [--set svc.key=v]
+    mhb-mcp vault unlock --password PW # decrypt + print credentials (local check)
+    mhb-mcp vault show                 # vault metadata (ciphertext summary only)
+
+Vault password: ``--password`` flag or ``MHB_VAULT_PASSWORD`` env. The vault
+stores PBKDF2-SHA256→Fernet ciphertext only; see app/mcp_vault.py.
 """
 
 from __future__ import annotations
@@ -32,15 +40,17 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from typing import Any
 
+from . import mcp_vault
+from .mcp_manifest import SCHEMA, SITE, build_manifest
+
 DB_DEFAULT = "metahumotonic"
 COLLECTION = "mcp_servers"
 META_ID = "manifest_meta"
-SCHEMA = "metahumotonic/mcp-registry@1"
-SITE = "https://metahumotonic.com"
 
 # Fields kept in Mongo for operations but stripped from exported manifests
 # (they are registry bookkeeping, not manifest schema).
@@ -110,6 +120,14 @@ def _parse_value(raw: str) -> Any:
         return raw
 
 
+def _read_json(path: str) -> Any:
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError) as e:
+        raise CliError(f"cannot read {path}: {e}") from e
+
+
 # --------------------------------------------------------------------------- #
 # Commands (each takes the parsed args + a collection handle)                  #
 # --------------------------------------------------------------------------- #
@@ -117,12 +135,8 @@ def _parse_value(raw: str) -> Any:
 
 async def cmd_seed(args, col) -> int:
     """Upsert every server from a manifest file + store manifest-level meta."""
-    try:
-        with open(args.manifest, encoding="utf-8") as fh:
-            manifest = json.load(fh)
-    except (OSError, ValueError) as e:
-        raise CliError(f"cannot read manifest {args.manifest}: {e}") from e
-    servers = manifest.get("servers")
+    manifest = _read_json(args.manifest)
+    servers = manifest.get("servers") if isinstance(manifest, dict) else None
     if not isinstance(servers, list) or not servers:
         raise CliError("manifest has no non-empty 'servers' list")
 
@@ -187,11 +201,7 @@ async def cmd_upsert(args, col) -> int:
     existing = await col.find_one({"kind": "server", "name": args.name}) or {}
     doc = _public(existing)
     if args.file:
-        try:
-            with open(args.file, encoding="utf-8") as fh:
-                payload = json.load(fh)
-        except (OSError, ValueError) as e:
-            raise CliError(f"cannot read {args.file}: {e}") from e
+        payload = _read_json(args.file)
         if not isinstance(payload, dict):
             raise CliError("upsert file must contain a JSON object")
         doc.update(payload)
@@ -220,6 +230,346 @@ async def cmd_remove(args, col) -> int:
         raise CliError(f"no such server: {args.name}")
     await _touch_meta_updated(col)
     print(f"removed {args.name}")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# import — standard MCP client config (.mcp.json) → registry entries          #
+# --------------------------------------------------------------------------- #
+
+# env/arg keys whose VALUES are secrets → placeholderized in the registry and
+# captured into the vault seed. Companion keys (URIs, usernames) are captured
+# into the vault too, so an unlocked vault yields complete working credentials.
+_SECRET_KEY_RE = re.compile(r"PASS|TOKEN|SECRET|KEY|CREDENTIAL", re.IGNORECASE)
+_COMPANION_KEY_RE = re.compile(r"USER|URI|URL|DATABASE|ENDPOINT|HOST", re.IGNORECASE)
+# scheme://user:password@ → the password group is replaced with a placeholder.
+_URI_CRED_RE = re.compile(r"([a-zA-Z][a-zA-Z0-9+.-]*)://([^/\s:@]+):([^@/\s]+)@")
+_KEYVAL_RE = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)=(\S+)")
+_TUNNEL_RE = re.compile(r"(?:127\.0\.0\.1|localhost):(\d{2,5})")
+
+# scheme → placeholder stem, matching the curated manifest's convention
+# (mongodb://…:<MONGO_PASSWORD>@, postgresql://…:<PG_PASSWORD>@, redis://…:<REDIS_PASSWORD>@).
+_SCHEME_PLACEHOLDER = {
+    "mongodb": "MONGO",
+    "mongo": "MONGO",
+    "postgresql": "PG",
+    "postgres": "PG",
+    "redis": "REDIS",
+    "rediss": "REDIS",
+}
+
+# name-substring → category, first match wins (H-03: 이름 기반 자동 추론).
+_CATEGORY_RULES = [
+    ("neo4j", "graph"),
+    ("redis", "vector"),
+    ("valkey", "vector"),
+    ("minio", "storage"),
+    ("aistor", "storage"),
+    ("s3", "storage"),
+    ("mongo", "document"),
+    ("postgres", "document"),
+    ("pgsql", "document"),
+    ("mysql", "document"),
+    ("mariadb", "document"),
+    ("sqlite", "document"),
+]
+
+_LOCAL_RUNNERS = {"npx", "uvx", "uv", "node", "deno", "bun"}
+_SSH_OPT_WITH_VALUE = {"-b", "-c", "-D", "-E", "-F", "-i", "-J", "-L", "-l",
+                       "-m", "-o", "-p", "-Q", "-R", "-S", "-W", "-w"}
+
+
+def _pw_placeholder(scheme: str) -> str:
+    stem = _SCHEME_PLACEHOLDER.get(scheme.lower(), scheme.upper().replace("-", "_"))
+    return f"<{stem}_PASSWORD>"
+
+
+def _redact_uri_passwords(text: str) -> str:
+    return _URI_CRED_RE.sub(
+        lambda m: f"{m.group(1)}://{m.group(2)}:{_pw_placeholder(m.group(1))}@",
+        text,
+    )
+
+
+def _sanitize_arg(arg: Any) -> str:
+    """One args element: URI passwords → scheme placeholders; KEY=value with a
+    secret-looking KEY → KEY=<KEY>. Non-secret values pass through."""
+    text = _redact_uri_passwords(str(arg))
+    return _KEYVAL_RE.sub(
+        lambda m: f"{m.group(1)}=<{m.group(1)}>" if _SECRET_KEY_RE.search(m.group(1)) else m.group(0),
+        text,
+    )
+
+
+def _sanitize_env(env: dict[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key, value in env.items():
+        if not isinstance(value, str):
+            out[key] = value
+        elif _SECRET_KEY_RE.search(key):
+            out[key] = f"<{key}>"
+        else:
+            out[key] = _redact_uri_passwords(value)
+    return out
+
+
+def infer_category(name: str) -> str:
+    lowered = name.lower()
+    for needle, category in _CATEGORY_RULES:
+        if needle in lowered:
+            return category
+    return "utility"
+
+
+def _tunnel_port(text: str) -> int | None:
+    match = _TUNNEL_RE.search(text or "")
+    return int(match.group(1)) if match else None
+
+
+def _ssh_alias_and_command(args: list[str]) -> tuple[str, str]:
+    """First non-option token is the alias; the rest is the remote command."""
+    i = 0
+    while i < len(args):
+        token = args[i]
+        if token in _SSH_OPT_WITH_VALUE:
+            i += 2
+            continue
+        if token.startswith("-"):
+            i += 1
+            continue
+        break
+    alias = args[i] if i < len(args) else ""
+    remote = " ".join(args[i + 1:]) if i + 1 <= len(args) else ""
+    return alias, remote
+
+
+def _is_http_config(cfg: dict[str, Any]) -> bool:
+    kind = str(cfg.get("type") or cfg.get("transport") or "").lower()
+    return bool(cfg.get("url")) or kind in {"http", "sse", "streamable-http"}
+
+
+def _infer_connection(name: str, cfg: dict[str, Any]) -> dict[str, Any]:
+    """A standard .mcp.json server entry → a sanitized registry connection
+    recipe. Secrets never survive this function — only placeholders do."""
+    if _is_http_config(cfg):
+        url = _redact_uri_passwords(str(cfg.get("url") or ""))
+        conn: dict[str, Any] = {"recipe": "http", "url": url}
+        port = _tunnel_port(url)
+        if port:
+            conn["tunnel"] = {"port": port, "target": name, "opened_by": "local SSH tunnel"}
+        return conn
+
+    command = str(cfg.get("command") or "")
+    args = [str(a) for a in (cfg.get("args") or [])]
+    env = cfg.get("env") or {}
+    base = os.path.basename(command)
+
+    if base == "ssh":
+        alias, remote = _ssh_alias_and_command(args)
+        conn = {"recipe": "ssh-stdio", "command": "ssh", "args": []}
+        if alias:
+            conn["args"].append(alias)
+        if remote:
+            conn["args"].append(_sanitize_arg(remote))
+        sanitized = _sanitize_env(env)
+        if sanitized:
+            conn["env"] = sanitized
+        return conn
+
+    haystack = " ".join([command, *args, *(str(v) for v in env.values())])
+    port = _tunnel_port(haystack)
+    if port:
+        recipe = "local-tunnel"
+    elif base in _LOCAL_RUNNERS:
+        recipe = "local-npx"
+    else:
+        recipe = "local-command"
+    conn = {"recipe": recipe, "command": command, "args": [_sanitize_arg(a) for a in args]}
+    if port:
+        conn["tunnel"] = {"port": port, "target": name, "opened_by": "local SSH tunnel"}
+    sanitized = _sanitize_env(env)
+    if sanitized:
+        conn["env"] = sanitized
+    return conn
+
+
+def _mcp_servers_map(data: Any, path: str) -> dict[str, Any]:
+    """Accept the standard {"mcpServers": {...}} shape, tolerating a bare
+    {name: config} map."""
+    if isinstance(data, dict):
+        servers = data.get("mcpServers")
+        if isinstance(servers, dict):
+            return servers
+        if data and all(isinstance(v, dict) for v in data.values()):
+            return data
+    raise CliError(f"{path}: no 'mcpServers' object found")
+
+
+async def cmd_import(args, col) -> int:
+    """Bulk-import a standard MCP client config (.mcp.json): each server
+    becomes a registry entry with sanitized connection, inferred category and
+    recipe. Curated fields of existing entries (description, status, verified
+    timestamps, backend, category) are preserved — the file is the connection
+    truth, Mongo stays the curation truth."""
+    servers = _mcp_servers_map(_read_json(args.mcp_json), args.mcp_json)
+    created = updated = 0
+    for name, cfg in sorted(servers.items()):
+        if not isinstance(cfg, dict):
+            raise CliError(f"{args.mcp_json}: server {name!r} is not a JSON object")
+        existing = await col.find_one({"kind": "server", "name": name}) or {}
+        doc = _public(existing)
+        doc["name"] = name
+        doc["transport"] = "http" if _is_http_config(cfg) else "stdio"
+        doc["category"] = existing.get("category") or infer_category(name)
+        doc["connection"] = _infer_connection(name, cfg)
+        if not existing:
+            doc["status"] = "available"
+            doc["description"] = f"Imported from {os.path.basename(args.mcp_json)}"
+        doc.update({"kind": "server", "updated_at": _now()})
+        await col.update_one({"kind": "server", "name": name}, {"$set": doc}, upsert=True)
+        created += 0 if existing else 1
+        updated += 1 if existing else 0
+        print(
+            f"{'updated' if existing else 'created'} {name} "
+            f"({doc['category']}, {doc['connection'].get('recipe')})"
+        )
+    await _touch_meta_updated(col)
+    print(f"imported {created + updated} servers from {args.mcp_json} ({created} new, {updated} updated)")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# vault — one-password credential vault (PBKDF2-SHA256 → Fernet)              #
+# --------------------------------------------------------------------------- #
+
+
+def _vault_password(args) -> str:
+    password = getattr(args, "password", "") or os.environ.get("MHB_VAULT_PASSWORD", "")
+    if not password:
+        raise CliError("vault password required: --password or MHB_VAULT_PASSWORD env")
+    return password
+
+
+def extract_credentials(data: Any) -> dict[str, Any]:
+    """Pull the real credentials out of a standard .mcp.json — secret-looking
+    env values, URIs with embedded passwords, and KEY=value secrets hiding in
+    args (e.g. ssh-wrapped `env TOKEN=… cmd` launchers). Companion values
+    (URIs/usernames) ride along so an unlocked vault is self-sufficient."""
+    out: dict[str, Any] = {}
+    for name, cfg in _mcp_servers_map(data, "<mcp-json>").items():
+        creds: dict[str, Any] = {}
+        for key, value in (cfg.get("env") or {}).items():
+            if not isinstance(value, str):
+                continue
+            if (
+                _SECRET_KEY_RE.search(key)
+                or _COMPANION_KEY_RE.search(key)
+                or _URI_CRED_RE.search(value)
+            ):
+                creds.setdefault("env", {})[key] = value
+        texts = [str(a) for a in (cfg.get("args") or [])]
+        if cfg.get("url"):
+            texts.append(str(cfg["url"]))
+        for text in texts:
+            for match in _URI_CRED_RE.finditer(text):
+                creds.setdefault("urls", [])
+                if match.group(0) not in creds["urls"]:
+                    creds["urls"].append(match.group(0))
+            for match in _KEYVAL_RE.finditer(text):
+                if _SECRET_KEY_RE.search(match.group(1)):
+                    creds.setdefault("env", {})[match.group(1)] = match.group(2)
+        if creds:
+            out[name] = creds
+    return out
+
+
+def extract_mc_alias(mc_config: Any, alias: str) -> dict[str, Any]:
+    """One `mc` (MinIO client) alias → {endpoint, access_key, secret_key}."""
+    aliases = (mc_config or {}).get("aliases") or {}
+    entry = aliases.get(alias)
+    if not entry:
+        raise CliError(f"mc config has no alias {alias!r} (have: {', '.join(sorted(aliases))})")
+    return {
+        "endpoint": entry.get("url"),
+        "access_key": entry.get("accessKey"),
+        "secret_key": entry.get("secretKey"),
+    }
+
+
+def _deep_merge(base: dict[str, Any], extra: dict[str, Any]) -> dict[str, Any]:
+    for key, value in extra.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            _deep_merge(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def _load_seed_payload(args) -> dict[str, Any]:
+    """Merge the requested credential sources into one {service: creds} map."""
+    payload: dict[str, Any] = {}
+    if args.file:
+        data = _read_json(args.file)
+        if not isinstance(data, dict):
+            raise CliError("vault seed file must contain a JSON object {service: creds}")
+        _deep_merge(payload, data)
+    if args.from_mcp_json:
+        _deep_merge(payload, extract_credentials(_read_json(args.from_mcp_json)))
+    if args.mc_config:
+        cred = extract_mc_alias(_read_json(args.mc_config), args.mc_alias)
+        _deep_merge(payload, {args.mc_service or args.mc_alias: cred})
+    for pair in args.set or []:
+        lhs, sep, raw = pair.partition("=")
+        service, dot, field = lhs.partition(".")
+        if not sep or not dot or not service or not field:
+            raise CliError(f"--set expects service.field=value, got: {pair!r}")
+        payload.setdefault(service, {})[field] = _parse_value(raw)
+    if not payload:
+        raise CliError(
+            "empty vault payload — pass --file, --from-mcp-json, --mc-config or --set"
+        )
+    return payload
+
+
+async def cmd_vault_init(args, col) -> int:
+    """Collect real credentials → encrypt with the registry password → store
+    the ciphertext blob in Mongo. Rotation = run this again (fresh salt, blob
+    atomically replaced; the old password stops working immediately)."""
+    payload = _load_seed_payload(args)
+    doc = mcp_vault.encrypt_payload(payload, _vault_password(args))
+    await col.update_one({"_id": mcp_vault.VAULT_ID}, {"$set": doc}, upsert=True)
+    await _touch_meta_updated(col)
+    print(
+        f"vault initialized: {len(payload)} services ({', '.join(sorted(payload))}) "
+        "— ciphertext stored in Mongo, plaintext nowhere"
+    )
+    return 0
+
+
+async def _vault_doc(col) -> dict[str, Any]:
+    doc = await col.find_one({"_id": mcp_vault.VAULT_ID})
+    if not doc:
+        raise CliError("vault not initialized — run: mhb-mcp vault init")
+    return doc
+
+
+async def cmd_vault_unlock(args, col) -> int:
+    """Decrypt the vault locally and print the credentials as JSON — the
+    verification path for 'one password unlocks every MCP'."""
+    try:
+        payload = mcp_vault.decrypt_payload(await _vault_doc(col), _vault_password(args))
+    except mcp_vault.VaultError as e:
+        raise CliError(str(e)) from e
+    print(json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True))
+    return 0
+
+
+async def cmd_vault_show(args, col) -> int:
+    """Vault metadata — KDF/cipher/services/updated_at. Never plaintext."""
+    doc = await _vault_doc(col)
+    view = mcp_vault.public_view(doc)
+    view["blob"] = f"<{len(view['blob'])} chars of fernet ciphertext>"
+    print(json.dumps(view, indent=2, ensure_ascii=False, sort_keys=True))
     return 0
 
 
@@ -337,20 +687,15 @@ async def cmd_verify(args, col) -> int:
 
 
 async def cmd_export(args, col) -> int:
-    """Dump the registry back to a metahumotonic/mcp-registry@1 manifest
-    (refreshes the static-site fallback file)."""
+    """Dump the registry back to a metahumotonic/mcp-registry@1 manifest —
+    the same enriched shape the live API serves (JSON-LD, capabilities, auth,
+    vault spec). Refreshes the static-site fallback /mcp/manifest.json."""
     meta = await col.find_one({"_id": META_ID}) or {}
     servers = [
         {k: v for k, v in _public(d).items() if k not in _EXPORT_DROP}
         for d in await _all_servers(col)
     ]
-    manifest = {
-        "schema": meta.get("schema", SCHEMA),
-        "updated": _today(),
-        "site": meta.get("site", SITE),
-        "notes": meta.get("notes", []),
-        "servers": servers,
-    }
+    manifest = build_manifest(servers, meta, updated=_today())
     text = json.dumps(manifest, indent=2, default=str, ensure_ascii=False) + "\n"
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:
@@ -396,14 +741,38 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("name")
     p.set_defaults(func=cmd_remove)
 
+    p = sub.add_parser("import", help="bulk-import a standard MCP client config (.mcp.json)")
+    p.add_argument("mcp_json", help="path to a .mcp.json with an mcpServers object")
+    p.set_defaults(func=cmd_import)
+
     p = sub.add_parser("verify", help="probe reachability and record status/verified_at")
     p.add_argument("name", nargs="?", help="one server (default: all)")
     p.add_argument("--timeout", type=float, default=5.0, help="per-probe timeout seconds")
     p.set_defaults(func=cmd_verify)
 
-    p = sub.add_parser("export", help="export Mongo back to a manifest.json")
+    p = sub.add_parser("export", help="export Mongo back to a manifest.json (enriched)")
     p.add_argument("--out", help="write to file instead of stdout")
     p.set_defaults(func=cmd_export)
+
+    p = sub.add_parser("vault", help="one-password credential vault (init/unlock/show)")
+    vault_sub = p.add_subparsers(dest="vault_command", required=True)
+
+    pv = vault_sub.add_parser("init", help="collect credentials → encrypt → store ciphertext in Mongo")
+    pv.add_argument("--password", default="", help="registry password (default: MHB_VAULT_PASSWORD env)")
+    pv.add_argument("--file", help="seed JSON {service: creds} (merged first)")
+    pv.add_argument("--from-mcp-json", help="extract credentials from a standard .mcp.json")
+    pv.add_argument("--mc-config", help="mc (MinIO client) config.json to extract an alias from")
+    pv.add_argument("--mc-alias", default="bhgman", help="alias inside --mc-config (default: bhgman)")
+    pv.add_argument("--mc-service", default="", help="registry service name for the mc alias (default: the alias itself)")
+    pv.add_argument("--set", action="append", metavar="SERVICE.FIELD=VALUE", help="deep-set one credential field; repeatable")
+    pv.set_defaults(func=cmd_vault_init)
+
+    pv = vault_sub.add_parser("unlock", help="decrypt the vault locally and print credentials (JSON)")
+    pv.add_argument("--password", default="", help="registry password (default: MHB_VAULT_PASSWORD env)")
+    pv.set_defaults(func=cmd_vault_unlock)
+
+    pv = vault_sub.add_parser("show", help="vault metadata (KDF/cipher/services — never plaintext)")
+    pv.set_defaults(func=cmd_vault_show)
 
     return parser
 

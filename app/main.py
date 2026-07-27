@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 
 from . import __version__
 from .config import settings
@@ -70,5 +71,13 @@ app.include_router(feedback.router)
 app.include_router(feedback.internal_router)
 app.include_router(kg_proxy.router)
 app.include_router(mcp_registry.router)
+
+
+@app.get("/.well-known/mcp-servers.json", include_in_schema=False)
+async def well_known_mcp_servers() -> RedirectResponse:
+    """Well-known MCP discovery alias (H-01) — agents probing the standard
+    path land on the canonical live manifest."""
+    return RedirectResponse(url="/api/mcp/manifest", status_code=302)
+
 
 instrument(app)  # Prometheus /metrics (PROM16 C6)

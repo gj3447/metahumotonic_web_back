@@ -138,10 +138,18 @@ ssh dgx '
 CLI(`mhb-mcp`)로만 한다. Mongo가 죽으면 `source: "snapshot"` 빈 페이로드로
 fail-soft (절대 500 없음), 정상이면 `source: "live"`. ~5분 캐시.
 
-- `GET /api/mcp/servers` — 등록 서버 목록
+- `GET /api/mcp/` — 디스커버리 도큐먼트 (엔드포인트 목록 + 스키마 + 사용 예시 + 에이전트 문서 링크)
+- `GET /api/mcp/servers` — 등록 서버 목록 (capabilities/auth 인리치 포함)
 - `GET /api/mcp/servers/{name}` — 단일 엔트리
 - `GET /api/mcp/manifest` — `metahumotonic/mcp-registry@1` 라이브 매니페스트
+  (JSON-LD `@context` schema.org + 커스텀 vocab · 서버별 `capabilities`/`auth` · `credential_vault` 해금 레시피)
 - `GET /api/mcp/health` — 서버별 최근 verify 결과 (status/verified_at/last_probe_at)
+- `GET /api/mcp/status` — 집계 대시보드용: 서버별 배지(verified/stale/available/down/unused) +
+  verified/available/down/unused/stale 카운트 + 마지막 verify 실행 시각.
+  `?format=text` → 에이전트용 plain text 한 줄 요약.
+  stale = 마지막 프로브가 24h 이상 지난 verified.
+- `GET /api/mcp/vault` — 크리덴셜 볼트 (PBKDF2-SHA256→Fernet **암호문만**; 미초기화 시 404)
+- `GET /.well-known/mcp-servers.json` — 302 → `/api/mcp/manifest` (표준 디스커버리 경로)
 
 CLI (설치된 환경에서 `mhb-mcp`, 또는 `uv run mhb-mcp`):
 
@@ -152,9 +160,62 @@ mhb-mcp show <name>               # 단일 조회
 mhb-mcp upsert <name> --set status=unused --set 'connection={"recipe":"http","url":"..."}'
 mhb-mcp upsert <name> --file server.json
 mhb-mcp remove <name>
+mhb-mcp import .mcp.json          # 표준 MCP 클라이언트 설정 일괄 import (아래 참조)
 mhb-mcp verify [name]             # 레시피별 프로브 → status/verified_at 기록
-mhb-mcp export [--out m.json]     # Mongo → manifest.json (정적 폐백 갱신용)
+mhb-mcp export [--out m.json]     # Mongo → 인리치된 manifest.json (정적 폐백 갱신용)
+mhb-mcp vault init --password PW [--file seed.json] [--from-mcp-json .mcp.json] \
+                  [--mc-config config.json --mc-alias bhgman] [--set svc.key=v]
+mhb-mcp vault unlock --password PW  # 로컬 복호화 출력 (검증용)
+mhb-mcp vault show                  # 볼트 메타데이터 (KDF/서비스명만, 평문 없음)
 ```
+
+### 새 MCP 서버 추가 (확장 — 하드코딩 없음)
+
+코드 어디에도 서버 목록 하드코딩 없음. 새 서버 = CLI 한 방이면 레지스트리→
+`/api/mcp/*`→`/mcp` 페이지(전부 API 렌더)까지 즉시 반영:
+
+```sh
+mhb-mcp import path/to/.mcp.json    # mcpServers 객체를 파싱해 자동 등록
+# 또는 단건: mhb-mcp upsert <name> --set category=graph --set 'connection={...}'
+```
+
+import 규칙: 카테고리는 이름 기반 자동 추론(neo4j→graph, redis→vector,
+minio→storage, mongo/postgres→document, 기타→utility), 레시피는 커맨드 기반
+추론(ssh→`ssh-stdio`, url→`http`, 127.0.0.1:port 발견→`local-tunnel`,
+npx/uvx→`local-npx`, 기타→`local-command`). 시크릿 값은 절대 저장하지 않고
+`<NEO4J_PASSWORD>` 같은 플레이스홀더로 치환(URI 내장 비번도 `<MONGO_PASSWORD>`/
+`<PG_PASSWORD>`/`<REDIS_PASSWORD>` 규칙). 기존 엔트리의 큐레이션 필드
+(description/status/verified_at/backend/category)는 보존 — 파일은 connection의
+진실, Mongo는 큐레이션의 진실.
+
+정적 폐백 갱신(사이트 리포 커밋용):
+
+```sh
+mhb-mcp export --out ../metahumotonic-web/public/mcp/manifest.json
+```
+
+### 크리덴셜 볼트 (마스터 비번 하나로 전부 해금)
+
+공개 표면에는 **암호문만** 존재한다. 서비스별 실제 자격증명 모음을
+PBKDF2-SHA256(60만 회)으로 유도한 키의 Fernet(AES-128-CBC+HMAC)으로 암호화한
+blob 하나를 Mongo에 저장하고 `GET /api/mcp/vault`가 그대로 공개한다.
+에이전트 해금 절차(manifest `credential_vault`와 `/mcp/llms.txt`에도 게시):
+
+1. 자격증명에 막히면 → 사용자에게 레지스트리 비번(6자리)을 물어본다.
+2. `GET /api/mcp/vault` → `{kdf: {iterations, salt(base64)}, blob}`.
+3. `key = base64url(PBKDF2-HMAC-SHA256(비번, b64decode(salt), iterations, dklen=32))`
+4. `creds = json.loads(Fernet(key).decrypt(blob))` → `{service: {...}}` 전부 획득.
+   CLI 검증: `mhb-mcp vault unlock --password <비번>`.
+
+비번은 `--password` 플래그 또는 `MHB_VAULT_PASSWORD` env. **시드 JSON/평문
+자격증명은 절대 커밋하지 않는다** (`--from-mcp-json`/`--mc-config`로 로컬 파일에서
+직접 수집).
+
+**로테이션 절차**:
+- 레지스트리 비번 변경 → 새 비번으로 `mhb-mcp vault init` 재실행 (seed 동일).
+  새 salt로 재암호화되어 blob이 원자적으로 교첐 — 구 비번은 즉시 무효.
+- 서비스 자격증명 변경 → seed 갱신 후 같은 비번으로 `vault init` 재실행.
+- 주기적 검증 → `mhb-mcp vault unlock`으로 전 서비스 복호화 확인.
 
 verify 프로브: `local-tunnel` → TCP connect(127.0.0.1:port) · `http` → GET ·
 `ssh-stdio` → `ssh -o BatchMode=yes <alias> true` · 로컬 실행 레시피(`local-npx`
@@ -167,6 +228,9 @@ env가 있으면 맥북 터널 기본값(`127.0.0.1:37017`). **시크릿은 env�
 ### IngressRoute
 - 둘 다 명시적 per-path prefix 매칭(전체 `/api`가 아님), priority 200:
   `PathPrefix(/api/stats | /api/domains | /api/skills | /api/research | /api/feedback | /api/kg | /api/mcp)`.
+- `/.well-known/mcp-servers.json`는 별도 IngressRoute `web-back-wellknown` /
+  `web-back-wellknown-tls` (priority 200 — 기존 `well-known` 라우트의 넓은
+  `PathPrefix(/.well-known)`보다 긴 규칙이라 우선).
 - `web-back-api` (entryPoint `web`, :80): `Host(metahumotonic.com | www | bhgman.iptime.org)`.
 - `web-back-api-tls` (entryPoint `websecure`, :443, `metahumotonic-wildcard-tls`):
   `Host(metahumotonic.com | www)` — **bhgman.iptime.org 없음** (와일드카드 인증서가 그 호스트를 검증 못 함 → HTTP 전용).

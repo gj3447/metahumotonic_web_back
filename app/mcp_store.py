@@ -32,6 +32,7 @@ from .config import settings
 log = logging.getLogger("mhb.mcp_store")
 
 META_ID = "manifest_meta"
+VAULT_ID = "credential_vault"
 
 
 class McpRegistryUnavailable(RuntimeError):
@@ -144,6 +145,22 @@ class McpRegistryStore:
             ).sort("name", 1)
             self._breaker.reset()
             return [doc async for doc in cursor]
+        except Exception as e:  # pragma: no cover - infra dependent
+            self._breaker.trip()
+            self._collection = None
+            raise McpRegistryUnavailable("mongo registry read failed") from e
+
+    async def vault(self) -> dict[str, Any] | None:
+        """The credential vault document (ciphertext blob + KDF params only).
+
+        Returns None when the store is live but the vault was never
+        initialized; raises :class:`McpRegistryUnavailable` on outage."""
+        collection = await self._col_or_raise()
+        try:
+            self._breaker.reset()
+            return await collection.find_one(
+                {"_id": VAULT_ID}, {"_id": 0, "kind": 0}
+            )
         except Exception as e:  # pragma: no cover - infra dependent
             self._breaker.trip()
             self._collection = None
