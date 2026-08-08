@@ -9,6 +9,7 @@ correct at scale yet runs with zero infra in CI / offline.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import time
@@ -18,6 +19,10 @@ from collections import defaultdict, deque
 from .breaker import Breaker
 
 log = logging.getLogger("mhb.ratelimit")
+
+
+class RateLimitUnavailable(RuntimeError):
+    """Raised when a fail-closed distributed limiter cannot use Redis."""
 
 
 class SlidingWindowRateLimiter:
@@ -49,10 +54,19 @@ class SlidingWindowRateLimiter:
 class RateLimiter:
     """Async limiter: Redis sliding-window backend, in-process fallback."""
 
-    def __init__(self, max_events: int, window_seconds: int, redis_url: str = "") -> None:
+    def __init__(
+        self,
+        max_events: int,
+        window_seconds: int,
+        redis_url: str = "",
+        *,
+        fail_closed: bool = False,
+    ) -> None:
         self._mem = SlidingWindowRateLimiter(max_events, window_seconds)
         self.redis_url = redis_url
+        self.fail_closed = fail_closed
         self._redis = None
+        self._redis_lock = asyncio.Lock()
         self._breaker = Breaker()
 
     # max_events / window_seconds proxy the in-process engine so there is a
@@ -78,31 +92,57 @@ class RateLimiter:
             return None
         if self._redis is not None:
             return self._redis
-        try:
-            import redis.asyncio as aioredis
+        async with self._redis_lock:
+            if self._redis is not None:
+                return self._redis
+            client = None
+            try:
+                import redis.asyncio as aioredis
 
-            client = aioredis.from_url(self.redis_url, decode_responses=True)
-            await client.ping()
-            self._redis = client
-            return client
-        except Exception as e:  # pragma: no cover - infra dependent
-            self._breaker.trip()
-            log.warning("redis rate-limit unavailable, using in-process: %s", e)
-            return None
+                client = aioredis.from_url(self.redis_url, decode_responses=True)
+                await client.ping()
+                self._redis = client
+                return client
+            except Exception as e:  # noqa: BLE001  # pragma: no cover - infra boundary
+                await self._discard_redis(client)
+                log.warning("redis rate-limit unavailable, using in-process: %s", e)
+                return None
 
     async def allow(self, key: str) -> bool:
         client = await self._get_redis()
         if client is None:
+            if self.fail_closed:
+                raise RateLimitUnavailable("distributed rate limiter is unavailable")
             return self._mem.allow(key)
         try:
             result = await self._allow_redis(client, key)
             self._breaker.reset()  # healthy again → re-share across replicas
             return result
         except Exception as e:  # pragma: no cover - infra dependent
-            self._breaker.trip()
-            self._redis = None
+            await self._discard_redis(client)
             log.warning("redis rate-limit error, falling back in-process: %s", e)
+            if self.fail_closed:
+                raise RateLimitUnavailable(
+                    "distributed rate limiter is unavailable"
+                ) from e
             return self._mem.allow(key)
+
+    async def ready(self) -> bool:
+        """Return whether the configured backend can enforce this limiter."""
+
+        if not self.redis_url:
+            return not self.fail_closed
+        client = await self._get_redis()
+        if client is None:
+            return False
+        try:
+            await client.ping()
+        except Exception as exc:  # noqa: BLE001 - dependency health boundary
+            await self._discard_redis(client)
+            log.warning("redis rate-limit readiness failed: %s", exc)
+            return False
+        self._breaker.reset()
+        return True
 
     async def _allow_redis(self, client, key: str) -> bool:
         now_ms = time.time() * 1000.0
@@ -127,7 +167,19 @@ class RateLimiter:
     def reset(self) -> None:
         self._mem.reset()
 
+    async def _discard_redis(self, client) -> None:
+        self._breaker.trip()
+        if self._redis is client:
+            self._redis = None
+        if client is None:
+            return
+        try:
+            await client.aclose()
+        except Exception as close_exc:  # noqa: BLE001 - cleanup boundary
+            log.debug("failed to close broken Redis client: %s", close_exc)
+
     async def close(self) -> None:
         if self._redis is not None:
-            await self._redis.aclose()
+            client = self._redis
             self._redis = None
+            await client.aclose()

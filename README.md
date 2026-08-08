@@ -32,8 +32,25 @@
 | DELETE | `/internal/feedback/{id}` | 내부 영구삭제 — 연락처 포함 레코드 제거 |
 | POST | `/api/kg/read` | **외부용 raw Cypher (읽기 전용)** — `X-API-Key` 게이트, Neo4j READ 트랜잭션(쓰기 서버 거부) |
 | POST | `/api/kg/write` | **외부용 raw Cypher (쓰기)** — write 키만, WRITE 트랜잭션 |
+| GET/POST | `/api/wiki/v1/*` | 공개 Community Wiki — 페이지·리비전·이력·diff·검토 제출 |
 
 모든 `/api/research/*`는 캐시(~5분) + fail-soft (KG 다운 시 빈 리스트/스냅샷, 절대 500 안 냄).
+
+## Community Wiki (Web · REST · CLI · MCP)
+
+`/wiki/community/`의 브라우저 UI, `mhb-wiki` CLI, `mhb-wiki-mcp` stdio
+서버는 모두 같은 `/api/wiki/v1` application boundary를 호출한다. 별도 CLI 전용
+DB 쓰기나 MCP 전용 KG 쓰기는 없다. 페이지 변경은 immutable event/revision으로
+기록되고, 편집은 `expected_head_revision_id`를 요구하는 compare-and-swap 방식이다.
+재시도 가능한 mutation에는 `Idempotency-Key`를 사용한다.
+
+이 표면은 기존 `/wiki/{axioms,worldview,apostles}` 정전 문서와 분리된
+**community authority**다. `submit-review`는 검토 요청 event/outbox만 만들며
+Neo4j 정전에는 쓰지 않는다. provenance와 명시적 적용 계획이 결합되기 전에는
+자동 KG publishing이 비활성이다.
+
+REST endpoint, 요청 계약, CLI/MCP 사용법, 운영 환경변수와 현재 배포 상태는
+[`docs/WIKI.md`](docs/WIKI.md)를 따른다.
 
 ### KG Cypher 프록시 (외부 read/write 분리)
 
@@ -237,7 +254,7 @@ docker compose up -d --build   # :8000
 이 백엔드는 누구나 사용·연구·수정할 수 있도록 공개되어 있습니다.
 
 - 저장소: [github.com/gj3447/metahumotonic_web_back](https://github.com/gj3447/metahumotonic_web_back)
-- 현재 공개 릴리스의 Corresponding Source: [`v0.8.0-public.1`](https://github.com/gj3447/metahumotonic_web_back/tree/v0.8.0-public.1)
+- 위키 포함 공개 릴리스의 Corresponding Source: [`v1.0.0-public.1`](https://github.com/gj3447/metahumotonic_web_back/tree/v1.0.0-public.1)
 - 라이선스: [GNU AGPL v3.0 only](LICENSE)
 - 벤더 코드 및 출처: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 

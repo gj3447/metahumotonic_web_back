@@ -11,7 +11,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="MHB_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="MHB_", env_file=".env", extra="ignore"
+    )
 
     # --- Neo4j (read-only KG queries) ---
     # bhgman KG: bolt://100.64.0.3:7687 (Tailscale) — see reference_neo4j_gds_vector_available
@@ -69,9 +71,32 @@ class Settings(BaseSettings):
     # empty → in-process limiter (survives single-replica but resets on restart)
     redis_url: str = ""
 
+    # --- Public community wiki ---
+    # Writes are fail-closed.  Enabling them requires PostgreSQL, a shared
+    # session-signing secret, and Redis to be healthy during application
+    # startup.  This prevents either replica from silently accepting ephemeral
+    # edits or issuing tokens that the other replica cannot verify.
+    wiki_public_writes: bool = False
+    wiki_database_url: str = ""
+    wiki_session_secret: str = ""
+    # Root-only operator credential for the direct/LAN moderation plane. It is
+    # never granted to browser, CLI, or MCP sessions and is not publicly routed.
+    wiki_moderation_admin_key: str = ""
+    wiki_session_ttl_seconds: int = 43_200
+    wiki_session_cookie_secure: bool = True
+    wiki_require_redis: bool = True
+    wiki_session_max_per_window: int = 10
+    wiki_session_window_seconds: int = 600
+    wiki_mutation_max_per_window: int = 30
+    wiki_mutation_window_seconds: int = 60
+    wiki_read_max_per_window: int = 180
+    wiki_read_window_seconds: int = 60
+    wiki_max_body_bytes: int = 524_288
+    wiki_max_offset: int = 10_000
+
     # --- Observability (PROM16 C6) ---
-    metrics_enabled: bool = True       # expose Prometheus /metrics
-    log_json: bool = True              # structured JSON logs (structlog)
+    metrics_enabled: bool = True  # expose Prometheus /metrics
+    log_json: bool = True  # structured JSON logs (structlog)
 
     # --- Turnstile bot defense (PROM16 A3S3/A3S4, OQ3) ---
     # empty → disabled (current behavior). Set the Cloudflare Turnstile secret

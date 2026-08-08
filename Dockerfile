@@ -2,11 +2,14 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install from pyproject so runtime deps never drift from the hardcoded list
-# (a stale list silently shipped an image without `redis`, v0.3.0).
-COPY pyproject.toml README.md LICENSE NOTICE THIRD_PARTY_NOTICES.md ./
+# requirements.lock is generated from uv.lock and pins every runtime wheel by
+# version and SHA-256.  The service runs directly from the copied source tree,
+# so the image never performs a second, range-resolving project installation.
+COPY requirements.lock README.md LICENSE NOTICE THIRD_PARTY_NOTICES.md ./
+RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+
 COPY app ./app
-RUN pip install --no-cache-dir .
+COPY migrations ./migrations
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
