@@ -253,7 +253,12 @@ canary and schema-gate receipts.
 
 Canary ports are Docker-assigned loopback ports. Canary databases have a
 commit-and-nonce `RESERVED` receipt plus an exact PostgreSQL COMMENT and owner;
-only the data-01 helper may drop them. A SIGKILL or three failed EXIT cleanup
+only the data-01 helper may drop them. Both the normal success path and EXIT
+path call the same cleanup coordinator. It makes at most five exact attempts
+per release process with
+1, 2, 4, and 8 second waits, covering the observed application disconnect
+grace while keeping stdout/stderr diagnostics. Once exhausted, the EXIT trap
+returns nonzero immediately without starting a second retry cycle. A SIGKILL or five failed cleanup
 attempts may leave both the operation lock and receipt intentionally in place.
 Every new release validates the root-only receipt directory and fails closed if
 any exact receipt is not `DROPPED`; it never broadly deletes leftovers. Recover

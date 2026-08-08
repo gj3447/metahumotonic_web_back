@@ -235,7 +235,10 @@ full release commit plus a random rollout nonce. Canary and deployment receipts
 are immutable per nonce; `deployment-current.env` advances atomically only
 after DONE. Cleanup requires the exact receipt, ownership labels, and workdir
 device/inode marker, and same-commit redeploys never overwrite earlier evidence.
-If automatic database cleanup exhausts its retries, the local temporary marker
+Normal success and EXIT cleanup share one receipt-bound coordinator with one
+five-attempt budget and bounded 1/2/4/8-second backoff per process. Its EXIT
+re-entry is non-retrying after exhaustion. If automatic database cleanup
+exhausts those retries, the local temporary marker
 may disappear but the root-only data-01 nonce receipt remains the durable
 locator. A later release detects every non-`DROPPED` receipt and refuses to
 continue until `--recover-canary-db COMMIT40 NONCE32` completes exact recovery.

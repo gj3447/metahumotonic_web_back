@@ -148,18 +148,31 @@ print(match.group(1))
 release_tmp="$(mktemp -d)"
 canary_db_cleanup_marker="$release_tmp/canary-db-cleanup-required"
 canary_database="metahumotonic_wiki_canary_${commit:0:12}_${operation_id:0:12}"
+canary_db_cleanup_exhausted=false
 cleanup_canary_database() {
-  local attempt
+  local attempt cleanup_status delay
+  local -a cleanup_backoff=(1 2 4 8)
   [[ -f "$canary_db_cleanup_marker" ]] || return 0
-  for attempt in 1 2 3; do
+  [[ "$canary_db_cleanup_exhausted" == false ]] || return 1
+  for attempt in 1 2 3 4 5; do
     if ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" drop \
       postgresql "$canary_database" mhb_wiki "" "" "$commit" "$operation_id"; then
       rm -f -- "$canary_db_cleanup_marker"
       return 0
+    else
+      cleanup_status=$?
     fi
-    printf 'WARN exact canary DB cleanup attempt %s failed\n' "$attempt" >&2
-    [[ "$attempt" == 3 ]] || sleep 1
+    if [[ "$attempt" == 5 ]]; then
+      printf 'WARN exact canary DB cleanup attempt %s failed (exit=%s); durable receipt remains for %s:%s\n' \
+        "$attempt" "$cleanup_status" "$commit" "$operation_id" >&2
+    else
+      delay="${cleanup_backoff[$((attempt - 1))]}"
+      printf 'WARN exact canary DB cleanup attempt %s failed (exit=%s); retrying in %ss\n' \
+        "$attempt" "$cleanup_status" "$delay" >&2
+      sleep "$delay"
+    fi
   done
+  canary_db_cleanup_exhausted=true
   return 1
 }
 cleanup_local() {
@@ -492,9 +505,7 @@ then
   fail "rollout preparation failed before active state publication"
 fi
 
-ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" drop \
-  postgresql "$canary_database" mhb_wiki "" "" "$commit" "$operation_id"
-rm -f -- "$canary_db_cleanup_marker"
+cleanup_canary_database || fail "rollout preparation succeeded but exact canary DB cleanup did not complete"
 
 ssh -o BatchMode=yes "$RUNTIME_HOST" sudo -n bash "$remote_rollout_helper" deploy "$commit"
 

@@ -563,13 +563,19 @@ def test_canary_db_cleanup_is_exact_receipt_and_owner_bound():
     cleanup_function = release[
         release.index("cleanup_canary_database()") : release.index("cleanup_local()")
     ]
-    assert "for attempt in 1 2 3" in cleanup_function
+    assert "for attempt in 1 2 3 4 5" in cleanup_function
+    assert "cleanup_backoff=(1 2 4 8)" in cleanup_function
     assert 'if ssh -o BatchMode=yes "$DATA_HOST"' in cleanup_function
     assert "cleanup attempt %s failed" in cleanup_function
     assert "return 1" in cleanup_function
     assert cleanup_function.index(drop) < cleanup_function.index(clear)
     assert release.index(marker) < release.index(create)
-    assert release.index(create) < release.rindex(drop) < release.rindex(clear)
+    success_cleanup = release[
+        release.index("\nREMOTE\nthen") : release.index('"$remote_rollout_helper" deploy')
+    ]
+    assert "cleanup_canary_database || fail" in success_cleanup
+    assert 'ssh -o BatchMode=yes "$DATA_HOST"' not in success_cleanup
+    assert clear not in success_cleanup
     assert "canary_db_created" not in release
 
 
@@ -586,6 +592,8 @@ canary_db_cleanup_marker="$MARKER"
 canary_database=metahumotonic_wiki_canary_deadbeefdead_deadbeefdead
 commit={'d' * 40}
 operation_id={'e' * 32}
+canary_db_cleanup_exhausted=false
+sleep() {{ :; }}
 {cleanup_function}
 """
     marker.write_text("required\n", encoding="utf-8")
@@ -609,6 +617,26 @@ operation_id={'e' * 32}
     assert succeeded.returncode == 0, succeeded.stderr
     assert not marker.exists()
 
+    marker.write_text("required\n", encoding="utf-8")
+    sleep_log = tmp_path / "sleep.log"
+    backoff = subprocess.run(
+        [
+            "bash", "-c", base + """
+attempts=0
+ssh() { attempts=$((attempts + 1)); [[ "$attempts" == 5 ]]; }
+sleep() { printf '%s\\n' "$1" >>"$SLEEP_LOG"; }
+cleanup_canary_database
+""",
+        ],
+        env={**os.environ, "MARKER": str(marker), "SLEEP_LOG": str(sleep_log)},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert backoff.returncode == 0, backoff.stderr
+    assert sleep_log.read_text().splitlines() == ["1", "2", "4", "8"]
+    assert not marker.exists()
+
 
 def test_release_exit_failure_leaves_durable_locator_and_next_run_fails_closed(tmp_path):
     release = (ROOT / "ops" / "release-web-back-vm100.sh").read_text()
@@ -627,9 +655,11 @@ data_canary_helper=unused
 canary_database=metahumotonic_wiki_canary_deadbeefdead_deadbeefdead
 commit={'d' * 40}
 operation_id={'e' * 32}
+canary_db_cleanup_exhausted=false
 release_tmp="$RELEASE_TMP"
 canary_db_cleanup_marker="$release_tmp/canary-db-cleanup-required"
 ssh() {{ return 17; }}
+sleep() {{ :; }}
 remove_rollout_helper() {{ :; }}
 remove_canary_helpers() {{ :; }}
 release_operation_locks() {{ :; }}
@@ -647,13 +677,66 @@ cleanup_local
     assert result.returncode != 0
     assert not release_tmp.exists()
     assert durable_receipt.exists()
-    assert "for attempt in 1 2 3" in script
+    assert "for attempt in 1 2 3 4 5" in script
     assert '"$data_canary_helper" pending' in release
     assert "non-DROPPED data-01 canary receipt blocks release" in release
     assert "--recover-canary-db COMMIT40 NONCE32" in release
     assert 'if [[ "$mode" == pending ]]' in helper
     assert '[[ "$found_status" == DROPPED ]] || printf' in helper
     assert 'path.name==f"{commit}-{nonce}.json"' in helper
+
+
+def test_explicit_cleanup_failure_and_exit_trap_share_five_attempt_budget(tmp_path):
+    release = (ROOT / "ops" / "release-web-back-vm100.sh").read_text()
+    cleanup_functions = release[
+        release.index("cleanup_canary_database()") : release.index("trap cleanup_local EXIT")
+    ]
+    release_tmp = tmp_path / "release-tmp"
+    release_tmp.mkdir()
+    marker = release_tmp / "canary-db-cleanup-required"
+    marker.write_text("required\n")
+    durable_receipt = tmp_path / "durable-data-receipt.json"
+    durable_receipt.write_text("RESTORED\n")
+    ssh_log = tmp_path / "ssh.log"
+    sleep_log = tmp_path / "sleep.log"
+    script = f"""set +e
+DATA_HOST=unused
+data_canary_helper=unused
+canary_database=metahumotonic_wiki_canary_deadbeefdead_deadbeefdead
+commit={'d' * 40}
+operation_id={'e' * 32}
+release_tmp="$RELEASE_TMP"
+canary_db_cleanup_marker="$release_tmp/canary-db-cleanup-required"
+canary_db_cleanup_exhausted=false
+ssh() {{ printf 'attempt\\n' >>"$SSH_LOG"; return 17; }}
+sleep() {{ printf '%s\\n' "$1" >>"$SLEEP_LOG"; }}
+remove_rollout_helper() {{ :; }}
+remove_canary_helpers() {{ :; }}
+release_operation_locks() {{ :; }}
+fail() {{ exit 1; }}
+{cleanup_functions}
+trap cleanup_local EXIT
+cleanup_canary_database || fail "explicit cleanup exhausted"
+"""
+    result = subprocess.run(
+        ["bash", "-c", script],
+        env={
+            **os.environ,
+            "RELEASE_TMP": str(release_tmp),
+            "SSH_LOG": str(ssh_log),
+            "SLEEP_LOG": str(sleep_log),
+        },
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert ssh_log.read_text().splitlines() == ["attempt"] * 5
+    assert sleep_log.read_text().splitlines() == ["1", "2", "4", "8"]
+    assert not release_tmp.exists()
+    assert durable_receipt.exists()
+    assert '[[ "$canary_db_cleanup_exhausted" == false ]] || return 1' in release
+    assert "canary_db_cleanup_exhausted=true" in release
 
 
 def test_canary_recovery_refuses_corrupt_or_symlink_receipt_before_docker(tmp_path):
