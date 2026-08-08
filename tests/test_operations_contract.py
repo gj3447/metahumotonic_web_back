@@ -303,6 +303,25 @@ def test_wiki_release_is_two_phase_and_recovery_gated():
     assert "MHB_WIKI_MODERATION_ADMIN_KEY" in release
 
 
+def test_release_remote_shell_heredocs_parse():
+    release = (ROOT / "ops" / "release-web-back-vm100.sh").read_text(
+        encoding="utf-8"
+    )
+    bodies = []
+    lines = release.splitlines()
+    for index, line in enumerate(lines):
+        if "<<'REMOTE'" not in line:
+            continue
+        end = lines.index("REMOTE", index + 1)
+        bodies.append("\n".join(lines[index + 1 : end]) + "\n")
+    assert len(bodies) == 3
+    for body in bodies:
+        result = subprocess.run(
+            ["bash", "-n"], input=body, text=True, capture_output=True, check=False
+        )
+        assert result.returncode == 0, result.stderr
+
+
 def test_rollout_finalize_is_receipt_first_and_retryable():
     helper = (ROOT / "ops" / "remote" / "manage-wiki-rollout.sh").read_text(
         encoding="utf-8"
@@ -537,10 +556,56 @@ def test_canary_db_cleanup_is_exact_receipt_and_owner_bound():
     create = '"$data_canary_helper" create'
     drop = '"$data_canary_helper" drop'
     clear = 'rm -f -- "$canary_db_cleanup_marker"'
-    assert 'if [[ -f "$canary_db_cleanup_marker" ]]' in release
+    assert '[[ -f "$canary_db_cleanup_marker" ]] || return 0' in release
+    assert "cleanup_canary_database || status=1" in release
+    assert 'if ! ssh -o BatchMode=yes "$RUNTIME_HOST" sudo -n bash -s --' in release
+    assert 'cleanup_canary_database || fail "rollout preparation failed' in release
+    cleanup_function = release[
+        release.index("cleanup_canary_database()") : release.index("cleanup_local()")
+    ]
+    assert 'if ! ssh -o BatchMode=yes "$DATA_HOST"' in cleanup_function
+    assert "return 1" in cleanup_function
+    assert cleanup_function.index(drop) < cleanup_function.index(clear)
     assert release.index(marker) < release.index(create)
-    assert release.index(create) < release.rindex(drop) < release.index(clear)
+    assert release.index(create) < release.rindex(drop) < release.rindex(clear)
     assert "canary_db_created" not in release
+
+
+def test_canary_db_cleanup_marker_survives_failed_exact_drop(tmp_path):
+    release = (ROOT / "ops" / "release-web-back-vm100.sh").read_text()
+    cleanup_function = release[
+        release.index("cleanup_canary_database()") : release.index("cleanup_local()")
+    ]
+    marker = tmp_path / "canary-db-cleanup-required"
+    base = f"""set -Eeuo pipefail
+DATA_HOST=unused
+data_canary_helper=unused
+canary_db_cleanup_marker="$MARKER"
+canary_database=metahumotonic_wiki_canary_deadbeefdead_deadbeefdead
+commit={'d' * 40}
+operation_id={'e' * 32}
+{cleanup_function}
+"""
+    marker.write_text("required\n", encoding="utf-8")
+    failed = subprocess.run(
+        ["bash", "-c", base + "ssh() { return 17; }\ncleanup_canary_database\n"],
+        env={**os.environ, "MARKER": str(marker)},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert failed.returncode != 0
+    assert marker.is_file()
+
+    succeeded = subprocess.run(
+        ["bash", "-c", base + "ssh() { return 0; }\ncleanup_canary_database\n"],
+        env={**os.environ, "MARKER": str(marker)},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert succeeded.returncode == 0, succeeded.stderr
+    assert not marker.exists()
 
 
 def test_final_checker_reads_data_host_receipt_dump_and_key():

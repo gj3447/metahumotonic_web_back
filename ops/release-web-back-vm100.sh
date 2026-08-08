@@ -120,14 +120,19 @@ print(match.group(1))
 release_tmp="$(mktemp -d)"
 canary_db_cleanup_marker="$release_tmp/canary-db-cleanup-required"
 canary_database="metahumotonic_wiki_canary_${commit:0:12}_${operation_id:0:12}"
+cleanup_canary_database() {
+  [[ -f "$canary_db_cleanup_marker" ]] || return 0
+  if ! ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" drop \
+    postgresql "$canary_database" mhb_wiki "" "" "$commit" "$operation_id"; then
+    return 1
+  fi
+  rm -f -- "$canary_db_cleanup_marker"
+}
 cleanup_local() {
   local status=$?
   trap - EXIT
   set +e
-  if [[ -f "$canary_db_cleanup_marker" ]]; then
-    ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" drop \
-      postgresql "$canary_database" mhb_wiki "" "" "$commit" "$operation_id" || status=1
-  fi
+  cleanup_canary_database || status=1
   rm -rf -- "$release_tmp"
   remove_rollout_helper
   remove_canary_helpers
@@ -296,7 +301,7 @@ release_backup_receipt="$(ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_
 release_backup_receipt_sha="$(ssh -o BatchMode=yes "$DATA_HOST" sudo -n sha256sum "$release_backup_receipt_path" | awk '{print $1}')"
 [[ "$release_backup_receipt_sha" =~ ^[0-9a-f]{64}$ ]] || fail "invalid immutable backup receipt digest"
 
-ssh -o BatchMode=yes "$RUNTIME_HOST" sudo -n bash -s -- \
+if ! ssh -o BatchMode=yes "$RUNTIME_HOST" sudo -n bash -s -- \
   prepare "$commit" "$version" "$archive_sha" "$remote_archive" "$RUNTIME_ENV_FILE" \
   "$route_was" "$remote_canary_helper" "$canary_database" "$operation_id" "$redis_image" "$release_backup_receipt_path" "$release_backup_receipt_sha" "$runtime_canary_helper" "$route_rollback_nonce" <<'REMOTE'
 set -Eeuo pipefail
@@ -370,7 +375,7 @@ revision=next(iter(revisions)) or "UNLABELED"
 migration=next(iter(migrations)) or "UNLABELED"
 print("|".join((next(iter(ids)),next(iter(refs)),revision,migration)))
 PY
-)"
+)
 if [[ "$current_revision" =~ ^[0-9a-f]{40}$ ]]; then
   test "$current_migration_hash" = "$migration_hash" || { printf 'FAIL migration tree changed; use maintenance migration flow before release\n' >&2; exit 1; }
   current_pointer="$release_root/$current_revision/deployment-current.env"
@@ -442,6 +447,10 @@ test "$(stat -c '%U:%G:%a' "$state_file")" = root:root:600
 
 printf 'image=%s\nimage_id=%s\nstate_file=%s\n' "$image" "$image_id" "$state_file"
 REMOTE
+then
+  cleanup_canary_database || fail "rollout preparation failed and exact canary DB cleanup did not complete"
+  fail "rollout preparation failed before active state publication"
+fi
 
 ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" drop \
   postgresql "$canary_database" mhb_wiki "" "" "$commit" "$operation_id"
