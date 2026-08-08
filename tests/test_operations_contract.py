@@ -335,12 +335,14 @@ def test_release_canary_is_disposable_and_covers_all_adapters():
         "mcp_initialize_list_live_call",
         'names == {"wiki_get"',
         'await session.call_tool("wiki_get"',
+        "result.is_error is False",
         '"production_database_mutated":False',
         '"database_cleanup":"DATA_HELPER_REQUIRED"',
     )
     for marker in required:
         assert marker in canary
     assert 'DROP DATABASE' not in canary
+    assert ".isError" not in canary
     assert '-p "127.0.0.1::8000"' in canary
     assert 'docker port "$app_name"' in canary
 
@@ -520,6 +522,7 @@ def test_rollout_state_and_migration_gate_are_atomic_and_fail_closed():
 
 
 def test_canary_db_cleanup_is_exact_receipt_and_owner_bound():
+    release = (ROOT / "ops" / "release-web-back-vm100.sh").read_text()
     helper = (ROOT / "ops" / "remote" / "manage-wiki-canary-database.sh").read_text()
     canary = (ROOT / "ops" / "remote" / "run-wiki-release-canary.sh").read_text()
     assert "atomic_receipt RESERVED" in helper
@@ -530,6 +533,14 @@ def test_canary_db_cleanup_is_exact_receipt_and_owner_bound():
     assert "DROP DATABASE" not in canary
     assert '127.0.0.1::8000' in canary
     assert 'stat -c \'%U:%G:%a\' "$work_dir"' in canary
+    marker = ': >"$canary_db_cleanup_marker"'
+    create = '"$data_canary_helper" create'
+    drop = '"$data_canary_helper" drop'
+    clear = 'rm -f -- "$canary_db_cleanup_marker"'
+    assert 'if [[ -f "$canary_db_cleanup_marker" ]]' in release
+    assert release.index(marker) < release.index(create)
+    assert release.index(create) < release.rindex(drop) < release.index(clear)
+    assert "canary_db_created" not in release
 
 
 def test_final_checker_reads_data_host_receipt_dump_and_key():

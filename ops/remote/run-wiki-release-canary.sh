@@ -211,7 +211,7 @@ async def mcp_check():
             names={tool.name for tool in tools.tools}
             assert names == {"wiki_get","wiki_search","wiki_create_page","wiki_create_revision","wiki_history","wiki_diff","wiki_recent","wiki_submit_for_review","wiki_report"}, names
             result=await session.call_tool("wiki_get",{"slug":"canary-cli"})
-            assert not result.isError
+            assert result.is_error is False
 asyncio.run(mcp_check())
 config.unlink(missing_ok=True); pathlib.Path("/tmp/wiki-canary.md").unlink(missing_ok=True)
 PY

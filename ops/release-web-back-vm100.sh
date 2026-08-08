@@ -118,13 +118,13 @@ print(match.group(1))
 [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([._-][A-Za-z0-9.-]+)?$ ]] || fail "unsafe project version"
 
 release_tmp="$(mktemp -d)"
-canary_db_created=false
+canary_db_cleanup_marker="$release_tmp/canary-db-cleanup-required"
 canary_database="metahumotonic_wiki_canary_${commit:0:12}_${operation_id:0:12}"
 cleanup_local() {
   local status=$?
   trap - EXIT
   set +e
-  if [[ "$canary_db_created" == true ]]; then
+  if [[ -f "$canary_db_cleanup_marker" ]]; then
     ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" drop \
       postgresql "$canary_database" mhb_wiki "" "" "$commit" "$operation_id" || status=1
   fi
@@ -284,7 +284,11 @@ release_backup_key="$(openssl rand -hex 32)"
 release_backup_receipt="$(printf '%s\n' "$release_backup_key" | ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_backup_helper" capture postgresql metahumotonic_wiki "$commit" "$operation_id")"
 read -r encrypted_backup backup_key_file backup_sha backup_key_sha < <(printf '%s' "$release_backup_receipt" | python3 -c 'import json,sys; b=json.load(sys.stdin); assert b["snapshot"]=="current-production" and b["status"]=="CAPTURED"; print(b["encrypted_backup"],b["key_file"],b["backup_sha256"],b["key_sha256"])')
 release_backup_receipt_path="$(printf '%s' "$release_backup_receipt" | python3 -c 'import json,sys,pathlib; b=json.load(sys.stdin); print(str(pathlib.Path(b["encrypted_backup"]).with_name("current-backup-receipt.json")))')"
-canary_db_created=true
+# The local marker is written before the remote reservation attempt.  An EXIT
+# trap therefore retries only the exact receipt/COMMENT-bound drop even when
+# the create or runtime canary fails; the remote helper makes that drop
+# idempotent and refuses foreign objects.
+: >"$canary_db_cleanup_marker"
 ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" create \
   postgresql "$canary_database" mhb_wiki "$encrypted_backup" "$backup_key_file" "$commit" "$operation_id" \
   "$backup_key_sha"
@@ -441,7 +445,7 @@ REMOTE
 
 ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" drop \
   postgresql "$canary_database" mhb_wiki "" "" "$commit" "$operation_id"
-canary_db_created=false
+rm -f -- "$canary_db_cleanup_marker"
 
 ssh -o BatchMode=yes "$RUNTIME_HOST" sudo -n bash "$remote_rollout_helper" deploy "$commit"
 
