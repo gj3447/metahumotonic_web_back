@@ -185,19 +185,22 @@ print(image_id)
 )"
 
 image_json="$(guest_exec docker image inspect "$EXPECTED_IMAGE")"
-printf '%s' "$image_json" | python3 -c '
+IFS='|' read -r verified_image_id image_archive_sha image_migrations_sha < <(printf '%s' "$image_json" | python3 -c '
 import json, sys
 
 images, expected_id, expected_commit = json.load(sys.stdin), sys.argv[1], sys.argv[2]
 assert len(images) == 1, len(images)
 image = images[0]
 assert image.get("Id") == expected_id, (image.get("Id"), expected_id)
-assert (image.get("Config",{}).get("Labels") or {}).get("org.opencontainers.image.revision") == expected_commit
-' "$container_image_id" "$EXPECTED_COMMIT" || fail "local image tag, revision label, and running container IDs disagree"
-image_archive_sha="$(guest_exec docker image inspect "$EXPECTED_IMAGE" --format '{{index .Config.Labels "com.metahumotonic.source-archive-sha256"}}')"
-[[ "$image_archive_sha" =~ ^[0-9a-f]{64}$ ]] || fail "image source archive label is invalid"
-image_migrations_sha="$(guest_exec docker image inspect "$EXPECTED_IMAGE" --format '{{index .Config.Labels "com.metahumotonic.wiki-migrations-sha256"}}')"
-[[ "$image_migrations_sha" =~ ^[0-9a-f]{64}$ ]] || fail "image migrations label is invalid"
+labels=image.get("Config",{}).get("Labels") or {}
+assert labels.get("org.opencontainers.image.revision") == expected_commit
+archive_sha=labels.get("com.metahumotonic.source-archive-sha256", "")
+migrations_sha=labels.get("com.metahumotonic.wiki-migrations-sha256", "")
+assert len(archive_sha)==64 and all(c in "0123456789abcdef" for c in archive_sha)
+assert len(migrations_sha)==64 and all(c in "0123456789abcdef" for c in migrations_sha)
+print("|".join((image["Id"],archive_sha,migrations_sha)))
+' "$container_image_id" "$EXPECTED_COMMIT") || fail "local image tag, revision label, archive digest, migrations digest, or running container IDs disagree"
+[[ "$verified_image_id" == "$container_image_id" ]] || fail "verified image ID readback mismatch"
 
 if [[ "$RECEIPT_MODE" == candidate ]]; then
   rollout_receipt="$(guest_exec cat /var/lib/metahumotonic-web-back/releases/active-rollout.env)"

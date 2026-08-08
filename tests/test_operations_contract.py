@@ -972,6 +972,69 @@ def test_final_checker_reads_data_host_receipt_dump_and_key():
     assert "root:root:600" in checker and "root:root:700" in checker
 
 
+def test_checker_image_labels_cross_guest_boundary_without_space_arguments(tmp_path):
+    checker = (ROOT / "ops" / "check-web-back-live.sh").read_text()
+    start = checker.index('image_json="$(guest_exec docker image inspect "$EXPECTED_IMAGE")"')
+    end = checker.index('if [[ "$RECEIPT_MODE" == candidate ]]', start)
+    image_validation = checker[start:end]
+
+    image_id = f"sha256:{'a' * 64}"
+    commit = "b" * 40
+    archive_sha = "c" * 64
+    migrations_sha = "d" * 64
+    fixture = json.dumps(
+        [{
+            "Id": image_id,
+            "Config": {"Labels": {
+                "org.opencontainers.image.revision": commit,
+                "com.metahumotonic.source-archive-sha256": archive_sha,
+                "com.metahumotonic.wiki-migrations-sha256": migrations_sha,
+            }},
+        }]
+    )
+    argv_log = tmp_path / "guest-argv.log"
+    result_file = tmp_path / "result"
+    script = f"""set -euo pipefail
+EXPECTED_IMAGE=metahumotonic-web-back:test
+EXPECTED_COMMIT={commit}
+container_image_id={image_id}
+IMAGE_JSON="$IMAGE_JSON_FIXTURE"
+guest_exec() {{
+  local arg
+  for arg in "$@"; do
+    [[ "$arg" != *[[:space:]]* ]] || {{ printf 'space-bearing argument: %q\\n' "$arg" >&2; return 97; }}
+  done
+  (IFS='|'; printf '%s\\n' "$*" >>"$ARGV_LOG")
+  [[ "$#" == 4 && "$1" == docker && "$2" == image && "$3" == inspect && "$4" == "$EXPECTED_IMAGE" ]]
+  printf '%s' "$IMAGE_JSON"
+}}
+fail() {{ printf '%s\\n' "$*" >&2; exit 1; }}
+{image_validation}
+printf '%s|%s|%s\\n' "$verified_image_id" "$image_archive_sha" "$image_migrations_sha" >"$RESULT_FILE"
+"""
+    completed = subprocess.run(
+        ["bash", "-c", script],
+        env={
+            **os.environ,
+            "IMAGE_JSON_FIXTURE": fixture,
+            "ARGV_LOG": str(argv_log),
+            "RESULT_FILE": str(result_file),
+        },
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert argv_log.read_text().splitlines() == [
+        "docker|image|inspect|metahumotonic-web-back:test"
+    ]
+    assert result_file.read_text().strip() == (
+        f"{image_id}|{archive_sha}|{migrations_sha}"
+    )
+    assert checker.count('guest_exec docker image inspect "$EXPECTED_IMAGE"') == 1
+    assert "{{index .Config.Labels" not in checker
+
+
 def test_provision_can_compensate_only_owned_uncommented_createdb_gap():
     database = (ROOT / "ops" / "remote" / "provision-wiki-database.sh").read_text()
     assert "is_reserved_uncommented_database" in database

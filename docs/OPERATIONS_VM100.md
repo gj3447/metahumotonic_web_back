@@ -331,6 +331,10 @@ dump and separate key on data-01 before finalization can delete rollback
 containers. Both file SHA-256 values are receipt-bound and recomputed without
 printing key plaintext. Final mode repeats those checks from the durable DONE
 receipt.
+Docker image identity, revision, source-archive digest, and migration digest
+are parsed together from one `docker image inspect` JSON response on the local
+checker side. No space-bearing Go template is sent through the Proxmox
+guest-exec/SSH argument boundary.
 
 Runtime Docker canaries have their own durable root-only receipt under
 `/var/lib/metahumotonic-web-back/runtime-canaries/<commit>-<nonce>.json`.
