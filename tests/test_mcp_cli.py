@@ -219,14 +219,29 @@ async def test_probe_tcp_ok_and_fail():
         "name": "t",
         "connection": {"recipe": "local-tunnel", "tunnel": {"port": 0}},
     }
-    # find a free port by binding a listener
-    listener = await asyncio.start_server(lambda r, w: None, "127.0.0.1", 0)
+    # Find a free port by binding a listener.  Close the accepted stream
+    # explicitly: Python 3.12's Server.wait_closed() correctly waits for all
+    # active connections, so a callback that drops the StreamWriter can hang
+    # forever instead of being collected promptly.
+    connection_closed = asyncio.Event()
+
+    async def close_connection(_reader, writer):
+        writer.close()
+        try:
+            await writer.wait_closed()
+        finally:
+            connection_closed.set()
+
+    listener = await asyncio.start_server(close_connection, "127.0.0.1", 0)
     port = listener.sockets[0].getsockname()[1]
     server["connection"]["tunnel"]["port"] = port
-    result, _ = await cli.probe_server(server, timeout=2.0)
-    assert result == "ok"
-    listener.close()
-    await listener.wait_closed()
+    try:
+        result, _ = await cli.probe_server(server, timeout=2.0)
+        assert result == "ok"
+        await asyncio.wait_for(connection_closed.wait(), timeout=2.0)
+    finally:
+        listener.close()
+        await listener.wait_closed()
     # nothing listening now → fail
     result, detail = await cli.probe_server(server, timeout=1.0)
     assert result == "fail"
