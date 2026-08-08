@@ -303,6 +303,64 @@ def test_wiki_release_is_two_phase_and_recovery_gated():
     assert "MHB_WIKI_MODERATION_ADMIN_KEY" in release
 
 
+def test_replace_one_waits_for_docker_health_and_strictly_validates_pair(tmp_path):
+    rollout = (ROOT / "ops" / "remote" / "manage-wiki-rollout.sh").read_text()
+    function_start = rollout.index("  replace_one() {")
+    function_end = rollout.index("  replace_one web-back-pve-1", function_start)
+    replace_function = rollout[function_start:function_end]
+    health_counter = tmp_path / "health-count"
+    strict_log = tmp_path / "strict.log"
+    script = f"""set -Eeuo pipefail
+ENV_FILE=/env
+IMAGE=image
+docker() {{
+  case "$1" in
+    stop|rename|run) return 0 ;;
+    inspect)
+      if [[ "$*" == *State.Running* ]]; then
+        printf 'true\\n'
+      elif [[ "$*" == *State.Health.Status* ]]; then
+        count=0; [[ ! -f "$HEALTH_COUNTER" ]] || count=$(<"$HEALTH_COUNTER")
+        count=$((count + 1)); printf '%s\\n' "$count" >"$HEALTH_COUNTER"
+        if [[ "$count" -lt 3 ]]; then printf 'starting\\n'; else printf 'healthy\\n'; fi
+      fi
+      ;;
+  esac
+}}
+curl() {{ return 0; }}
+sleep() {{ :; }}
+validate_backup() {{ :; }}
+validate_candidate_container() {{ printf '%s %s\\n' "$1" "$2" >>"$STRICT_LOG"; }}
+{replace_function}
+replace_one web-back-pve-1 18210 backup-one
+"""
+    result = subprocess.run(
+        ["bash", "-c", script],
+        env={
+            **os.environ,
+            "HEALTH_COUNTER": str(health_counter),
+            "STRICT_LOG": str(strict_log),
+        },
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert health_counter.read_text().strip() == "3"
+    assert strict_log.read_text().splitlines() == ["web-back-pve-1 18210"]
+
+    deploy = rollout[
+        rollout.index('if [[ "$mode" == deploy ]]') :
+        rollout.index('if [[ "$mode" == rollback ]]')
+    ]
+    one = deploy.rindex('validate_candidate_container web-back-pve-1 "$PRIOR_ONE_PORT"')
+    two = deploy.rindex('validate_candidate_container web-back-pve-2 "$PRIOR_TWO_PORT"')
+    awaiting = deploy.index("set_status AWAITING_PUBLIC_READBACK")
+    assert one < two < awaiting
+    assert "'{{.State.Health.Status}}'" in replace_function
+    assert 'validate_candidate_container "$name" "$port"' in replace_function
+
+
 def test_release_remote_shell_heredocs_parse():
     release = (ROOT / "ops" / "release-web-back-vm100.sh").read_text(
         encoding="utf-8"

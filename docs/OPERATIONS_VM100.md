@@ -73,8 +73,11 @@ An authorized release must satisfy all of these invariants:
 2. Read secrets only from the root-owned VM100 environment file. Never copy
    plaintext secrets into Git, shell history, logs, or a Docker inspection
    receipt.
-3. Replace one container at a time. Require direct `/health` and `/ready` on its
-   host port before touching the second replica.
+3. Replace one container at a time. In one bounded loop, require direct
+   `/health`, direct `/ready`, Docker `State.Running=true`, and Docker
+   `State.Health.Status=healthy` on its host port before touching the second
+   replica. Strictly revalidate both candidate identities, topology, and health
+   immediately before publishing `AWAITING_PUBLIC_READBACK`.
 4. Before touching either production replica, run the exact built image against
    a commit-named disposable PostgreSQL database and isolated Redis/container
    network. The synthetic gate must pass browser cookie+CSRF, bearer,

@@ -169,6 +169,10 @@ exists; it is not a credential-rotation command. The release command requires
 a clean pushed `main`, verifies the source archive SHA and OCI commit label,
 replaces one replica at a time, and restores both prior containers plus the
 initial wiki route state if direct, route, or public checks fail.
+Each replacement remains inside its bounded readiness loop until `/health`,
+`/ready`, Docker running state, and Docker HEALTHCHECK `healthy` all agree.
+Both replicas then pass the strict identity/topology/health validator again
+before `AWAITING_PUBLIC_READBACK` can expose the candidate route.
 
 Provisioning creates an encrypted bootstrap PostgreSQL dump on data-01, records
 both the encrypted-dump and key-file SHA-256 values, restores it into a

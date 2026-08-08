@@ -218,11 +218,22 @@ PY
     docker rename "$name" "$backup"
     validate_backup "$backup" "$port"
     docker run -d --name "$name" --restart unless-stopped --env-file "$ENV_FILE" -p "0.0.0.0:$port:8000" "$IMAGE" >/dev/null
-    for _ in $(seq 1 45); do curl -fsS --max-time 3 "http://127.0.0.1:${port}/health" >/dev/null && curl -fsS --max-time 3 "http://127.0.0.1:${port}/ready" >/dev/null && return 0; sleep 2; done
+    for _ in $(seq 1 45); do
+      if curl -fsS --max-time 3 "http://127.0.0.1:${port}/health" >/dev/null \
+          && curl -fsS --max-time 3 "http://127.0.0.1:${port}/ready" >/dev/null \
+          && test "$(docker inspect "$name" --format '{{.State.Running}}' 2>/dev/null)" = true \
+          && test "$(docker inspect "$name" --format '{{.State.Health.Status}}' 2>/dev/null)" = healthy; then
+        validate_candidate_container "$name" "$port"
+        return 0
+      fi
+      sleep 2
+    done
     return 1
   }
   replace_one web-back-pve-1 "$PRIOR_ONE_PORT" "$BACKUP_ONE"
   replace_one web-back-pve-2 "$PRIOR_TWO_PORT" "$BACKUP_TWO"
+  validate_candidate_container web-back-pve-1 "$PRIOR_ONE_PORT"
+  validate_candidate_container web-back-pve-2 "$PRIOR_TWO_PORT"
   set_status AWAITING_PUBLIC_READBACK
   trap - ERR
   printf 'PASS replicas deployed after complete state and schema gate\n'
