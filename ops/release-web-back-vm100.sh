@@ -10,9 +10,11 @@ PROVISION_RECEIPT="${MHB_WIKI_PROVISION_RECEIPT:-/etc/metahumotonic/wiki-provisi
 REDIS_IMAGE_FILE="$REPO_ROOT/ops/redis-canary-image.txt"
 EXPECTED_COMMIT="${1:-}"
 CONTROL_MODE=release
-if [[ "$EXPECTED_COMMIT" == --recover-rollback || "$EXPECTED_COMMIT" == --resume-public ]]; then
+RECOVERY_NONCE=""
+if [[ "$EXPECTED_COMMIT" == --recover-rollback || "$EXPECTED_COMMIT" == --resume-public || "$EXPECTED_COMMIT" == --recover-canary-db ]]; then
   CONTROL_MODE="${EXPECTED_COMMIT#--}"
   EXPECTED_COMMIT="${2:-}"
+  [[ "$CONTROL_MODE" != recover-canary-db ]] || RECOVERY_NONCE="${3:-}"
 fi
 
 fail() {
@@ -57,6 +59,9 @@ remove_canary_helpers() {
   ssh -o BatchMode=yes "$DATA_HOST" "rm -f -- '$data_canary_helper'" >/dev/null 2>&1 || true
   ssh -o BatchMode=yes "$DATA_HOST" "rm -f -- '$data_backup_helper'" >/dev/null 2>&1 || true
 }
+install_data_canary_helper() {
+  scp -q "$REPO_ROOT/ops/remote/manage-wiki-canary-database.sh" "$DATA_HOST:$data_canary_helper"
+}
 
 release_operation_locks() {
   local failed=false
@@ -75,11 +80,26 @@ trap 'release_operation_locks' EXIT
 ssh -o BatchMode=yes "$RUNTIME_HOST" sudo -n bash "$lock_helper" acquire mhb-wiki-runtime-operation "$operation_id"
 runtime_lock=true
 
+install_data_canary_helper
+trap 'remove_canary_helpers; release_operation_locks' EXIT
+
+if [[ "$CONTROL_MODE" == recover-canary-db ]]; then
+  [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ && "$RECOVERY_NONCE" =~ ^[0-9a-f]{32}$ ]] \
+    || fail "usage: $0 --recover-canary-db COMMIT40 NONCE32"
+  recovery_database="metahumotonic_wiki_canary_${EXPECTED_COMMIT:0:12}_${RECOVERY_NONCE:0:12}"
+  ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" status \
+    postgresql "$recovery_database" mhb_wiki "" "" "$EXPECTED_COMMIT" "$RECOVERY_NONCE" >/dev/null
+  ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" drop \
+    postgresql "$recovery_database" mhb_wiki "" "" "$EXPECTED_COMMIT" "$RECOVERY_NONCE"
+  pass "exact receipt-owned canary database recovered for ${EXPECTED_COMMIT}:${RECOVERY_NONCE}"
+  exit 0
+fi
+
 if [[ "$CONTROL_MODE" == recover-rollback ]]; then
   [[ -z "$EXPECTED_COMMIT" || "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] \
     || fail "usage: $0 --recover-rollback [exact-commit]"
   install_rollout_helper
-  trap 'remove_rollout_helper; release_operation_locks' EXIT
+  trap 'remove_rollout_helper; remove_canary_helpers; release_operation_locks' EXIT
   rollout_status="$(ssh -o BatchMode=yes "$RUNTIME_HOST" sudo -n bash \
     "$remote_rollout_helper" status "$EXPECTED_COMMIT")"
   route_was="$(printf '%s\n' "$rollout_status" | awk -F= '$1 == "route_was" {print $2}')"
@@ -91,6 +111,14 @@ if [[ "$CONTROL_MODE" == recover-rollback ]]; then
     || fail "containers rolled back but route restoration failed; rerun exact route action ${route_action}"
   pass "incomplete rollout recovered; containers and initial route state restored"
   exit 0
+fi
+
+pending_canaries="$(ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" pending)" \
+  || fail "cannot validate durable data-01 canary receipt locator"
+if [[ -n "$pending_canaries" ]]; then
+  printf 'FAIL non-DROPPED data-01 canary receipt blocks release:\n%s\n' "$pending_canaries" >&2
+  printf 'Run %s --recover-canary-db COMMIT40 NONCE32 for each exact listed receipt.\n' "$0" >&2
+  exit 1
 fi
 
 [[ -n "$EXPECTED_COMMIT" ]] || fail "usage: $0 <exact-commit>"
@@ -121,18 +149,26 @@ release_tmp="$(mktemp -d)"
 canary_db_cleanup_marker="$release_tmp/canary-db-cleanup-required"
 canary_database="metahumotonic_wiki_canary_${commit:0:12}_${operation_id:0:12}"
 cleanup_canary_database() {
+  local attempt
   [[ -f "$canary_db_cleanup_marker" ]] || return 0
-  if ! ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" drop \
-    postgresql "$canary_database" mhb_wiki "" "" "$commit" "$operation_id"; then
-    return 1
-  fi
-  rm -f -- "$canary_db_cleanup_marker"
+  for attempt in 1 2 3; do
+    if ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" drop \
+      postgresql "$canary_database" mhb_wiki "" "" "$commit" "$operation_id"; then
+      rm -f -- "$canary_db_cleanup_marker"
+      return 0
+    fi
+    printf 'WARN exact canary DB cleanup attempt %s failed\n' "$attempt" >&2
+    [[ "$attempt" == 3 ]] || sleep 1
+  done
+  return 1
 }
 cleanup_local() {
   local status=$?
   trap - EXIT
   set +e
   cleanup_canary_database || status=1
+  # The local marker is disposable; the nonce receipt on data-01 remains the
+  # durable locator if all exact cleanup attempts fail.
   rm -rf -- "$release_tmp"
   remove_rollout_helper
   remove_canary_helpers
@@ -281,7 +317,7 @@ pass "uploaded exact source archive ${commit} (${archive_sha})"
 
 scp -q "$REPO_ROOT/ops/remote/run-wiki-release-canary.sh" "$RUNTIME_HOST:$remote_canary_helper"
 scp -q "$REPO_ROOT/ops/remote/manage-wiki-canary-runtime.sh" "$RUNTIME_HOST:$runtime_canary_helper"
-scp -q "$REPO_ROOT/ops/remote/manage-wiki-canary-database.sh" "$DATA_HOST:$data_canary_helper"
+install_data_canary_helper
 scp -q "$REPO_ROOT/ops/remote/backup-wiki-release-database.sh" "$DATA_HOST:$data_backup_helper"
 redis_image="$(tr -d '\n' <"$REDIS_IMAGE_FILE")"
 [[ "$redis_image" =~ ^redis:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$ ]] || fail "Redis canary image must be digest pinned"
@@ -360,23 +396,25 @@ stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 backup_one="web-back-pve-1-rollback-$stamp"
 backup_two="web-back-pve-2-rollback-$stamp"
 current_pair="$(docker inspect web-back-pve-1 web-back-pve-2)"
-IFS='|' read -r current_image_id current_image_ref current_revision current_migration_hash < <(CURRENT_PAIR_JSON="$current_pair" python3 - <<'PY'
+IFS='|' read -r current_image_id current_image_ref current_revision current_migration_hash current_host_ip < <(CURRENT_PAIR_JSON="$current_pair" python3 - <<'PY'
 import json,os
 items=json.loads(os.environ["CURRENT_PAIR_JSON"]); assert {x["Name"].lstrip("/") for x in items}=={"web-back-pve-1","web-back-pve-2"}
 ids={x["Image"] for x in items}; refs={x["Config"]["Image"] for x in items}; assert len(ids)==len(refs)==1
-ports={"web-back-pve-1":"18210","web-back-pve-2":"18211"}; revisions=set(); migrations=set()
+ports={"web-back-pve-1":"18210","web-back-pve-2":"18211"}; revisions=set(); migrations=set(); host_ips=set()
 for x in items:
  n=x["Name"].lstrip("/"); labels=x["Config"].get("Labels") or {}; revisions.add(labels.get("org.opencontainers.image.revision", "")); migrations.add(labels.get("com.metahumotonic.wiki-migrations-sha256", ""))
  assert x["State"]["Running"] is True and x["State"]["Health"]["Status"]=="healthy"; assert x["HostConfig"]["RestartPolicy"]["Name"]=="unless-stopped"
  bindings=x["HostConfig"]["PortBindings"]["8000/tcp"]
- assert len(bindings)==1 and bindings[0]["HostPort"]==ports[n] and bindings[0]["HostIp"]=="0.0.0.0"
-assert len(revisions)==len(migrations)==1
+ assert len(bindings)==1 and bindings[0]["HostPort"]==ports[n]
+ host_ip=bindings[0].get("HostIp", "") or "DOCKER_DEFAULT_ALL"; assert host_ip in {"DOCKER_DEFAULT_ALL","0.0.0.0"}; host_ips.add(host_ip)
+assert len(revisions)==len(migrations)==len(host_ips)==1
 revision=next(iter(revisions)) or "UNLABELED"
 migration=next(iter(migrations)) or "UNLABELED"
-print("|".join((next(iter(ids)),next(iter(refs)),revision,migration)))
+print("|".join((next(iter(ids)),next(iter(refs)),revision,migration,next(iter(host_ips)))))
 PY
 )
 if [[ "$current_revision" =~ ^[0-9a-f]{40}$ ]]; then
+  test "$current_host_ip" = 0.0.0.0
   test "$current_migration_hash" = "$migration_hash" || { printf 'FAIL migration tree changed; use maintenance migration flow before release\n' >&2; exit 1; }
   current_pointer="$release_root/$current_revision/deployment-current.env"
   test "$(stat -c '%U:%G:%a' "$current_pointer")" = root:root:600
@@ -397,6 +435,7 @@ else
   test "$route_was" = disabled
   [[ "$current_image_ref" == metahumotonic-web-back:0.9.1-x86 ]] || { printf 'FAIL unlabeled deployment is not the documented 0.9.1 bootstrap\n' >&2; exit 1; }
   test "$current_migration_hash" = UNLABELED
+  [[ "$current_host_ip" == DOCKER_DEFAULT_ALL || "$current_host_ip" == 0.0.0.0 ]]
   migration_policy=BOOTSTRAP_0_9_1_ROUTE_DISABLED
 fi
 schema_receipt="$release_dir/schema-gate-receipt-${rollout_nonce}.json"
@@ -436,6 +475,7 @@ PRIOR_RESTART_POLICY=unless-stopped
 PRIOR_HEALTH=healthy
 PRIOR_ONE_PORT=18210
 PRIOR_TWO_PORT=18211
+PRIOR_HOST_IP=$current_host_ip
 ROUTE_WAS=$route_was
 CANARY_RECEIPT=$canary_receipt
 CANARY_SHA256=$canary_sha

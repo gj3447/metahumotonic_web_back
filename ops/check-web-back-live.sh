@@ -239,6 +239,7 @@ assert body.get("PRIOR_IMAGE_ID", "").startswith("sha256:") and len(body["PRIOR_
 assert body.get("PRIOR_RESTART_POLICY") == "unless-stopped"
 assert body.get("PRIOR_HEALTH") == "healthy"
 assert body.get("PRIOR_ONE_PORT") == "18210" and body.get("PRIOR_TWO_PORT") == "18211"
+assert body.get("PRIOR_HOST_IP") in {"DOCKER_DEFAULT_ALL", "0.0.0.0"}
 if sys.argv[5] == "DONE":
     assert active.get("STATUS") == "DONE"
     assert all(body.get(k)==v for k,v in active.items() if k != "STATUS")

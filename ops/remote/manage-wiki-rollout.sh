@@ -36,6 +36,7 @@ test "$(stat -c '%U:%G:%a' "$(dirname "$state_file")")" = root:root:700
 [[ "${PRIOR_RESTART_POLICY:-}" == unless-stopped ]]
 [[ "${PRIOR_HEALTH:-}" == healthy ]]
 [[ "${PRIOR_ONE_PORT:-}" == 18210 && "${PRIOR_TWO_PORT:-}" == 18211 ]]
+[[ "${PRIOR_HOST_IP:-}" == DOCKER_DEFAULT_ALL || "${PRIOR_HOST_IP:-}" == 0.0.0.0 ]]
 test "$(stat -c '%U:%G:%a' "$CANARY_RECEIPT")" = root:root:600
 test "$(stat -c '%U:%G:%a' "$(dirname "$CANARY_RECEIPT")")" = root:root:700
 test "$(sha256sum "$CANARY_RECEIPT" | awk '{print $1}')" = "$CANARY_SHA256"
@@ -123,10 +124,10 @@ validate_prior_container() {
   container_json="$(docker inspect "$container")"
   CONTAINER_JSON="$container_json" python3 - "$expected_name" "$expected_port" "$expected_running" \
     "$PRIOR_IMAGE_ID" "$PRIOR_IMAGE_REF" "$PRIOR_REVISION" "$PRIOR_MIGRATIONS_SHA256" \
-    "$PRIOR_RESTART_POLICY" "$PRIOR_HEALTH" <<'PY'
+    "$PRIOR_RESTART_POLICY" "$PRIOR_HEALTH" "$PRIOR_HOST_IP" <<'PY'
 import json, os, sys
 x=json.loads(os.environ["CONTAINER_JSON"])[0]
-name, port, running, image_id, image_ref, revision, migrations, restart, health=sys.argv[1:]
+name, port, running, image_id, image_ref, revision, migrations, restart, health, host_ip=sys.argv[1:]
 labels=x["Config"].get("Labels") or {}
 actual_revision=labels.get("org.opencontainers.image.revision") or "UNLABELED"
 actual_migrations=labels.get("com.metahumotonic.wiki-migrations-sha256") or "UNLABELED"
@@ -135,7 +136,8 @@ assert x["Image"]==image_id and x["Config"]["Image"]==image_ref
 assert actual_revision==revision and actual_migrations==migrations
 assert x["HostConfig"]["RestartPolicy"]["Name"]==restart
 bindings=x["HostConfig"]["PortBindings"]["8000/tcp"]
-assert len(bindings)==1 and bindings[0]["HostPort"]==port and bindings[0]["HostIp"]=="0.0.0.0"
+expected_host_ip="" if host_ip=="DOCKER_DEFAULT_ALL" else host_ip
+assert len(bindings)==1 and bindings[0]["HostPort"]==port and bindings[0]["HostIp"]==expected_host_ip
 if running != "any":
     assert x["State"]["Running"] is (running=="true")
     if running=="true": assert x["State"]["Health"]["Status"]==health

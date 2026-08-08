@@ -226,13 +226,23 @@ Normal application releases cannot introduce or rewrite wiki migrations. The
 release gate requires an identical migration-tree digest to production; schema
 changes require an explicit maintenance window and migration procedure. The
 single documented exception is the route-disabled upgrade from the old 0.9.1
-image, which did not use the wiki database.
+image, which did not use the wiki database. Its Docker-default empty `HostIp`
+is receipt-bound as `DOCKER_DEFAULT_ALL`; all labeled wiki replicas use the
+explicit canonical `0.0.0.0` binding.
 
 Each synthetic runtime and database canary is a transaction identified by the
 full release commit plus a random rollout nonce. Canary and deployment receipts
 are immutable per nonce; `deployment-current.env` advances atomically only
 after DONE. Cleanup requires the exact receipt, ownership labels, and workdir
-device/inode marker, and same-commit redeploys never overwrite earlier evidence. Candidate
+device/inode marker, and same-commit redeploys never overwrite earlier evidence.
+If automatic database cleanup exhausts its retries, the local temporary marker
+may disappear but the root-only data-01 nonce receipt remains the durable
+locator. A later release detects every non-`DROPPED` receipt and refuses to
+continue until `--recover-canary-db COMMIT40 NONCE32` completes exact recovery.
+Pending scan, status, drop, and recovery share the same strict root/file
+permission, non-symlink, schema, filename, and transaction-identity validator;
+receipt drift is a non-destructive refusal.
+Candidate
 public readback validates the live data-01 backup artifacts, including exact
 receipt-bound encrypted-dump and key-file SHA-256 digests, before rollback
 containers may be finalized.

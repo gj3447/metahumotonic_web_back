@@ -563,7 +563,9 @@ def test_canary_db_cleanup_is_exact_receipt_and_owner_bound():
     cleanup_function = release[
         release.index("cleanup_canary_database()") : release.index("cleanup_local()")
     ]
-    assert 'if ! ssh -o BatchMode=yes "$DATA_HOST"' in cleanup_function
+    assert "for attempt in 1 2 3" in cleanup_function
+    assert 'if ssh -o BatchMode=yes "$DATA_HOST"' in cleanup_function
+    assert "cleanup attempt %s failed" in cleanup_function
     assert "return 1" in cleanup_function
     assert cleanup_function.index(drop) < cleanup_function.index(clear)
     assert release.index(marker) < release.index(create)
@@ -606,6 +608,141 @@ operation_id={'e' * 32}
     )
     assert succeeded.returncode == 0, succeeded.stderr
     assert not marker.exists()
+
+
+def test_release_exit_failure_leaves_durable_locator_and_next_run_fails_closed(tmp_path):
+    release = (ROOT / "ops" / "release-web-back-vm100.sh").read_text()
+    helper = (ROOT / "ops" / "remote" / "manage-wiki-canary-database.sh").read_text()
+    cleanup_functions = release[
+        release.index("cleanup_canary_database()") : release.index("trap cleanup_local EXIT")
+    ]
+    release_tmp = tmp_path / "local-release"
+    release_tmp.mkdir()
+    (release_tmp / "canary-db-cleanup-required").write_text("required\n")
+    durable_receipt = tmp_path / "data-01-nonce-receipt.json"
+    durable_receipt.write_text("durable\n")
+    script = f"""set +e
+DATA_HOST=unused
+data_canary_helper=unused
+canary_database=metahumotonic_wiki_canary_deadbeefdead_deadbeefdead
+commit={'d' * 40}
+operation_id={'e' * 32}
+release_tmp="$RELEASE_TMP"
+canary_db_cleanup_marker="$release_tmp/canary-db-cleanup-required"
+ssh() {{ return 17; }}
+remove_rollout_helper() {{ :; }}
+remove_canary_helpers() {{ :; }}
+release_operation_locks() {{ :; }}
+{cleanup_functions}
+false
+cleanup_local
+"""
+    result = subprocess.run(
+        ["bash", "-c", script],
+        env={**os.environ, "RELEASE_TMP": str(release_tmp)},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert not release_tmp.exists()
+    assert durable_receipt.exists()
+    assert "for attempt in 1 2 3" in script
+    assert '"$data_canary_helper" pending' in release
+    assert "non-DROPPED data-01 canary receipt blocks release" in release
+    assert "--recover-canary-db COMMIT40 NONCE32" in release
+    assert 'if [[ "$mode" == pending ]]' in helper
+    assert '[[ "$found_status" == DROPPED ]] || printf' in helper
+    assert 'path.name==f"{commit}-{nonce}.json"' in helper
+
+
+def test_canary_recovery_refuses_corrupt_or_symlink_receipt_before_docker(tmp_path):
+    helper = ROOT / "ops" / "remote" / "manage-wiki-canary-database.sh"
+    commit = "a" * 40
+    nonce = "b" * 32
+    database = f"metahumotonic_wiki_canary_{commit[:12]}_{nonce[:12]}"
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    docker_log = tmp_path / "docker.log"
+    stat = fake_bin / "stat"
+    stat.write_text(
+        """#!/usr/bin/env bash
+target="${@: -1}"
+if [[ -d "$target" ]]; then printf 'root:root:700\\n'; else printf 'root:root:600\\n'; fi
+""",
+        encoding="utf-8",
+    )
+    stat.chmod(0o755)
+    docker = fake_bin / "docker"
+    docker.write_text(
+        """#!/usr/bin/env bash
+printf 'called\\n' >>"$DOCKER_LOG"
+exit 99
+""",
+        encoding="utf-8",
+    )
+    docker.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        "DOCKER_LOG": str(docker_log),
+    }
+
+    corrupt_root = tmp_path / "corrupt"
+    corrupt_root.mkdir(mode=0o700)
+    (corrupt_root / f"{commit}-{nonce}.json").write_text("not-json\n")
+    corrupt = subprocess.run(
+        [
+            "bash", str(helper), "drop", "postgresql", database, "mhb_wiki",
+            "", "", commit, nonce, "", str(corrupt_root),
+        ],
+        env=env, text=True, capture_output=True, check=False,
+    )
+    assert corrupt.returncode != 0
+    assert not docker_log.exists()
+
+    drift_root = tmp_path / "drift"
+    drift_root.mkdir(mode=0o700)
+    (drift_root / f"{commit}-{nonce}.json").write_text(
+        json.dumps(
+            {
+                "schema": "metahumotonic/wiki-canary-db@1",
+                "commit": commit,
+                "rollout_nonce": nonce,
+                "database": "metahumotonic_wiki_canary_foreign_foreign",
+                "status": "RESTORED",
+            }
+        )
+    )
+    drift = subprocess.run(
+        [
+            "bash", str(helper), "drop", "postgresql", database, "mhb_wiki",
+            "", "", commit, nonce, "", str(drift_root),
+        ],
+        env=env, text=True, capture_output=True, check=False,
+    )
+    assert drift.returncode != 0
+    assert not docker_log.exists()
+
+    symlink_root = tmp_path / "symlink"
+    symlink_root.mkdir(mode=0o700)
+    target = tmp_path / "foreign.json"
+    target.write_text(json.dumps({"schema": "metahumotonic/wiki-canary-db@1"}))
+    (symlink_root / f"{commit}-{nonce}.json").symlink_to(target)
+    symlink = subprocess.run(
+        [
+            "bash", str(helper), "drop", "postgresql", database, "mhb_wiki",
+            "", "", commit, nonce, "", str(symlink_root),
+        ],
+        env=env, text=True, capture_output=True, check=False,
+    )
+    assert symlink.returncode != 0
+    assert not docker_log.exists()
+
+    text = helper.read_text()
+    assert 'strict_receipt "$receipt" "$receipt_root"' in text
+    assert 'test ! -L "$path"' in text
+    assert 'root:root:600' in text and 'root:root:700' in text
 
 
 def test_final_checker_reads_data_host_receipt_dump_and_key():
@@ -660,7 +797,9 @@ def test_release_preflight_validates_both_existing_replicas_exactly():
     assert 'x["State"]["Health"]["Status"]=="healthy"' in release
     assert 'RestartPolicy' in release and 'PortBindings' in release
     assert 'len(bindings)==1' in release
-    assert 'bindings[0]["HostIp"]=="0.0.0.0"' in release
+    assert 'host_ip=bindings[0].get("HostIp", "") or "DOCKER_DEFAULT_ALL"' in release
+    assert 'test "$current_host_ip" = 0.0.0.0' in release
+    assert 'PRIOR_HOST_IP=$current_host_ip' in release
     assert 'grep -qx "IMAGE_ID=$current_image_id"' in release
     assert 'metahumotonic-web-back:0.9.1-x86' in release
 
@@ -669,10 +808,14 @@ def test_replica_topology_rejects_extra_or_noncanonical_bindings():
     rollout = (ROOT / "ops" / "remote" / "manage-wiki-rollout.sh").read_text()
     checker = (ROOT / "ops" / "check-web-back-live.sh").read_text()
     assert rollout.count('len(bindings)==1') >= 2
-    assert rollout.count('bindings[0]["HostIp"]=="0.0.0.0"') >= 2
+    assert 'expected_host_ip="" if host_ip=="DOCKER_DEFAULT_ALL" else host_ip' in rollout
+    assert 'bindings[0]["HostIp"]==expected_host_ip' in rollout
+    assert '[[ "${PRIOR_HOST_IP:-}" == DOCKER_DEFAULT_ALL' in rollout
+    assert rollout.count('bindings[0]["HostIp"]=="0.0.0.0"') >= 1
     assert '-p "0.0.0.0:$port:8000"' in rollout
     assert 'assert len(bindings) == 1' in checker
     assert 'bindings[0]["HostIp"] == "0.0.0.0"' in checker
+    assert 'body.get("PRIOR_HOST_IP") in {"DOCKER_DEFAULT_ALL", "0.0.0.0"}' in checker
 
 
 def test_runtime_canary_cleanup_is_durable_and_exact_owned():

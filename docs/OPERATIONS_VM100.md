@@ -253,10 +253,23 @@ canary and schema-gate receipts.
 
 Canary ports are Docker-assigned loopback ports. Canary databases have a
 commit-and-nonce `RESERVED` receipt plus an exact PostgreSQL COMMENT and owner;
-only the data-01 helper may drop them. A SIGKILL may leave both the operation
-lock and receipt intentionally in place. Inspect the lock owner and run the
-helper's `status` with the exact commit/nonce/database, then use its `drop` mode
-with those same values. A new rollout never scans or broadly deletes leftovers.
+only the data-01 helper may drop them. A SIGKILL or three failed EXIT cleanup
+attempts may leave both the operation lock and receipt intentionally in place.
+Every new release validates the root-only receipt directory and fails closed if
+any exact receipt is not `DROPPED`; it never broadly deletes leftovers. Recover
+one listed transaction through the same host locks with:
+
+```bash
+ops/release-web-back-vm100.sh --recover-canary-db COMMIT40 NONCE32
+```
+
+This recovery first applies the same strict validator used by the pending scan:
+the root directory and receipt must be non-symlink directories/files with exact
+root ownership and modes 700/600, and schema, filename, commit, nonce, derived
+database name, and status must agree. It then validates the database owner and
+COMMENT, drops only that database, and atomically records `DROPPED`. Corrupt,
+renamed, permission-drifted, non-regular, or symlink receipts block before any
+Docker/PostgreSQL mutation.
 
 For example, after confirming that the recorded lock owner is no longer
 running, copy the exact helper to data-01 and use receipt-bound arguments (empty
@@ -282,6 +295,10 @@ migration labels, running/healthy state, restart policy and exact port bindings.
 The canonical container topology is exactly one `8000/tcp` binding per replica:
 `0.0.0.0:18210` for `web-back-pve-1` and `0.0.0.0:18211` for
 `web-back-pve-2`; extra IPv4/IPv6 bindings fail closed.
+The one-time unlabeled 0.9.1 bootstrap may report Docker's equivalent empty
+`HostIp` value; the release normalizes that value to `DOCKER_DEFAULT_ALL` and
+binds it exactly in rollback state. Every labeled wiki release requires the
+explicit canonical `0.0.0.0` value.
 For labeled deployments those values must also match the prior DONE receipt.
 The active state binds that complete prior identity, and both predicted backup
 names must be absent before deployment. Rollback permits the normal stop,

@@ -1,7 +1,50 @@
 #!/usr/bin/env bash
 # Receipt/COMMENT-owned disposable restore DB. Never performs broad cleanup.
 set -Eeuo pipefail
-mode="${1:-}"; container="${2:-postgresql}"; database="${3:-}"; role="${4:-mhb_wiki}"
+mode="${1:-}"
+
+validate_receipt_root() {
+  local root="$1"
+  [[ "$root" =~ ^/[A-Za-z0-9._/-]+$ ]]
+  test -d "$root"; test ! -L "$root"
+  test "$(stat -c '%U:%G:%a' "$root")" = root:root:700
+}
+
+strict_receipt() {
+  local path="$1" root="$2" expected_commit="${3:-}" expected_nonce="${4:-}" expected_database="${5:-}"
+  validate_receipt_root "$root"
+  [[ "$path" == "$root/"*.json ]]; test -f "$path"; test ! -L "$path"
+  test "$(stat -c '%U:%G:%a' "$path")" = root:root:600
+  python3 - "$path" "$root" "$expected_commit" "$expected_nonce" "$expected_database" <<'PY'
+import json, pathlib, stat, sys
+path=pathlib.Path(sys.argv[1]); root=pathlib.Path(sys.argv[2])
+metadata=path.lstat(); assert stat.S_ISREG(metadata.st_mode)
+assert path.parent==root
+body=json.loads(path.read_text())
+assert body.get("schema")=="metahumotonic/wiki-canary-db@1"
+commit=body.get("commit", ""); nonce=body.get("rollout_nonce", "")
+assert len(commit)==40 and all(c in "0123456789abcdef" for c in commit)
+assert len(nonce)==32 and all(c in "0123456789abcdef" for c in nonce)
+database=f"metahumotonic_wiki_canary_{commit[:12]}_{nonce[:12]}"
+assert path.name==f"{commit}-{nonce}.json" and body.get("database")==database
+status=body.get("status"); assert status in {"RESERVED","RESTORED","CLEANUP_REQUIRED","DROPPED"}
+if sys.argv[3]: assert (commit,nonce,database)==tuple(sys.argv[3:6])
+print(commit, nonce, status)
+PY
+}
+
+if [[ "$mode" == pending ]]; then
+  receipt_root="${2:-/var/lib/metahumotonic-wiki/canaries}"
+  test ! -e "$receipt_root" && exit 0
+  validate_receipt_root "$receipt_root"
+  shopt -s nullglob
+  for candidate in "$receipt_root"/*.json; do
+    read -r found_commit found_nonce found_status < <(strict_receipt "$candidate" "$receipt_root")
+    [[ "$found_status" == DROPPED ]] || printf '%s %s %s\n' "$found_commit" "$found_nonce" "$found_status"
+  done
+  exit 0
+fi
+container="${2:-postgresql}"; database="${3:-}"; role="${4:-mhb_wiki}"
 encrypted_dump="${5:-}"; key_file="${6:-}"; commit="${7:-}"; nonce="${8:-}"
 expected_key_sha="${9:-}"; receipt_root="${10:-/var/lib/metahumotonic-wiki/canaries}"
 [[ "$mode" == create || "$mode" == drop || "$mode" == status ]]
@@ -19,10 +62,8 @@ b={"schema":"metahumotonic/wiki-canary-db@1","commit":sys.argv[2],"rollout_nonce
 t.write_text(json.dumps(b,sort_keys=True)+"\n"); os.chmod(t,0o600); os.chown(t,0,0); t.replace(p)
 PY
 }
-validate_receipt() { python3 - "$receipt" "$commit" "$nonce" "$database" <<'PY'
-import json,pathlib,sys
-b=json.loads(pathlib.Path(sys.argv[1]).read_text()); assert b["commit"]==sys.argv[2] and b["rollout_nonce"]==sys.argv[3] and b["database"]==sys.argv[4]; assert b["status"] in {"RESERVED","RESTORED","CLEANUP_REQUIRED","DROPPED"}
-PY
+validate_receipt() {
+  strict_receipt "$receipt" "$receipt_root" "$commit" "$nonce" "$database" >/dev/null
 }
 is_owned() {
   owner="$(docker exec "$container" psql -U postgres -Atqc "SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname='$database'")"
