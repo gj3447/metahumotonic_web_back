@@ -88,9 +88,11 @@ if [[ "$CONTROL_MODE" == recover-canary-db ]]; then
     || fail "usage: $0 --recover-canary-db COMMIT40 NONCE32"
   recovery_database="metahumotonic_wiki_canary_${EXPECTED_COMMIT:0:12}_${RECOVERY_NONCE:0:12}"
   ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" status \
-    postgresql "$recovery_database" mhb_wiki "" "" "$EXPECTED_COMMIT" "$RECOVERY_NONCE" >/dev/null
+    postgresql "$recovery_database" mhb_wiki UNUSED_ENCRYPTED_DUMP UNUSED_KEY_FILE \
+    "$EXPECTED_COMMIT" "$RECOVERY_NONCE" >/dev/null
   ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" drop \
-    postgresql "$recovery_database" mhb_wiki "" "" "$EXPECTED_COMMIT" "$RECOVERY_NONCE"
+    postgresql "$recovery_database" mhb_wiki UNUSED_ENCRYPTED_DUMP UNUSED_KEY_FILE \
+    "$EXPECTED_COMMIT" "$RECOVERY_NONCE"
   pass "exact receipt-owned canary database recovered for ${EXPECTED_COMMIT}:${RECOVERY_NONCE}"
   exit 0
 fi
@@ -156,7 +158,8 @@ cleanup_canary_database() {
   [[ "$canary_db_cleanup_exhausted" == false ]] || return 1
   for attempt in 1 2 3 4 5; do
     if ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" drop \
-      postgresql "$canary_database" mhb_wiki "" "" "$commit" "$operation_id"; then
+      postgresql "$canary_database" mhb_wiki UNUSED_ENCRYPTED_DUMP UNUSED_KEY_FILE \
+      "$commit" "$operation_id"; then
       rm -f -- "$canary_db_cleanup_marker"
       return 0
     else
@@ -246,7 +249,7 @@ pass "preflight verified DB backup, disposable restore-drill receipt, and recove
 install_rollout_helper
 if ! route_was="$("$REPO_ROOT/ops/enable-wiki-route-vm100.sh" --status)"; then
   if ssh -o BatchMode=yes "$RUNTIME_HOST" sudo -n test -f /var/lib/metahumotonic-web-back/releases/active-rollout.env; then
-    rollout_status="$(ssh -o BatchMode=yes "$RUNTIME_HOST" sudo -n bash "$remote_rollout_helper" status "")"
+    rollout_status="$(ssh -o BatchMode=yes "$RUNTIME_HOST" sudo -n bash "$remote_rollout_helper" status)"
     route_was="$(printf '%s\n' "$rollout_status" | awk -F= '$1=="route_was"{print $2}')"
   else
     fail "mixed wiki route state has no receipt-bound active rollout recovery"
@@ -259,7 +262,7 @@ if ssh -o BatchMode=yes "$RUNTIME_HOST" sudo -n test -f \
     /var/lib/metahumotonic-web-back/releases/active-rollout.env; then
   active_rollout_found=true
   rollout_status="$(ssh -o BatchMode=yes "$RUNTIME_HOST" sudo -n bash \
-    "$remote_rollout_helper" status "")"
+    "$remote_rollout_helper" status)"
   active_status="$(printf '%s\n' "$rollout_status" | awk -F= '$1 == "status" {print $2}')"
   active_commit="$(printf '%s\n' "$rollout_status" | awk -F= '$1 == "commit" {print $2}')"
   active_route_was="$(printf '%s\n' "$rollout_status" | awk -F= '$1 == "route_was" {print $2}')"

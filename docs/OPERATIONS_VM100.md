@@ -277,15 +277,23 @@ renamed, permission-drifted, non-regular, or symlink receipts block before any
 Docker/PostgreSQL mutation.
 
 For example, after confirming that the recorded lock owner is no longer
-running, copy the exact helper to data-01 and use receipt-bound arguments (empty
-dump/key arguments are intentional in `status`/`drop` mode):
+running, copy the exact helper to data-01 and use receipt-bound arguments (the
+nonempty dump/key sentinels preserve positional arguments in `status`/`drop`
+mode):
 
 ```bash
 sudo bash /var/tmp/mhb-manage-wiki-canary-db-RECORDED.sh status postgresql \
-  metahumotonic_wiki_canary_COMMIT12_NONCE12 mhb_wiki '' '' COMMIT40 NONCE32
+  metahumotonic_wiki_canary_COMMIT12_NONCE12 mhb_wiki \
+  UNUSED_ENCRYPTED_DUMP UNUSED_KEY_FILE COMMIT40 NONCE32
 sudo bash /var/tmp/mhb-manage-wiki-canary-db-RECORDED.sh drop postgresql \
-  metahumotonic_wiki_canary_COMMIT12_NONCE12 mhb_wiki '' '' COMMIT40 NONCE32
+  metahumotonic_wiki_canary_COMMIT12_NONCE12 mhb_wiki \
+  UNUSED_ENCRYPTED_DUMP UNUSED_KEY_FILE COMMIT40 NONCE32
 ```
+
+The nonempty `UNUSED_*` placeholders are positional sentinels. SSH flattens a
+remote command into a shell command string, so empty arguments can disappear
+and shift commit/nonce into the dump/key slots. Status and drop ignore the
+sentinel values but require their positions to remain present.
 
 The helper refuses cleanup unless the exact receipt, PostgreSQL database owner,
 and transaction COMMENT agree. Preserve the resulting `DROPPED` receipt as the

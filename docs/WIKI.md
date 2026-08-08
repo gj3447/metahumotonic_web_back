@@ -245,6 +245,9 @@ continue until `--recover-canary-db COMMIT40 NONCE32` completes exact recovery.
 Pending scan, status, drop, and recovery share the same strict root/file
 permission, non-symlink, schema, filename, and transaction-identity validator;
 receipt drift is a non-destructive refusal.
+Remote status/drop calls use nonempty `UNUSED_ENCRYPTED_DUMP` and
+`UNUSED_KEY_FILE` positional sentinels so SSH command serialization cannot
+shift the exact commit and nonce into ignored argument slots.
 Candidate
 public readback validates the live data-01 backup artifacts, including exact
 receipt-bound encrypted-dump and key-file SHA-256 digests, before rollback

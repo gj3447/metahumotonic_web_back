@@ -638,6 +638,79 @@ cleanup_canary_database
     assert not marker.exists()
 
 
+def test_remote_canary_status_drop_preserve_positions_after_ssh_flattening(tmp_path):
+    release = (ROOT / "ops" / "release-web-back-vm100.sh").read_text()
+    commit = "a" * 40
+    nonce = "b" * 32
+    database = f"metahumotonic_wiki_canary_{commit[:12]}_{nonce[:12]}"
+    ssh_log = tmp_path / "ssh-argv.log"
+    recovery_start = release.index(
+        '  ssh -o BatchMode=yes "$DATA_HOST" sudo -n bash "$data_canary_helper" status'
+    )
+    recovery_end = release.index(
+        '  pass "exact receipt-owned canary database recovered', recovery_start
+    )
+    recovery_calls = release[recovery_start:recovery_end]
+    script = f"""set -Eeuo pipefail
+DATA_HOST=data-host
+data_canary_helper=/remote/helper
+recovery_database={database}
+EXPECTED_COMMIT={commit}
+RECOVERY_NONCE={nonce}
+ssh() {{ printf '%s\\n' "$*" >>"$SSH_LOG"; }}
+{recovery_calls}
+"""
+    result = subprocess.run(
+        ["bash", "-c", script],
+        env={**os.environ, "SSH_LOG": str(ssh_log)},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    lines = [line.split() for line in ssh_log.read_text().splitlines()]
+    assert len(lines) == 2
+    for action, argv in zip(("status", "drop"), lines, strict=True):
+        offset = argv.index(action)
+        assert argv[offset + 1 :] == [
+            "postgresql", database, "mhb_wiki", "UNUSED_ENCRYPTED_DUMP",
+            "UNUSED_KEY_FILE", commit, nonce,
+        ]
+
+    cleanup_function = release[
+        release.index("cleanup_canary_database()") : release.index("cleanup_local()")
+    ]
+    marker = tmp_path / "cleanup-required"
+    marker.write_text("required\n")
+    cleanup_log = tmp_path / "cleanup-argv.log"
+    cleanup_script = f"""set -Eeuo pipefail
+DATA_HOST=data-host
+data_canary_helper=/remote/helper
+canary_db_cleanup_marker="$MARKER"
+canary_database={database}
+commit={commit}
+operation_id={nonce}
+canary_db_cleanup_exhausted=false
+ssh() {{ printf '%s\\n' "$*" >>"$SSH_LOG"; }}
+{cleanup_function}
+cleanup_canary_database
+"""
+    cleanup = subprocess.run(
+        ["bash", "-c", cleanup_script],
+        env={**os.environ, "MARKER": str(marker), "SSH_LOG": str(cleanup_log)},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert cleanup.returncode == 0, cleanup.stderr
+    argv = cleanup_log.read_text().split()
+    offset = argv.index("drop")
+    assert argv[offset + 1 :] == [
+        "postgresql", database, "mhb_wiki", "UNUSED_ENCRYPTED_DUMP",
+        "UNUSED_KEY_FILE", commit, nonce,
+    ]
+
+
 def test_release_exit_failure_leaves_durable_locator_and_next_run_fails_closed(tmp_path):
     release = (ROOT / "ops" / "release-web-back-vm100.sh").read_text()
     helper = (ROOT / "ops" / "remote" / "manage-wiki-canary-database.sh").read_text()
