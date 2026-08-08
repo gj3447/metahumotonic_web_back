@@ -254,7 +254,7 @@ docker compose up -d --build   # :8000
 이 백엔드는 누구나 사용·연구·수정할 수 있도록 공개되어 있습니다.
 
 - 저장소: [github.com/gj3447/metahumotonic_web_back](https://github.com/gj3447/metahumotonic_web_back)
-- 위키 포함 공개 릴리스의 Corresponding Source: [`v1.0.0-public.8`](https://github.com/gj3447/metahumotonic_web_back/tree/v1.0.0-public.8)
+- 위키 포함 공개 릴리스의 Corresponding Source: [`v1.0.0-public.9`](https://github.com/gj3447/metahumotonic_web_back/tree/v1.0.0-public.9)
 - 라이선스: [GNU AGPL v3.0 only](LICENSE)
 - 벤더 코드 및 출처: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 

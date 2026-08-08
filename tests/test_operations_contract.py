@@ -266,6 +266,38 @@ def test_live_checker_requires_wiki_route_readiness_and_public_probe():
     assert 'expected private-only 404' in checker
 
 
+def test_live_checker_rejects_python_optimize_before_any_external_call(tmp_path):
+    checker = ROOT / "ops" / "check-web-back-live.sh"
+    checker_text = checker.read_text(encoding="utf-8")
+    command_log = tmp_path / "external-command.log"
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    for command in ("ssh", "curl", "python3", "git"):
+        executable = fake_bin / command
+        executable.write_text(
+            "#!/usr/bin/env bash\nprintf '%s\\n' \"$0 $*\" >>\"$COMMAND_LOG\"\nexit 99\n",
+            encoding="utf-8",
+        )
+        executable.chmod(0o755)
+
+    completed = subprocess.run(
+        ["bash", str(checker), "--expected-commit", "a" * 40],
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "COMMAND_LOG": str(command_log),
+            "PYTHONOPTIMIZE": "1",
+        },
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode != 0
+    assert "PYTHONOPTIMIZE must be unset" in completed.stderr
+    assert not command_log.exists()
+    assert "sys.flags.optimize == 0" in checker_text
+
+
 def test_wiki_release_is_two_phase_and_recovery_gated():
     release = (ROOT / "ops" / "release-web-back-vm100.sh").read_text(
         encoding="utf-8"
@@ -1033,6 +1065,62 @@ printf '%s|%s|%s\\n' "$verified_image_id" "$image_archive_sha" "$image_migration
     )
     assert checker.count('guest_exec docker image inspect "$EXPECTED_IMAGE"') == 1
     assert "{{index .Config.Labels" not in checker
+
+
+def test_checker_rollout_receipt_python_survives_shell_quote_interpolation():
+    checker = (ROOT / "ops" / "check-web-back-live.sh").read_text()
+    start = checker.index(
+        "printf '%s\\n' \"$rollout_receipt\" | python3 -c '",
+        checker.index('expected_status=DONE'),
+    )
+    end = checker.index("\n  read -r schema_receipt", start)
+    receipt_validation = checker[start:end]
+
+    commit = "a" * 40
+    nonce = "b" * 32
+    image_id = f"sha256:{'c' * 64}"
+    archive_sha = "d" * 64
+    migrations_sha = "e" * 64
+    receipt = "\n".join([
+        "STATUS=AWAITING_PUBLIC_READBACK",
+        f"COMMIT={commit}",
+        f"ROLLOUT_NONCE={nonce}",
+        f"IMAGE_ID={image_id}",
+        f"ARCHIVE_SHA256={archive_sha}",
+        f"MIGRATIONS_SHA256={migrations_sha}",
+        f"SCHEMA_GATE_RECEIPT=/var/lib/metahumotonic-web-back/releases/{commit}/schema-gate-receipt-{nonce}.json",
+        f"SCHEMA_GATE_RECEIPT_SHA256={'f' * 64}",
+        f"CURRENT_BACKUP_RECEIPT=/var/lib/metahumotonic-wiki/releases/{commit}-{nonce}/current-backup-receipt.json",
+        f"CURRENT_BACKUP_RECEIPT_SHA256={'1' * 64}",
+        f"PRIOR_IMAGE_ID=sha256:{'2' * 64}",
+        "PRIOR_RESTART_POLICY=unless-stopped",
+        "PRIOR_HEALTH=healthy",
+        "PRIOR_ONE_PORT=18210",
+        "PRIOR_TWO_PORT=18211",
+        "PRIOR_HOST_IP=0.0.0.0",
+    ])
+    script = f"""set -euo pipefail
+EXPECTED_COMMIT={commit}
+container_image_id={image_id}
+image_archive_sha={archive_sha}
+image_migrations_sha={migrations_sha}
+expected_status=AWAITING_PUBLIC_READBACK
+rollout_receipt="$ROLLOUT_RECEIPT_FIXTURE"
+active_rollout=
+fail() {{ printf '%s\\n' "$*" >&2; exit 1; }}
+{receipt_validation}
+"""
+    completed = subprocess.run(
+        ["bash", "-c", script],
+        env={**os.environ, "ROLLOUT_RECEIPT_FIXTURE": receipt},
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "NameError" not in completed.stderr
+    assert "body.get('ROLLOUT_NONCE')" not in receipt_validation
+    assert 'rollout_nonce=body.get("ROLLOUT_NONCE", "")' in receipt_validation
 
 
 def test_provision_can_compensate_only_owned_uncommented_createdb_gap():

@@ -2,6 +2,11 @@
 # Read-only, fail-closed verification of the actual VM100 backend path.
 set -euo pipefail
 
+if [[ -n "${PYTHONOPTIMIZE:-}" ]]; then
+  printf 'FAIL PYTHONOPTIMIZE must be unset because checker safety gates require Python assertions\n' >&2
+  exit 1
+fi
+
 PROXMOX_HOST="${MHB_PROXMOX_HOST:-metahumo}"
 VM_ID="${MHB_VM_ID:-100}"
 EXPECTED_NODE="${MHB_EXPECTED_NODE:-cpu-edge-01}"
@@ -31,6 +36,8 @@ pass() {
 for required_command in ssh curl python3 git; do
   command -v "$required_command" >/dev/null || fail "missing command: ${required_command}"
 done
+python3 -c 'import sys; raise SystemExit(0 if sys.flags.optimize == 0 else 1)' \
+  || fail "python3 optimization must be disabled because checker safety gates require assertions"
 
 [[ "$PROXMOX_HOST" =~ ^[A-Za-z0-9._-]+$ ]] || fail "unsafe Proxmox host alias"
 [[ "$VM_ID" =~ ^[0-9]+$ ]] || fail "VM id must be numeric"
@@ -234,10 +241,12 @@ assert body.get("COMMIT") == sys.argv[1]
 assert body.get("IMAGE_ID") == sys.argv[2]
 assert body.get("ARCHIVE_SHA256") == sys.argv[3]
 assert body.get("MIGRATIONS_SHA256") == sys.argv[4]
-assert body.get("SCHEMA_GATE_RECEIPT") == f"/var/lib/metahumotonic-web-back/releases/{sys.argv[1]}/schema-gate-receipt-{body.get('ROLLOUT_NONCE')}.json"
+rollout_nonce=body.get("ROLLOUT_NONCE", "")
+assert len(rollout_nonce) == 32 and all(c in "0123456789abcdef" for c in rollout_nonce)
+assert body.get("SCHEMA_GATE_RECEIPT") == f"/var/lib/metahumotonic-web-back/releases/{sys.argv[1]}/schema-gate-receipt-{rollout_nonce}.json"
 assert len(body.get("SCHEMA_GATE_RECEIPT_SHA256", "")) == 64
 assert len(body.get("CURRENT_BACKUP_RECEIPT_SHA256", "")) == 64
-assert body.get("CURRENT_BACKUP_RECEIPT") == f"/var/lib/metahumotonic-wiki/releases/{sys.argv[1]}-{body.get('ROLLOUT_NONCE')}/current-backup-receipt.json"
+assert body.get("CURRENT_BACKUP_RECEIPT") == f"/var/lib/metahumotonic-wiki/releases/{sys.argv[1]}-{rollout_nonce}/current-backup-receipt.json"
 assert body.get("PRIOR_IMAGE_ID", "").startswith("sha256:") and len(body["PRIOR_IMAGE_ID"]) == 71
 assert body.get("PRIOR_RESTART_POLICY") == "unless-stopped"
 assert body.get("PRIOR_HEALTH") == "healthy"
