@@ -1,4 +1,4 @@
-# 개발 스택 — PI 3층 규율 (조율 · 측정 · 판정)
+# 개발 스택 — Git 조율 · 측정 · 판정
 
 > 이 repo(그리고 자매 [`metahumotonic-web`](https://github.com/gj3447/metahumotonic-web))는
 > 사용자 자작 3층 개발기술 위에서 개발한다. 상위 정본:
@@ -6,7 +6,7 @@
 
 | 층 | 도구 | 이 repo에서의 역할 |
 |---|---|---|
-| **조율** | **OMD** (`mcp__omd__*`) | 여러 Claude 세션이 이 repo를 병렬 편집할 때 write-set을 사전 lease → 충돌 사전방지 |
+| **조율** | **canonical `main` 단일 writer** | 기존 변경을 보존하고 exact path만 stage/commit한다. OMD는 퇴역했다. |
 | **측정** | **ooptdd / LTDD** | 실행 트레이스가 ground truth. 반환값·`200 OK` 자기보고를 믿지 않고, store를 읽어 *실제로 일어난 일*을 positive assert |
 | **판정** | **LakatoTree** | 사전등록 예측 대비 실측으로 진보/퇴행 판정 (손입력 verdict 금지). airo KG 트리 `LakatosTree_MetahumotonicWebStack_20260713` |
 
@@ -52,25 +52,20 @@ mcp__lakatotree__submit_result     <tree> <tag> value script novel_measured   # 
 CI(GitHub 호스티드)는 ZeroTier airo KG에 못 닿으므로 판정층은 **로컬/에이전트 tier**
 (MCP 경유)로 돈다. 값소유·판정은 airo KG 박스(딜타워/Mac serve)에서.
 
-## 조율 (OMD) — 라이브 작업큐 ✅
+## 조율 — OMD 퇴역, Git 단일 writer
 
-**서로소 오빗 4개가 coord db에 등록됨** → N 세션 동시 편집 안전. 백로그·드라이버(2-verb
-`begin`/`complete_task`)·규율 정본: [`OMD_PARALLEL.md`](OMD_PARALLEL.md).
+OMD queue, lease, heartbeat, worktree driver는 사용하지 않는다. 과거 기록과 퇴역 사유는
+[`OMD_PARALLEL.md`](OMD_PARALLEL.md)에 남아 있으며 활성 프로토콜이 아니다.
 
-여러 세션이 이 repo를 병렬 편집하면 편집 *전* write-set을 lease한다(예외 없음):
+현재 규율:
 
-```
-mcp__omd__declare  task=<작업> writes=[<파일globs>] deps=[…]   # orbit 등록(disjoint)
-mcp__omd__next     agent=<나>                                   # 안전한 READY 태스크
-mcp__omd__start    task=<작업> agent=<나>                        # worktree 기동
-mcp__omd__claim    agent=<나> paths=[…] task=<작업>             # HELD 확인 후에만 편집
-# … 편집(내 worktree 안에서만) …
-mcp__omd__commit   task=<작업> msg=…;  mcp__omd__finish task=<작업>
-mcp__omd__connect  task=<작업>                                   # CLOUD CONNECT = 실제 git 머지(fenced)
-```
+1. 작업 전 `git status --short --branch`와 worktree 목록을 확인한다.
+2. 다른 세션의 tracked/untracked 변경은 수정·이동·삭제하지 않는다. 겹치면 중단한다.
+3. canonical checkout의 tracking `main` 한 곳에서만 쓴다. 임시 병렬 worktree를 자동 생성하지 않는다.
+4. 검증 후 소유한 exact path만 stage/commit한다. `git add -A`와 디렉터리 통째 stage는 금지한다.
+5. push 뒤 local `main`과 `origin/main` exact readback을 확인한다.
 
-- 다른 세션의 미커밋 파일과 겹치면 손 떼고 분리 태스크로.
-- 커밋은 pathspec(`git commit -- <내 파일들>`) — 인덱스 스윕 금지. 커밋 후 즉시 push.
-- 단일 세션 개발이면 lease는 no-op이지만, 규율은 동일하게 유지.
+운영 진단은 개발 조율과 분리한다. DGX의 무설정 `kubectl`이나 퇴역 manifest 대신
+[`OPERATIONS_VM100.md`](OPERATIONS_VM100.md)와 `ops/check-web-back-live.sh`를 사용한다.
 
 <!-- KG: project_metahumotonic_web_integrate_core_dev_tech_2026_07_13, LakatosTree_MetahumotonicWebStack_20260713 -->

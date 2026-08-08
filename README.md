@@ -6,7 +6,9 @@
 
 > Layer 분리: 이 레포 = web 백엔드 서비스. SYMPOSIUM/THEORY(논문) · bhgman_tool(7군단장 도구)과는 다른 layer.
 
-> **개발 규율**: 이 repo는 PI 3층 개발스택(조율 OMD / 측정 ooptdd / 판정 LakatoTree) 위에서 개발한다 — [`docs/DEV_STACK.md`](docs/DEV_STACK.md). 측정층(ooptdd)은 `_vendor/ooptdd`에 vendored, 피드백 durable 게이트가 CI-enforced.
+> **개발 규율**: OMD는 퇴역했다. canonical `main` 단일 writer, 기존 변경 보존,
+> exact-path stage/commit, 테스트 후 push를 따른다 — [`docs/DEV_STACK.md`](docs/DEV_STACK.md).
+> 측정층(ooptdd)은 `_vendor/ooptdd`에 vendored되고 피드백 durable 게이트는 CI에서 강제된다.
 
 ## 엔드포인트
 
@@ -67,13 +69,11 @@ curl -X POST https://metahumotonic.com/api/kg/write \
 - 운영 환경의 `MHB_FEEDBACK_REQUIRE_DURABLE=true`에서는 MongoDB 쓰기가 확인되지 않으면 `503 storage_unavailable`을 반환하여 유실을 성공으로 위장하지 않는다.
 - 원본 IP와 User-Agent는 레이트리밋 계산에만 사용하며 피드백 문서에는 저장하지 않는다.
 
-운영자 inbox는 `MHB_FEEDBACK_ADMIN_KEY`를 설정해야만 열린다. 본문과 선택적 이메일을 포함하므로 `/internal/*`은 공개 Ingress에 연결하지 않는다. 클러스터 안에서 호출하거나 `kubectl port-forward`를 사용한다.
-
-```sh
-kubectl -n infra port-forward svc/web-back 8000:8000
-curl 'http://127.0.0.1:8000/internal/feedback?limit=50' \
-  -H "X-API-Key: $MHB_FEEDBACK_ADMIN_KEY"
-```
+운영자 inbox는 `MHB_FEEDBACK_ADMIN_KEY`를 설정해야만 열린다. 본문과 선택적 이메일을
+포함하므로 `/internal/*`은 공개 Ingress에 연결하지 않는다. 현재 Service는 외부 Docker
+EndpointSlice를 사용하므로 Pod 기반 `kubectl port-forward`도 운영 경로가 아니다. 승인된
+VM100 내부 접근만 사용한다. 토폴로지와 검증법은
+[`docs/OPERATIONS_VM100.md`](docs/OPERATIONS_VM100.md)를 따른다.
 
 ## 무인프라 구동
 
@@ -92,44 +92,28 @@ uv run --extra dev pytest -q  # 테스트
 uv run uvicorn app.main:app --reload   # 로컬 서버 (:8000)
 ```
 
-## 배포 — k8s (라이브)
+## 배포 및 운영 — Proxmox VM100 (라이브)
 
-bhgman 클러스터(dgx로 닿음, namespace `infra`)에 배포됨. 프론트 landing-astro와
-같은 클러스터에서 Traefik IngressRoute로 `/api/*`만 이 서비스로 라우팅(additive,
-기존 landing 라우트 무영향). 매니페스트: `deploy/k8s/web-back.yaml`.
+라이브 백엔드는 k3s Deployment가 아니다. **VM100 (`cpu-edge-01`,
+`192.168.0.24`)의 Docker 컨테이너** `web-back-pve-1`(:18210)과
+`web-back-pve-2`(:18211)가 실행되고, Traefik은 selectorless Service와 두
+EndpointSlice를 통해 `/api/*`의 명시된 prefix만 전달한다.
 
-배포 절차 (실측 검증된 레시피):
+DGX는 Kubernetes 제어 경로가 아니다. 과거 `dgx-worker` Deployment YAML은
+[`deploy/legacy/`](deploy/legacy/)로 격리했으며 **적용하면 안 된다**. 현재 토폴로지,
+공개/내부 endpoint 경계, 배포·롤백 불변조건은
+[`docs/OPERATIONS_VM100.md`](docs/OPERATIONS_VM100.md)가 정본이다.
+
+읽기 전용 실운영 검증:
 
 ```sh
-# 1. 레포를 dgx로 복사
-rsync -az --exclude='.venv' --exclude='.git' metahumotonic_web_back/ dgx:/tmp/metahumotonic_web_back/
-
-# 2. dgx(arm64)에서 빌드 → 인클러스터 registry push
-ssh dgx '
-  cd /tmp/metahumotonic_web_back
-  docker build -t 192.168.0.23:30500/metahumotonic-web-back:0.8.0 .
-  # docker는 NodePort registry를 insecure로 안 봄 → localhost 태그로 push (docker가 localhost는 신뢰)
-  docker tag 192.168.0.23:30500/metahumotonic-web-back:0.8.0 localhost:30500/metahumotonic-web-back:0.8.0
-  docker push localhost:30500/metahumotonic-web-back:0.8.0
-  # kubelet은 certs.d plain-http를 안 먹음 → 이미지를 containerd k8s.io ns로 직접 import
-  docker save 192.168.0.23:30500/metahumotonic-web-back:0.8.0 | sudo ctr -n k8s.io images import -
-  kubectl apply -f deploy/k8s/web-back.yaml
-  kubectl rollout restart deploy/web-back -n infra
-'
+ops/check-web-back-live.sh
 ```
 
-> 이미지 갱신 시 태그를 올리고 위 build/import/apply 반복. 파드는
-> `nodeSelector: dgx-worker`로 핀(이미지가 그 노드 containerd에 import됨).
-> **새 `/api/*` prefix를 추가하면 IngressRoute match에도 그 prefix를 넣어야** 공개 도메인에서 닿는다 (경로 고정 방식).
-
-> **2026-07-27 실측 갱신 (0.9.0):** 현재 라이브 서빙 경로는 dgx 파드가 아니라
-> **VM100 (cpu-edge-01, 192.168.0.24) docker** 다 — `web-back-pve-1`(:18210) /
-> `web-back-pve-2`(:18211)가 `metahumotonic-web-back:<ver>-x86` 이미지로 돌고,
-> k3s `EndpointSlice`가 192.168.0.24:18210을 가리킨다 (landing의 `-pve` 패턴과 동일).
-> 배포는 `bhgman` 경유 ssh로 VM100에 접속해 `~/dgx-cpu/web-back/src`를 갱신 →
-> `docker build -t metahumotonic-web-back:<ver>-x86 .` → 컨테이너를 한 대씩 재생성
-> (`docker inspect`로 기존 env를 그대로 추출해 재사용, 포트 18210/18211,
-> `--restart unless-stopped`). 위 dgx 레시피는 구 경로 기록으로 남긴다.
+이 검증은 VM100의 실제 kube context와 노드, Service/EndpointSlice, 두 Docker replica,
+직접 `/health`·`/ready`, 공개 `/api/research/summary`를 모두 확인한다. 공개 `/health`와
+`/ready`의 `404`는 의도된 내부 전용 경계다. 프론트 `/wiki/data.json`은 프론트 배포
+검증기가 별도로 책임진다.
 
 ## MCP 레지스트리 (`/api/mcp/*` + `mhb-mcp` CLI)
 

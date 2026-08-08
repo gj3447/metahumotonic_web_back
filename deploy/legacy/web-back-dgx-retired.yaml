@@ -1,5 +1,13 @@
-# metahumotonic_web_back — k8s manifests (namespace: infra)
-# Deploy: pushed to in-cluster registry (192.168.0.23:30500), same pattern as ai/discord-bot.
+# RETIRED 2026-08-08 — HISTORICAL EVIDENCE ONLY. DO NOT APPLY.
+#
+# This manifest targets the former dgx-worker Deployment and image 0.9.0. The
+# live backend is two Docker containers on Proxmox VM100, reached by a
+# selectorless Service and manually managed EndpointSlices. Applying this file
+# would mix the retired and current ownership models.
+#
+# Canonical operations: ../../docs/OPERATIONS_VM100.md
+# metahumotonic_web_back — former k8s manifests (namespace: infra)
+# Former deploy: pushed to in-cluster registry (192.168.0.23:30500).
 # Additive: a NEW Deployment + Service + IngressRoute for PathPrefix(/api).
 # The live landing-astro-subpages route (/theories /explore /domains /_astro /legacy)
 # is untouched — /api is currently unserved, so this can only add, never break.

@@ -1,0 +1,107 @@
+#!/usr/bin/env python
+"""OMD heartbeat-keeper driver — 장수 프로세스가 OMD 전 생명주기를 유지한다.
+
+교훈① 봉합 (feedback_omd_parallel_run_lessons_2026_07_13): Claude subagent는 OMD
+heartbeat를 보내지 않으므로, 아무 Coordinator op가 sweep을 돌리면 죽은 agent로 판정되어
+진행중 worktree가 회수된다. 이 드라이버가 그 계약을 대신 이행한다:
+
+  begin(ttl=orbit_ttl)  →  [외부 에이전트들이 worktree에서 작업]  →  flag file 감지
+  → complete_task(commit→finish→connect)  — 루프마다 heartbeat(ttl=liveness_ttl).
+
+프로토콜 전제: root 체크아웃은 integration_branch(main)가 아닌 파킹 브랜치에 있어야
+한다(레퍼런스 드라이버 scripts/multiagent_parallel_session.py와 동일 — git은 같은
+브랜치의 2중 checkout을 거부하므로 통합 worktree가 main을 물려면 root가 비켜줘야 함).
+
+실행 (omd venv python으로):
+    <omd>/.venv/bin/python scripts/omd/driver.py <spec.json>
+
+spec.json:
+    { "db": ..., "repo": ..., "integration_branch": "main",
+      "state_file": ..., "flags_dir": ..., "max_seconds": 2400,
+      "orbit_ttl": 7200, "liveness_ttl": 3600,
+      "tasks": [ {"task": ..., "agent": ..., "writes": [globs...]} ] }
+
+신호: <flags_dir>/<task>.done 파일 내용 = 커밋 메시지. 생기면 complete_task.
+종료코드: 0=전부 MERGED / 1=begin 실패 / 2=complete 3회 실패 / 3=timeout.
+상태는 state_file에 매 루프 원자적으로 기록(fail-loud, 은폐 없음).
+
+# KG: feedback_omd_parallel_run_lessons_2026_07_13, LakatosTree_MetahumotonicWebStack_20260713(omd-heartbeat-driver-e2e)
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+import time
+import traceback
+
+from omd_server.core import Coordinator  # omd venv에 설치된 패키지
+
+
+def main() -> int:
+    spec = json.load(open(sys.argv[1], encoding="utf-8"))
+    c = Coordinator(
+        db_path=spec["db"], repo=spec["repo"], strict_writeset=True,
+        integration_branch=spec.get("integration_branch"),
+    )
+    state: dict = {"phase": "begin", "tasks": {}}
+
+    def save() -> None:
+        tmp = spec["state_file"] + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=1, default=str)
+        os.replace(tmp, spec["state_file"])
+
+    liveness = spec.get("liveness_ttl", 3600)
+    for t in spec["tasks"]:
+        r = c.begin(t["task"], t["agent"], t["writes"], ttl=spec.get("orbit_ttl", 7200))
+        state["tasks"][t["task"]] = {
+            "agent": t["agent"], "worktree": r.get("worktree"), "branch": r.get("branch"),
+            "fence": r.get("fence"), "merged": False, "attempts": 0, "begin": r,
+        }
+        if not r.get("ok"):
+            state["phase"] = "begin_failed"
+            save()
+            return 1
+        c.heartbeat(t["agent"], ttl=liveness)  # 자기 페이스 선언(F2) — sweep이 이 창을 존중
+    state["phase"] = "working"
+    save()
+
+    flags = spec["flags_dir"]
+    deadline = time.time() + spec.get("max_seconds", 2400)
+    while time.time() < deadline:
+        for t in spec["tasks"]:
+            s = state["tasks"][t["task"]]
+            if s["merged"] or s["attempts"] >= 3:
+                continue
+            c.heartbeat(s["agent"], ttl=liveness)
+            flag = os.path.join(flags, t["task"] + ".done")
+            if os.path.exists(flag):
+                msg = open(flag, encoding="utf-8").read().strip() or f"omd: {t['task']}"
+                try:
+                    res = c.complete_task(t["task"], msg=msg,
+                                          agent_id=s["agent"], fence=s["fence"])
+                except Exception as e:  # fail-loud: 상태파일에 남기고 재시도(≤3)
+                    res = {"ok": False, "error": str(e),
+                           "trace": traceback.format_exc()[-2000:]}
+                s["attempts"] += 1
+                s["last_result"] = res
+                if res.get("ok"):
+                    s["merged"] = True
+                save()
+        if all(v["merged"] for v in state["tasks"].values()):
+            state["phase"] = "all_merged"
+            save()
+            return 0
+        if all(v["merged"] or v["attempts"] >= 3 for v in state["tasks"].values()):
+            state["phase"] = "failed"
+            save()
+            return 2
+        time.sleep(15)
+    state["phase"] = "timeout"
+    save()
+    return 3
+
+
+if __name__ == "__main__":
+    sys.exit(main())

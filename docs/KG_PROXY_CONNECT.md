@@ -164,19 +164,16 @@ await kgRead("MATCH (n) RETURN count(n) AS nodes");
 
 ## 6. 키 회전 (운영자용)
 
-키가 유출되거나 주기적으로 바꿀 때 — 서버(클러스터)에서 시크릿 값만 교체 후 롤아웃:
+라이브 백엔드는 Kubernetes Deployment가 아니라 VM100의 Docker 컨테이너 두 개다.
+따라서 Kubernetes Secret을 patch하거나 `deployment/web-back`을 restart해도 라이브 키는
+바뀌지 않는다.
 
-```bash
-# 새 키 생성
-python3 -c "import secrets; print('mhk_read_'+secrets.token_urlsafe(32)); print('mhk_write_'+secrets.token_urlsafe(32))"
-
-# 시크릿 값만 머지 교체 (다른 키는 보존됨)
-kubectl -n infra patch secret web-back-secrets --type merge \
-  -p '{"stringData":{"kg-read-key":"<새 read>","kg-write-key":"<새 write>"}}'
-
-# 새 키 반영
-kubectl -n infra rollout restart deploy/web-back
-```
+키 회전은 승인된 비노출 운영 경로로 VM100의 root-owned 환경 파일을 갱신하고, 두
+컨테이너를 **한 대씩** 재생성한다. 각 컨테이너의 직접 `/health`와 `/ready`가 통과한 뒤
+다음 replica를 교체하고, 마지막에 `ops/check-web-back-live.sh`로 공개 readback까지
+검증한다. 키 평문을 Git, 명령행 인자, 셸 기록, 로그 또는 Docker inspect 영수증에 남기지
+않는다. 정확한 불변조건과 롤백 조건은 [`OPERATIONS_VM100.md`](OPERATIONS_VM100.md)를
+따른다.
 
 키를 비우면(unset) 해당 엔드포인트는 503으로 비활성화된다 (안전 기본값).
 
@@ -200,4 +197,4 @@ curl -s -o /dev/null -w "nokey: %{http_code}\n" -X POST https://metahumotonic.co
 
 ---
 
-*구현: `app/routers/kg_proxy.py` (라우터) + `app/kg.py` `KGClient.run_cypher` (READ/WRITE tx 강제). 배포: `deploy/k8s/web-back.yaml`. 설계 근거: KG `dl-web-back-kg-proxy-community-no-rbac-app-layer-enforcement-2026-06-23`.*
+*구현: `app/routers/kg_proxy.py` (라우터) + `app/kg.py` `KGClient.run_cypher` (READ/WRITE tx 강제). 운영 정본: `docs/OPERATIONS_VM100.md`. 설계 근거: KG `dl-web-back-kg-proxy-community-no-rbac-app-layer-enforcement-2026-06-23`.*
