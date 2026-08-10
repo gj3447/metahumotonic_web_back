@@ -58,3 +58,37 @@ jobs:
         run: npm run build
       - name: Smoke (real server, zero infra)
         run: bash scripts/smoke.sh
+
+  # The harness (AGENT_PARADIGM_SPEC_v1 §4-§5). Runs every gate and folds the
+  # results into DONE. It exits non-zero only on RED — INCONCLUSIVE and NOT_RUN
+  # block DONE without failing CI, because `Environment` is undecidable from a
+  # checkout and a permanently-red pipeline is an ignored pipeline.
+  #
+  # The two wiring gates are the reason this job exists separately from the
+  # test jobs: on 2026-08-10 a mis-wired production Layer 404'd every prefixed
+  # route while 117 unit tests stayed green.
+  harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      - name: Install TS deps (locked)
+        run: npm ci
+        working-directory: ts
+      - name: Run the harness
+        run: ./verify
+      - name: Publish the receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: harness-receipt
+          path: harness/_receipts/latest.json

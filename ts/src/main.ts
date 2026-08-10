@@ -13,7 +13,7 @@
 import { NodeHttpServer, NodeRuntime } from "@effect/platform-node"
 import { Config, Effect, Layer, Logger } from "effect"
 import { createServer } from "node:http"
-import { HttpLive } from "./server/Layers.js"
+import { serveLayer } from "./server/Composition.js"
 
 const ServerLive = Layer.unwrapEffect(
   Effect.gen(function* () {
@@ -31,6 +31,6 @@ const LoggerLive = Layer.unwrapEffect(
   })
 )
 
-const MainLive = HttpLive.pipe(Layer.provide(ServerLive), Layer.provide(LoggerLive))
+const MainLive = serveLayer().pipe(Layer.provide(ServerLive), Layer.provide(LoggerLive))
 
 NodeRuntime.runMain(Layer.launch(MainLive))

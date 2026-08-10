@@ -11,20 +11,24 @@
  *     Where the two disagreed, the Python is the contract; several tests below
  *     exist specifically to pin a divergence that shipped once.
  */
-import { HttpApiBuilder, HttpServer } from "@effect/platform"
+import { HttpApiBuilder } from "@effect/platform"
 import { Layer, Redacted } from "effect"
 import { beforeEach, describe, expect, it } from "vitest"
-import { Api } from "../src/api/Api.js"
-import { AppConfigTag, type AppConfig } from "../src/Config.js"
+import { type AppConfig } from "../src/Config.js"
 import { ClientIpFixed } from "../src/ports/ClientIp.js"
 import { FeedbackStoreMemory } from "../src/ports/FeedbackStore.js"
 import { IdsDeterministic } from "../src/ports/Ids.js"
 import { KgPortSnapshot } from "../src/ports/KgPort.js"
 import { KgWritePortDryOnly } from "../src/ports/KgWritePort.js"
-import { FeedbackLimiter, layerInProcess } from "../src/ports/RateLimiter.js"
+import {
+  FeedbackLimiter,
+  layerInProcess,
+  WikiMutationLimiter,
+  WikiReadLimiter,
+  WikiSessionLimiter
+} from "../src/ports/RateLimiter.js"
 import { SchemaGuardOffline } from "../src/ports/SchemaGuard.js"
-import { HandlersLive } from "../src/server/Handlers.js"
-import { OperatorPlaneNoStore } from "../src/server/Middleware.js"
+import { configOf, webHandlerLayer } from "../src/server/Composition.js"
 
 const ADMIN_KEY = "admin-key-that-is-at-least-32-bytes!!"
 
@@ -82,28 +86,50 @@ const baseConfig: AppConfig = {
   trustProxy: false
 }
 
-/** A fresh app per test. Nothing carries over. */
+/**
+ * A fresh app per test, built from the PRODUCTION composition.
+ *
+ * SPEC §4-3: the harness and the production entrypoint consume the same
+ * composition graph. This function therefore does not assemble anything — it
+ * hands `webHandlerLayer` a set of port substitutions and nothing else. If the
+ * wiring is wrong, it is wrong in both planes, which is the point.
+ */
 const buildApp = (overrides: Partial<AppConfig> = {}) => {
   const cfg: AppConfig = { ...baseConfig, ...overrides }
-  const ports = Layer.mergeAll(
-    KgPortSnapshot,
-    ClientIpFixed("test-client"),
-    KgWritePortDryOnly.pipe(Layer.provideMerge(SchemaGuardOffline)),
-    FeedbackStoreMemory,
-    IdsDeterministic(),
-    layerInProcess(FeedbackLimiter, {
-      maxEvents: cfg.feedbackMaxPerWindow,
-      windowSeconds: cfg.feedbackWindowSeconds,
-      failClosed: false
+  const web = HttpApiBuilder.toWebHandler(
+    webHandlerLayer({
+      config: configOf(cfg),
+      kg: KgPortSnapshot,
+      schemaGuard: SchemaGuardOffline,
+      kgWrite: KgWritePortDryOnly,
+      clientIp: ClientIpFixed("test-client"),
+      feedbackStore: FeedbackStoreMemory,
+      ids: IdsDeterministic(),
+      // all four, because production binds all four — see PortOverrides.limiters
+      limiters: Layer.mergeAll(
+        layerInProcess(FeedbackLimiter, {
+          maxEvents: cfg.feedbackMaxPerWindow,
+          windowSeconds: cfg.feedbackWindowSeconds,
+          failClosed: false
+        }),
+        layerInProcess(WikiSessionLimiter, {
+          maxEvents: cfg.wikiSessionMaxPerWindow,
+          windowSeconds: cfg.wikiSessionWindowSeconds,
+          failClosed: false
+        }),
+        layerInProcess(WikiMutationLimiter, {
+          maxEvents: cfg.wikiMutationMaxPerWindow,
+          windowSeconds: cfg.wikiMutationWindowSeconds,
+          failClosed: false
+        }),
+        layerInProcess(WikiReadLimiter, {
+          maxEvents: cfg.wikiReadMaxPerWindow,
+          windowSeconds: cfg.wikiReadWindowSeconds,
+          failClosed: false
+        })
+      )
     })
-  ).pipe(Layer.provideMerge(Layer.succeed(AppConfigTag, cfg)))
-
-  const api = HttpApiBuilder.api(Api).pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(OperatorPlaneNoStore),
-    Layer.provide(ports)
   )
-  const web = HttpApiBuilder.toWebHandler(Layer.mergeAll(api, HttpServer.layerContext))
   return web.handler
 }
 
@@ -157,14 +183,37 @@ describe("meta", () => {
   })
 
   it("GET /ready is 503 with the same body when the wiki plane is required but absent", async () => {
-    handler = buildApp({ wikiPublicWrites: true })
+    // A VALID wiki-writes config. The previous version of this test set only
+    // `wikiPublicWrites: true`, which production refuses to start on at all
+    // ("MHB_WIKI_DATABASE_URL is required") — so it was asserting a state the
+    // service can never reach. Sharing the composition graph (SPEC §4-3) is
+    // what surfaced that: the harness now runs ConfigGuard, like production.
+    handler = buildApp({
+      wikiPublicWrites: true,
+      wikiDatabaseUrl: Redacted.make("postgres://wiki@localhost/wiki"),
+      wikiSessionSecret: Redacted.make("s".repeat(32)),
+      wikiModerationAdminKey: Redacted.make("m".repeat(32)),
+      redisUrl: Redacted.make("redis://localhost:6379")
+    })
     const res = await get("/ready")
     expect(res.status).toBe(503)
     const body = (await res.json()) as Record<string, unknown>
     expect(body["status"]).toBe("not_ready")
     expect(body["wiki_required"]).toBe(true)
+    // the wiki store is not implemented in this port; saying otherwise would
+    // be the false GREEN the live checker would then certify
     expect(body["wiki_live"]).toBe(false)
     expect(body["degraded"]).toBe(true)
+  })
+
+  it("the harness cannot boot a config production would refuse", async () => {
+    // ConfigGuard is part of the shared composition, so an invalid config
+    // fails here exactly as it fails at startup. Before §4-3 unification the
+    // harness skipped the guard entirely and this was silently allowed.
+    const bad = buildApp({ wikiPublicWrites: true }) // no DB url
+    await expect(bad(new Request("http://test/health"))).rejects.toThrow(
+      /MHB_WIKI_DATABASE_URL/
+    )
   })
 
   it("GET / carries the endpoints array the Python payload has", async () => {

@@ -1,0 +1,116 @@
+{
+  "schema": "harness-receipt/v1",
+  "manifestVersion": 1,
+  "quick": false,
+  "gates": [
+    {
+      "id": "ts-typecheck",
+      "term": "Pure",
+      "verdict": "GREEN",
+      "seconds": 1.45,
+      "cmd": "npx tsc -p tsconfig.json --noEmit",
+      "cwd": "ts",
+      "outputSha256": "e3b0c44298fc1c14",
+      "why": ""
+    },
+    {
+      "id": "ts-unit",
+      "term": "Pure",
+      "verdict": "GREEN",
+      "seconds": 1.48,
+      "cmd": "npx vitest run --reporter=dot",
+      "cwd": "ts",
+      "outputSha256": "ed70ae9404d52ac9",
+      "why": ""
+    },
+    {
+      "id": "ts-property",
+      "term": "Pure",
+      "verdict": "RED",
+      "seconds": 0.32,
+      "cmd": "npx vitest run --reporter=dot test/property.test.ts",
+      "cwd": "ts",
+      "outputSha256": "d76fdd72ad0cada3",
+      "why": "\u001b[1m\u001b[7m\u001b[36m RUN \u001b[39m\u001b[27m\u001b[22m \u001b[36mv2.1.9 \u001b[39m\u001b[90m/Users/lagyeongjun/CD/metahumotonic_web_back/ts\u001b[39m\n\n\u001b[2mfilter:  \u001b[22m\u001b[33mtest/property.test.ts\u001b[39m\n\u001b[2minclude: \u001b[22m\u001b[33mtest/**/*.test.ts\u001b[39m\n\u001b[2mexclude:  \u001b[22m\u001b[33m**/node_modules/**\u001b[2m, \u001b[22m**/dist/**\u001b[2m, \u001b[22m**/cypress/**\u001b[2m, \u001b[22m**/.{idea,git,cache,output,temp}/**\u001b[2m, \u001b[22m**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*\u001b[39m\n\u001b[31m\nNo test files found, exiting with code 1\u001b[39m"
+    },
+    {
+      "id": "wiring-orphans",
+      "term": "Reachable",
+      "verdict": "GREEN",
+      "seconds": 0.03,
+      "cmd": "python3 harness/gates/orphan_module.py",
+      "cwd": ".",
+      "outputSha256": "9777faf42b839949",
+      "why": ""
+    },
+    {
+      "id": "wiring-shared-composition",
+      "term": "Reachable",
+      "verdict": "GREEN",
+      "seconds": 0.12,
+      "cmd": "python3 harness/gates/shared_composition.py",
+      "cwd": ".",
+      "outputSha256": "b61cd4c28b703e91",
+      "why": ""
+    },
+    {
+      "id": "py-operations-contract",
+      "term": "Contract",
+      "verdict": "GREEN",
+      "seconds": 5.1,
+      "cmd": "uv run --extra dev pytest -q tests/test_operations_contract.py",
+      "cwd": ".",
+      "outputSha256": "cdf0038a7cb3a873",
+      "why": ""
+    },
+    {
+      "id": "ts-wire-compat",
+      "term": "Contract",
+      "verdict": "GREEN",
+      "seconds": 1.02,
+      "cmd": "npx vitest run --reporter=dot test/http.test.ts",
+      "cwd": "ts",
+      "outputSha256": "3596cb15beff9045",
+      "why": ""
+    },
+    {
+      "id": "ts-smoke",
+      "term": "Executable",
+      "verdict": "GREEN",
+      "seconds": 0.79,
+      "cmd": "bash scripts/smoke.sh",
+      "cwd": "ts",
+      "outputSha256": "62136c6ec0fa7fb2",
+      "why": ""
+    },
+    {
+      "id": "target-environment",
+      "term": "Environment",
+      "verdict": "NOT_RUN",
+      "seconds": 0.0,
+      "cmd": null,
+      "why": "Deciding this needs the live VM100 (192.168.0.24) and the deployed image. It cannot be decided from this checkout, so it is NOT_RUN rather than GREEN. Per SPEC §5 that blocks DONE — correctly. The TS tree has never been deployed and claiming Environment GREEN would be the exact false-GREEN that §4-5 warns about. The real check already exists: ops/check-web-back-live.sh, run against VM100."
+    },
+    {
+      "id": "py-full-suite",
+      "term": "Regression",
+      "verdict": "GREEN",
+      "seconds": 6.87,
+      "cmd": "uv run --extra dev pytest -q",
+      "cwd": ".",
+      "outputSha256": "775971ae34bb81f1",
+      "why": ""
+    }
+  ],
+  "terms": {
+    "Pure": "RED",
+    "Reachable": "GREEN",
+    "Contract": "GREEN",
+    "Executable": "GREEN",
+    "Environment": "NOT_RUN",
+    "Regression": "GREEN"
+  },
+  "done": false,
+  "commit": "f443875f1f3f3bee67849407a80e80a494733c73",
+  "dirty": true
+}

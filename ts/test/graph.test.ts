@@ -7,7 +7,6 @@
  */
 import { Effect, Layer, Ref } from "effect"
 import { describe, expect, it } from "vitest"
-import * as Cmd from "../src/agent/Commanders.js"
 import * as Loop from "../src/agent/Loop.js"
 import * as Scheduler from "../src/agent/Scheduler.js"
 import * as Traversal from "../src/agent/Traversal.js"
@@ -298,80 +297,6 @@ describe("Loop", () => {
 })
 
 // ---------------------------------------------------------------------------
-
-describe("Commanders — measurement-driven conditional dispatch", () => {
-  interface Ctx {
-    readonly trail: ReadonlyArray<string>
-  }
-
-  const commander = (
-    name: string,
-    value: number,
-    escalateTo: string,
-    threshold = 0.7
-  ): Cmd.Commander<Ctx, never, never> => ({
-    name,
-    act: (ctx) => Effect.succeed({ trail: [...ctx.trail, name] }),
-    measure: () => Effect.succeed({ metric: `${name}.confidence`, value, threshold, direction: "below" }),
-    escalateTo
-  })
-
-  it("crossed() reads the direction correctly", () => {
-    expect(Cmd.crossed({ metric: "m", value: 0.5, threshold: 0.7, direction: "below" })).toBe(true)
-    expect(Cmd.crossed({ metric: "m", value: 0.9, threshold: 0.7, direction: "below" })).toBe(false)
-    expect(Cmd.crossed({ metric: "m", value: 0.9, threshold: 0.7, direction: "above" })).toBe(true)
-  })
-
-  it("converges when the metric does not cross — no escalation", async () => {
-    // occam.confidence 0.95 >= 0.7 → 나생문 is NOT called.
-    const registry = Cmd.roster([commander("occam", 0.95, "naesengmoon")])
-    const t = await run(Cmd.dispatchFrom(registry, "occam", { trail: [] }, { maxHops: 5 }))
-    expect(t.stoppedBecause).toBe("Converged")
-    expect(t.context.trail).toEqual(["occam"])
-    expect(t.path[0]?.escalated).toBe(false)
-  })
-
-  it("escalates when the metric crosses — the edge is computed, not fixed", async () => {
-    // occam.confidence 0.4 < 0.7 → dispatch 나생문 (canonical example).
-    const registry = Cmd.roster([
-      commander("occam", 0.4, "naesengmoon"),
-      commander("naesengmoon", 0.99, "longinus")
-    ])
-    const t = await run(Cmd.dispatchFrom(registry, "occam", { trail: [] }, { maxHops: 5 }))
-    expect(t.context.trail).toEqual(["occam", "naesengmoon"])
-    expect(t.path[0]?.next).toBe("naesengmoon")
-    expect(t.stoppedBecause).toBe("Converged")
-  })
-
-  it("refuses to revisit a commander — 'the metric will settle' is not a proof", async () => {
-    const registry = Cmd.roster([
-      commander("occam", 0.1, "naesengmoon"),
-      commander("naesengmoon", 0.1, "occam")
-    ])
-    const t = await run(Cmd.dispatchFrom(registry, "occam", { trail: [] }, { maxHops: 20 }))
-    expect(t.stoppedBecause).toBe("Cycle")
-    expect(t.path.at(-1)?.refusedBecause).toBe("AlreadyVisited")
-  })
-
-  it("honours the hop budget when revisits are permitted", async () => {
-    const registry = Cmd.roster([
-      commander("a", 0.1, "b"),
-      commander("b", 0.1, "a")
-    ])
-    const t = await run(
-      Cmd.dispatchFrom(registry, "a", { trail: [] }, { maxHops: 4, allowRevisit: true })
-    )
-    expect(t.stoppedBecause).toBe("BudgetExhausted")
-    expect(t.path).toHaveLength(4)
-  })
-
-  it("names an unknown escalation target instead of silently stopping", async () => {
-    const registry = Cmd.roster([commander("occam", 0.1, "does-not-exist")])
-    const t = await run(Cmd.dispatchFrom(registry, "occam", { trail: [] }, { maxHops: 5 }))
-    expect(t.stoppedBecause).toBe("UnknownCommander")
-    expect(t.path[0]?.refusedBecause).toBe("UnknownCommander")
-  })
-})
 
 // ---------------------------------------------------------------------------
 

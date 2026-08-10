@@ -1,0 +1,106 @@
+{
+  "$comment": [
+    "The executable spec's gate list. SPEC §5:",
+    "  DONE(F) = Pure ∧ Reachable ∧ Contract ∧ Executable ∧ Environment ∧ Regression",
+    "Each gate reports one of GREEN / RED / INCONCLUSIVE / NOT_RUN (SPEC §4-5).",
+    "INCONCLUSIVE and NOT_RUN block DONE — they are not soft passes.",
+    "",
+    "`monitorable: false` marks a term that cannot be decided from a finite local",
+    "trace. Such a term can never be GREEN here; the honest value is INCONCLUSIVE.",
+    "A binary GREEN/RED gate would silently turn it into a false GREEN, which is",
+    "the failure SPEC §4-5 exists to prevent."
+  ],
+  "version": 1,
+  "doneTerms": ["Pure", "Reachable", "Contract", "Executable", "Environment", "Regression"],
+  "gates": [
+    {
+      "id": "ts-typecheck",
+      "term": "Pure",
+      "what": "TypeScript compiles under strict + exactOptionalPropertyTypes + noUncheckedIndexedAccess",
+      "cwd": "ts",
+      "cmd": ["npx", "tsc", "-p", "tsconfig.json", "--noEmit"],
+      "monitorable": true
+    },
+    {
+      "id": "ts-unit",
+      "term": "Pure",
+      "what": "Vitest — pure kernels, contracts, graph, write path",
+      "cwd": "ts",
+      "cmd": ["npx", "vitest", "run", "--reporter=dot"],
+      "monitorable": true
+    },
+    {
+      "id": "ts-property",
+      "term": "Pure",
+      "what": "PROMPT O — property tests (laws, not examples)",
+      "cwd": "ts",
+      "cmd": ["npx", "vitest", "run", "--reporter=dot", "test/property.test.ts"],
+      "monitorable": true
+    },
+    {
+      "id": "wiring-orphans",
+      "term": "Reachable",
+      "what": "SPEC §4-4 orphan_module — every module reachable from an entrypoint",
+      "cwd": ".",
+      "cmd": ["python3", "harness/gates/orphan_module.py"],
+      "monitorable": true
+    },
+    {
+      "id": "wiring-shared-composition",
+      "term": "Reachable",
+      "what": "SPEC §4-3 — production entrypoint and harness consume the SAME composition graph",
+      "cwd": ".",
+      "cmd": ["python3", "harness/gates/shared_composition.py"],
+      "monitorable": true
+    },
+    {
+      "id": "py-operations-contract",
+      "term": "Contract",
+      "what": "Python operations contract (release/rollout/live-checker invariants)",
+      "cwd": ".",
+      "cmd": ["uv", "run", "--extra", "dev", "pytest", "-q", "tests/test_operations_contract.py"],
+      "monitorable": true
+    },
+    {
+      "id": "ts-wire-compat",
+      "term": "Contract",
+      "what": "TS answers the same wire contract as app/ (status codes, /ready keys, headers)",
+      "cwd": "ts",
+      "cmd": ["npx", "vitest", "run", "--reporter=dot", "test/http.test.ts"],
+      "monitorable": true
+    },
+    {
+      "id": "ts-smoke",
+      "term": "Executable",
+      "what": "Real compiled server, every route, zero infra",
+      "cwd": "ts",
+      "cmd": ["bash", "scripts/smoke.sh"],
+      "monitorable": true,
+      "requiresBuild": true
+    },
+    {
+      "id": "target-environment",
+      "term": "Environment",
+      "what": "VM100 docker runtime behind traefik — the environment this actually ships to",
+      "cwd": ".",
+      "cmd": null,
+      "monitorable": false,
+      "notRunReason": [
+        "Deciding this needs the live VM100 (192.168.0.24) and the deployed image.",
+        "It cannot be decided from this checkout, so it is NOT_RUN rather than GREEN.",
+        "Per SPEC §5 that blocks DONE — correctly. The TS tree has never been",
+        "deployed and claiming Environment GREEN would be the exact false-GREEN",
+        "that §4-5 warns about.",
+        "The real check already exists: ops/check-web-back-live.sh, run against VM100."
+      ]
+    },
+    {
+      "id": "py-full-suite",
+      "term": "Regression",
+      "what": "The whole Python suite — app/ must keep passing on its own",
+      "cwd": ".",
+      "cmd": ["uv", "run", "--extra", "dev", "pytest", "-q"],
+      "monitorable": true
+    }
+  ]
+}

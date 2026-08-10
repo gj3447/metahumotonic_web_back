@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#
+# The single verify command — AGENT_PARADIGM_CONTRACT_v1 §7-3:
+#
+#   "최상단에 verify 단일 명령을 둔다 (빠른 check / 최종 verify 2단).
+#    자연어 규칙은 무시될 수 있지만 종료 코드는 무시할 수 없다."
+#
+#   ./verify          every gate, folded into DONE (SPEC §5)
+#   ./verify check    the fast loop — typecheck + unit, seconds not minutes
+#   ./verify --autonomous   refuses to run without harness/BUDGET.md (B1)
+#
+# Everything real lives in harness/. This file exists so there is ONE thing to
+# type, and so the exit code is the contract.
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+case "${1:-all}" in
+  check)
+    # PROMPT P#5: the inner loop is a seconds-budget. Anything slower belongs
+    # in the full run, not here.
+    ( cd ts && npx tsc -p tsconfig.json --noEmit && npx vitest run --reporter=dot )
+    ;;
+  all|--autonomous|"")
+    exec python3 harness/runner/verify.py "$@"
+    ;;
+  *)
+    exec python3 harness/runner/verify.py "$@"
+    ;;
+esac
