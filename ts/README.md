@@ -21,7 +21,7 @@ metahumotonic_web_back/
 cd ts
 npm install
 npm run typecheck     # tsc --noEmit
-npm test              # vitest — 50 tests, no infra required
+npm test              # vitest — 84 tests, no infra required
 npm run dev           # http://localhost:8000  (docs at /docs)
 ```
 
@@ -64,11 +64,61 @@ src/
 │   ├── Cypher.ts      the queries, copied verbatim from app/kg.py
 │   ├── Snapshot.ts    the canonical fallback constants (measured 2026-06-08)
 │   ├── FeedbackStore.ts, RateLimiter.ts, Breaker.ts, Auth.ts, Ids.ts
-├── agent/Loop.ts    bounded, observable agent loops
+├── agent/           the graph substrate (see below)
+│   ├── WorkGraph.ts   pure: DAG, hyperedges, topo sort, ready-set, write-set leases
+│   ├── Scheduler.ts   DAG executor: dependency order, lease-aware concurrency,
+│   │                  subtree-scoped failure
+│   ├── Traversal.ts   the KG as the agent's move set (bounded BFS)
+│   ├── Commanders.ts  measurement-driven conditional dispatch
+│   └── Loop.ts        frontier convergence + loop-until-dry, over the graph
 ├── api/Api.ts       the whole HTTP surface, declared once
 ├── server/          handlers + the composition root
 └── main.ts          entrypoint
 ```
+
+## The agent paradigm is a graph, not a loop
+
+The first cut of `agent/Loop.ts` was `(state: A, index: number) => A` with
+`Object.is` convergence — and **nothing imported it**. Dead code cannot be
+wrong, which is why it was never right. An `index: number` is a confession
+that the work is one-dimensional; this system's work is not:
+
+- APT/SP decomposes an anchor into a **DAG of spans**, not a list
+- a dispatch is a **hyperedge** — one parent, N children, one fan-in
+- two nodes may run together only if their **write-sets are disjoint**
+  (the lesson OMD paid for)
+- the seven commanders use **measurement-driven conditional dispatch**
+  (canon `7cmd-…-2026-05-30`): the service graph is resolved at runtime, so an
+  edge is *computed*, not imported
+- convergence over a search is **frontier empty / K dry rounds**, never state
+  equality — and dedup must be against everything *seen*, not everything
+  *kept*, or rejected nodes reappear each round and the loop never terminates
+
+`src/agent/` now models all of that, and it is reachable:
+
+| endpoint | exercises |
+|---|---|
+| `GET /api/agent/walk` | `Traversal` — bounded BFS over the live KG |
+| `GET /api/agent/plan` | `WorkGraph` — the same neighbourhood as a DAG: topo order, ready-set, frontier, cycle/dangling check |
+| `GET /api/agent/explore` | `Loop` + `Scheduler` — rounds to convergence with real I/O per node |
+
+Live run against the SYMPOSIUM KG, 2026-08-10:
+
+```
+/api/agent/walk    → 5 visited, stoppedBecause: Exhausted, unexplored: 0
+/api/agent/plan    → 5 nodes, cyclic: false, dangling: 0, readySet: [seed]
+/api/agent/explore → rounds 3, admitted 9, stoppedBecause: Dry, failed 0
+/api/agent/explore?seed=<nonexistent> → rounds 2, admitted 1, Dry
+```
+
+Every terminal condition is named. There is no path out of the loop that means
+"it just ended".
+
+One honest gap: `Commanders.ts` is the *mechanism* for measurement-driven
+dispatch, covered by tests, but it has **no HTTP surface and no real roster**.
+The actual commanders (occam, 나생문, 롱기누스, …) live in `PI/bhgman_tool` in
+Python. Wiring a fabricated roster to an endpoint would be theatre; the roster
+belongs to whoever owns those engines.
 
 ## What the port changes, and why
 
@@ -81,6 +131,7 @@ src/
 | `uuid4()`, `datetime.utcnow()` | the `Ids` service | ids are deterministic in tests |
 | `finally: await driver.close()` | `Effect.acquireRelease` | SIGINT closes the driver through the scope that opened it |
 | `try/except` around each dependency | `Breaker.guard` | one degradation policy, written once |
+| `Effect.all(tasks)` fan-out | `Scheduler.run(graph)` | dependencies, write-set leases, subtree-scoped failure |
 
 Behaviour is deliberately *unchanged*: same routes, same status codes, same
 snapshot magnitudes, same fail-closed rules (an unset key disables a surface
@@ -88,7 +139,7 @@ with 503 rather than opening it).
 
 ## Verified
 
-Typecheck clean, 50/50 tests green, and driven live against the SYMPOSIUM KG on
+Typecheck clean, 84/84 tests green, and driven live against the SYMPOSIUM KG on
 2026-08-10:
 
 - snapshot mode — `/health` `/ready` `/` `/api/stats` `/api/domains`
@@ -100,6 +151,7 @@ Typecheck clean, 50/50 tests green, and driven live against the SYMPOSIUM KG on
 - feedback accept / honeypot / 429-with-retry-hint, operator inbox
   401→200→triage→404, KG proxy 503-when-disabled, and a write rejected inside
   a READ transaction by the server itself (502 `KgQueryFailed`)
+- the three `/api/agent/*` endpoints against real nodes (see above)
 
 ## Two defects found while porting
 
@@ -123,6 +175,14 @@ Boolean, Temporal or Duration, got: StringArray[2026-05-14T16:00:00…, …]
 port reproduces the same `[]` (deliberately — same behaviour), but now emits a
 `WARN` naming the cause. **Not fixed here**: the fix is either a data cleanup or
 a Cypher change, and both belong to the Python service that owns the endpoint.
+
+## Tooling
+
+`effect-mcp` (by `tim-smart`, the #1 contributor to Effect-TS/effect) is
+registered in `CD/.mcp.json` as `effect-docs`. Two tools —
+`effect_docs_search` and `get_effect_doc` — so an agent editing this tree can
+read current Effect documentation instead of recalling it. Note the repo was
+last pushed 2026-02, so treat it as a docs index, not a version oracle.
 
 ## Not ported
 

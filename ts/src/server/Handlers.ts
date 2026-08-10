@@ -28,6 +28,7 @@ import { FeedbackStoreTag } from "../ports/FeedbackStore.js"
 import { IdsTag } from "../ports/Ids.js"
 import { KgPortTag } from "../ports/KgPort.js"
 import { enforce, FeedbackLimiter } from "../ports/RateLimiter.js"
+import { AgentLive } from "./AgentHandlers.js"
 
 // --------------------------------------------------------------------------
 // meta
@@ -347,7 +348,8 @@ export const HandlersLive = Layer.mergeAll(
   ResearchLive,
   FeedbackLive,
   FeedbackInternalLive,
-  KgProxyLive
+  KgProxyLive,
+  AgentLive
 )
 
 // re-exported so `Layers.ts` can name the error types it must not leak

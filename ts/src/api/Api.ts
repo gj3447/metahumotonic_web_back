@@ -18,6 +18,11 @@
 import { HttpApi, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
 import { Schema } from "effect"
 import {
+  ExploreResponse,
+  PlanResponse,
+  WalkResponse
+} from "../domain/AgentContracts.js"
+import {
   AgentFeed,
   ConsensusRecord,
   CypherRequest,
@@ -222,6 +227,46 @@ export const KgProxyGroup = HttpApiGroup.make("kgProxy")
   .prefix("/api/kg")
 
 // --------------------------------------------------------------------------
+// /api/agent/* — the graph surface
+// --------------------------------------------------------------------------
+
+/**
+ * The KG as an agent's move set.
+ *
+ * `/api/research/neighbors` already said "any node is a doorway", but only a
+ * human could walk through it. These three endpoints are that doorway for an
+ * agent: traverse, read the traversal back as a DAG, and run it to
+ * convergence with a bounded scheduler.
+ */
+const WalkParams = Schema.Struct({
+  seed: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(512)),
+  maxNodes: Limit(40, 200),
+  maxDepth: Limit(3, 6),
+  branching: Limit(8, 50)
+})
+
+export const AgentGroup = HttpApiGroup.make("agent")
+  .add(
+    HttpApiEndpoint.get("walk", "/walk").setUrlParams(WalkParams).addSuccess(WalkResponse)
+  )
+  .add(
+    HttpApiEndpoint.get("plan", "/plan").setUrlParams(WalkParams).addSuccess(PlanResponse)
+  )
+  .add(
+    HttpApiEndpoint.get("explore", "/explore")
+      .setUrlParams(
+        Schema.Struct({
+          seed: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(512)),
+          maxNodes: Limit(40, 200),
+          maxRounds: Limit(4, 12),
+          concurrency: Limit(4, 16)
+        })
+      )
+      .addSuccess(ExploreResponse)
+  )
+  .prefix("/api/agent")
+
+// --------------------------------------------------------------------------
 // the whole API
 // --------------------------------------------------------------------------
 
@@ -232,6 +277,7 @@ export const Api = HttpApi.make("metahumotonic-web-back")
   .add(FeedbackGroup)
   .add(FeedbackInternalGroup)
   .add(KgProxyGroup)
+  .add(AgentGroup)
   .addError(BadRequest)
   .addError(Conflict)
 
