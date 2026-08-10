@@ -5,9 +5,16 @@ A functional TypeScript implementation of this service, built on
 
 **It sits beside the Python service. It does not replace it.** `app/` is
 untouched and still the deployed implementation. Nothing here is wired into
-`Dockerfile`, `deploy/`, `pyproject.toml`, or CI. Both trees can be developed
-and run independently; the TS one binds the same routes so it can be put behind
-the same ingress when — and only when — someone decides to.
+`Dockerfile`, `deploy/`, `pyproject.toml`, or CI.
+
+> ⚠️ **It is NOT wire-compatible with the Python service.** An earlier version of
+> this file claimed it could "be put behind the same ingress". That was wrong,
+> and an audit on 2026-08-10 found the specific breaks. Until they are fixed
+> (see *Known divergences*), the two services cannot be swapped:
+> `/ready` omits `kg_live` / `degraded` / `status`, which
+> `ops/check-web-back-live.sh:298,301` asserts; the Cypher proxy reads
+> `Authorization` where Python reads `X-API-Key`; validation errors are 400
+> where Python returns 422.
 
 ```
 metahumotonic_web_back/
@@ -22,7 +29,8 @@ cd ts
 npm install
 npm run typecheck     # tsc --noEmit
 npm test              # vitest — 106 tests, no infra required
-npm run dev           # http://localhost:8000  (docs at /docs)
+npm run dev           # tsx watch — http://localhost:8000 (docs at /docs)
+npm start             # build, then run the compiled output
 ```
 
 Zero infrastructure by default: no Neo4j, no Mongo, no Redis, no Postgres. The
@@ -193,9 +201,30 @@ verified independently through a separate MCP session, not from the receipt.
 | `try/except` around each dependency | `Breaker.guard` | one degradation policy, written once |
 | `Effect.all(tasks)` fan-out | `Scheduler.run(graph)` | dependencies, write-set leases, subtree-scoped failure |
 
-Behaviour is deliberately *unchanged*: same routes, same status codes, same
-snapshot magnitudes, same fail-closed rules (an unset key disables a surface
-with 503 rather than opening it).
+Behaviour was *intended* to be unchanged — same routes, same snapshot
+magnitudes, same fail-closed rules. An audit on 2026-08-10 found that intent
+was not achieved on ten points. They are listed below rather than quietly
+fixed, because two of them are behaviour decisions someone has to make.
+
+## Known divergences from the Python service (audited 2026-08-10)
+
+Measured against `app/` and its 249-test suite, not against this README.
+
+| # | divergence | evidence | severity |
+|---|---|---|---|
+| 1 | `/ready` omits `status`, `kg_live`, `degraded` | `ops/check-web-back-live.sh:298,301` asserts `kg_live is True` and `degraded is False`; `app/routers/meta.py:66-73` emits them | **blocks deployment** |
+| 2 | Cypher proxy auth header is `Authorization`; Python uses `X-API-Key` | `app/routers/kg_proxy.py:49,74` | **breaks clients** |
+| 3 | `DELETE /internal/feedback/:id` retains the record as spam; Python *erases* it and the contact address | `app/routers/feedback.py:151-164` | **privacy regression** |
+| 4 | Feedback rate limit keys on subject text, not client IP | `src/server/Handlers.ts:223` | **security** |
+| 5 | `trustProxy` is parsed and never used — no forwarded-IP handling | `src/Config.ts:184`, no reader | **security** |
+| 6 | `neo4jFallbackUris` is dead: `neo4j.driver()` does not throw on an unreachable host, so `Effect.firstSuccessOf` always takes `uris[0]` | verified empirically | availability |
+| 7 | No cache layer, though three TTL settings are parsed | `src/Config.ts:152-154`; no `ports/Cache.ts` | load regression |
+| 8 | Validation errors are 400; Python returns 422 | schema-boundary decode | contract |
+| 9 | Out-of-range pagination is clamped; Python rejects it | `Schema.clamp` in `src/api/Api.ts` | contract |
+| 10 | Tests share one handler with no per-test reset | `test/http.test.ts:98` | test hygiene |
+
+Items 3 and 8 are decisions, not bugs — someone has to choose. The rest are
+defects.
 
 ## Verified
 
