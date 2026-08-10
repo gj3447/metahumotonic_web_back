@@ -217,7 +217,11 @@ describe("meta", () => {
   })
 
   it("GET / carries the endpoints array the Python payload has", async () => {
-    const body = (await (await get("/")).json()) as { endpoints: Array<string>; runtime: string }
+    const body = (await (await get("/")).json()) as {
+      endpoints: Array<string>
+      runtime: string
+      deployedAt: string
+    }
     expect(body.endpoints).toEqual([
       "/health",
       "/ready",
@@ -228,6 +232,7 @@ describe("meta", () => {
       "/api/wiki/v1"
     ])
     expect(body.runtime).toBe("effect-ts") // additive, tells the two apart
+    expect(typeof body.deployedAt).toBe("string")
   })
 })
 

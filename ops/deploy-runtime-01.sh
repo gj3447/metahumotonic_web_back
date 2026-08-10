@@ -33,16 +33,27 @@ probe() { rt "curl -s --max-time 8 http://127.0.0.1:8000$1" 2>/dev/null || true;
 case "${1:-deploy}" in
   --status)
     say "active:   $(rt 'readlink -f /srv/mhb/current 2>/dev/null || echo none')"
+    say "previous: $(rt 'readlink -f /srv/mhb/previous 2>/dev/null || echo none')"
     say "unit:     $(rt 'sudo -n systemctl is-active mhb-ts.service' 2>/dev/null || echo inactive)"
     say "releases: $(rt 'ls -1 /srv/mhb/releases 2>/dev/null | wc -l') on disk"
     say "health:   $(probe /health)"
     exit 0
     ;;
   --rollback)
-    prev="$(rt 'ls -1t /srv/mhb/releases | sed -n 2p')"
-    [[ -n "$prev" ]] || { echo "FAIL no previous release to roll back to" >&2; exit 1; }
-    say "rolling back to $prev"
-    rt "ln -sfn /srv/mhb/releases/$prev /srv/mhb/current && sudo -n systemctl restart mhb-ts.service"
+    # A true undo, and repeatable: `current` and `previous` swap.
+    #
+    # The first version picked "second newest by mtime", which is NOT an undo.
+    # Running it twice stayed put instead of rolling forward, and after a fresh
+    # deploy it would have jumped to whatever happened to be second on disk
+    # rather than to what was actually running. Found by testing rollback
+    # before needing it, which is the only time it is cheap to find.
+    cur="$(rt 'readlink -f /srv/mhb/current 2>/dev/null || true')"
+    prev="$(rt 'readlink -f /srv/mhb/previous 2>/dev/null || true')"
+    [[ -n "$prev" ]] || { echo "FAIL no recorded previous release — nothing to swap to" >&2; exit 1; }
+    [[ "$prev" != "$cur" ]] || { echo "FAIL previous == current; refusing a no-op" >&2; exit 1; }
+    say "swapping: $(basename "$cur") -> $(basename "$prev")"
+    rt "ln -sfn '$cur' /srv/mhb/previous.new && ln -sfn '$prev' /srv/mhb/current && mv -T /srv/mhb/previous.new /srv/mhb/previous"
+    rt "sudo -n systemctl restart mhb-ts.service"
     ;;
   deploy)
     # 1. The gates decide whether this ships, not the operator's mood.
@@ -72,7 +83,9 @@ case "${1:-deploy}" in
     say "installing runtime deps…"
     rt "cd /srv/mhb/releases/$rel/ts && npm ci --omit=dev --silent --no-fund --no-audit >/dev/null 2>&1"
 
-    # 5. Activate by moving exactly one symlink.
+    # 5. Activate. `previous` records what was running so --rollback is a real
+    #    undo rather than a guess based on file timestamps.
+    rt "if [ -e /srv/mhb/current ]; then ln -sfn \"\$(readlink -f /srv/mhb/current)\" /srv/mhb/previous.new && mv -T /srv/mhb/previous.new /srv/mhb/previous; fi"
     rt "ln -sfn /srv/mhb/releases/$rel /srv/mhb/current"
     rt "sudo -n systemctl enable mhb-ts.service >/dev/null 2>&1 || true; sudo -n systemctl restart mhb-ts.service"
     ;;

@@ -395,9 +395,11 @@ export class RootResponse extends Schema.Class<RootResponse>("RootResponse")({
   service: Schema.String,
   version: Schema.String,
   endpoints: Schema.Array(Schema.String),
-  /** Not in the Python payload. An additive key so the two implementations
-   *  are distinguishable at runtime; readers of the Python shape are unaffected. */
-  runtime: Schema.Literal("effect-ts")
+  /** Not in the Python payload. Additive keys so the two implementations and
+   *  the environment are distinguishable at runtime; readers of the Python
+   *  shape are unaffected. */
+  runtime: Schema.Literal("effect-ts"),
+  deployedAt: Schema.String
 }) {}
 
 // --------------------------------------------------------------------------

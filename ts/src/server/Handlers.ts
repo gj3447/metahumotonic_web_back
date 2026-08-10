@@ -111,7 +111,10 @@ export const MetaLive = HttpApiBuilder.group(Api, "meta", (handlers) =>
             "/api/feedback",
             "/api/wiki/v1"
           ],
-          runtime: "effect-ts"
+          runtime: "effect-ts",
+          // Which box answered. Cheap, and it removes a whole class of "am I
+          // looking at the thing I just deployed?" confusion.
+          deployedAt: process.env["MHB_DEPLOY_ENV"] ?? "unset"
         })
       })
     )
