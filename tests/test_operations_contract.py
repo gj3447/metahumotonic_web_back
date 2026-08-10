@@ -1315,3 +1315,78 @@ def test_route_transaction_is_nonce_bound_and_crash_resumable():
     assert "route_rollback_nonce=" in rollout
     assert 'MHB_WIKI_ROUTE_NONCE="$active_nonce"' in release
     assert 'MHB_WIKI_ROUTE_NONCE="$route_rollback_nonce"' in release
+
+
+def test_rollback_to_mode_can_redeploy_a_commit_that_is_no_longer_the_tip():
+    """After finalize there is no container-level rollback left.
+
+    `manage-wiki-rollout.sh` deletes both backup containers when it finalizes,
+    and its `rollback` branch requires them, so once STATUS=DONE the ONLY way
+    back is to redeploy the previous commit.  Release mode cannot do that: it
+    demands `commit == HEAD == origin/main`.  On 2026-08-10 three unrelated
+    commits landed on main and the deployed commit became unreleasable by every
+    existing control mode.  `--rollback-to` closes that hole.
+    """
+    release = (ROOT / "ops" / "release-web-back-vm100.sh").read_text()
+    rollout = (ROOT / "ops" / "remote" / "manage-wiki-rollout.sh").read_text()
+
+    # the premise: finalize really does destroy the container-level path back
+    assert 'docker rm "$backup"' in rollout
+
+    # the mode is parseable and reaches the release path
+    assert '"$EXPECTED_COMMIT" == --rollback-to' in release
+    assert 'if [[ "$CONTROL_MODE" == release || "$CONTROL_MODE" == rollback-to ]]' in release
+
+    # it relaxes tip-equality and NOTHING else
+    assert 'git merge-base --is-ancestor "$commit" "$(git rev-parse origin/main)"' in release
+    assert "rollback target is not an ancestor of origin/main" in release
+    assert "rollback target is HEAD; use release mode" in release
+
+
+def test_rollback_to_keeps_every_other_release_precondition():
+    """Only code reviewed and pushed to main may reach production."""
+    release = (ROOT / "ops" / "release-web-back-vm100.sh").read_text()
+    guard = release[release.index('if [[ "$CONTROL_MODE" == release || "$CONTROL_MODE" == rollback-to ]]') :]
+    guard = guard[: guard.index("\nfi\n")]
+
+    # clean tree, on main, local main == fetched origin/main — all still inside
+    # the shared block, so they apply to a rollback too
+    assert 'git status --porcelain=v1' in guard
+    assert 'git branch --show-current' in guard
+    assert 'local main and fetched origin/main differ' in guard
+
+    # tip-equality is now the release-only branch
+    assert 'if [[ "$CONTROL_MODE" == release ]]' in guard
+    assert 'confirmation commit does not match HEAD' in guard
+
+
+def test_rollback_to_does_not_bypass_the_migration_guard():
+    """A rollback across a schema migration is exactly as dangerous as a
+    forward release across one, so the guard must not be mode-conditional."""
+    lines = (ROOT / "ops" / "release-web-back-vm100.sh").read_text().splitlines()
+
+    guard_idx = [
+        i for i, line in enumerate(lines)
+        if "migration tree changed; use maintenance migration flow" in line
+    ]
+    assert len(guard_idx) == 1, "expected exactly one migration guard"
+    guard_at = guard_idx[0]
+
+    mode_branches = [i for i, line in enumerate(lines) if 'CONTROL_MODE" == ' in line]
+    # every mode branch is settled before the migration guard runs, so the
+    # guard is on the shared path rather than inside a release-only branch
+    assert max(mode_branches) < guard_at
+
+    # and nothing re-introduces a mode condition in the block that contains it
+    window = lines[max(mode_branches) + 1 : guard_at]
+    assert not any("CONTROL_MODE" in line for line in window), (
+        "a CONTROL_MODE condition appears between the last mode branch and the "
+        "migration guard; the guard may no longer apply to --rollback-to"
+    )
+
+
+def test_operations_doc_states_that_rollback_expires():
+    doc = (ROOT / "docs" / "OPERATIONS_VM100.md").read_text(encoding="utf-8")
+    assert "--rollback-to" in doc
+    assert "expires" in doc.lower()
+

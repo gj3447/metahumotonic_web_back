@@ -11,7 +11,7 @@ REDIS_IMAGE_FILE="$REPO_ROOT/ops/redis-canary-image.txt"
 EXPECTED_COMMIT="${1:-}"
 CONTROL_MODE=release
 RECOVERY_NONCE=""
-if [[ "$EXPECTED_COMMIT" == --recover-rollback || "$EXPECTED_COMMIT" == --resume-public || "$EXPECTED_COMMIT" == --recover-canary-db ]]; then
+if [[ "$EXPECTED_COMMIT" == --recover-rollback || "$EXPECTED_COMMIT" == --resume-public || "$EXPECTED_COMMIT" == --recover-canary-db || "$EXPECTED_COMMIT" == --rollback-to ]]; then
   CONTROL_MODE="${EXPECTED_COMMIT#--}"
   EXPECTED_COMMIT="${2:-}"
   [[ "$CONTROL_MODE" != recover-canary-db ]] || RECOVERY_NONCE="${3:-}"
@@ -123,17 +123,35 @@ if [[ -n "$pending_canaries" ]]; then
   exit 1
 fi
 
-[[ -n "$EXPECTED_COMMIT" ]] || fail "usage: $0 <exact-commit>"
+[[ -n "$EXPECTED_COMMIT" ]] || fail "usage: $0 <exact-commit> | $0 --rollback-to <exact-commit-on-main>"
 [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || fail "invalid commit"
 cd "$REPO_ROOT"
 git fetch --prune origin main
 git cat-file -e "${EXPECTED_COMMIT}^{commit}"
 commit="$EXPECTED_COMMIT"
-if [[ "$CONTROL_MODE" == release ]]; then
+# `release` deploys the tip of main. `rollback-to` deploys a commit that is
+# ALREADY on main but is no longer the tip — the redeploy-what-is-running case.
+#
+# Both keep the same safety property: only code that was reviewed and pushed to
+# main can reach production. `rollback-to` relaxes exactly one check, tip
+# equality, and nothing else; the migration-tree guard, the canary, the backup
+# receipt and the rollout nonce all still apply.
+#
+# It exists because without it there is NO mode that can redeploy the commit
+# production is currently running once main moves forward — verified on
+# 2026-08-10, when three unrelated commits landed on main and 8e8523b1 (the
+# deployed commit) became unreleasable by every existing control mode.
+if [[ "$CONTROL_MODE" == release || "$CONTROL_MODE" == rollback-to ]]; then
   [[ -z "$(git status --porcelain=v1)" ]] || fail "working tree must be clean"
   [[ "$(git branch --show-current)" == "main" ]] || fail "release must run from main"
   [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]] || fail "local main and fetched origin/main differ"
-  [[ "$commit" == "$(git rev-parse HEAD)" ]] || fail "confirmation commit does not match HEAD"
+  if [[ "$CONTROL_MODE" == release ]]; then
+    [[ "$commit" == "$(git rev-parse HEAD)" ]] || fail "confirmation commit does not match HEAD"
+  else
+    git merge-base --is-ancestor "$commit" "$(git rev-parse origin/main)" \
+      || fail "rollback target is not an ancestor of origin/main"
+    [[ "$commit" != "$(git rev-parse HEAD)" ]] || fail "rollback target is HEAD; use release mode"
+  fi
 fi
 
 version="$(python3 -c '

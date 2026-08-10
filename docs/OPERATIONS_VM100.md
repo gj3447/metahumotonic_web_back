@@ -430,3 +430,55 @@ containers on one VM improve process rollout but do not provide host-level HA.
 The release image and deployment receipt carry source commit/archive labels,
 but there is no external registry receipt. The checker proves replica/image-byte
 consistency on VM100; it does not establish an external supply-chain attestation.
+
+## Rollback expires — and what to do after it does
+
+`ops/remote/manage-wiki-rollout.sh` renames the previous containers to
+`…-backup-…` during a rollout and its `rollback` branch restores them. **When
+the rollout finalizes, both backup containers are deleted** (`docker rm
+"$backup"`). So:
+
+| when | how to get back |
+|---|---|
+| rollout in progress / not finalized | `ops/release-web-back-vm100.sh --recover-rollback [commit]` — restores the backup containers |
+| after `STATUS=DONE` | the backups are gone. The only way back is to **redeploy the previous commit** |
+
+For the second row, use:
+
+```bash
+ops/release-web-back-vm100.sh --rollback-to <40-char-commit>
+```
+
+`--rollback-to` is the same rollout as a normal release, with exactly one
+precondition relaxed: the target does not have to be the tip of `main`, only an
+**ancestor of `origin/main`**. Everything else still applies — clean tree, run
+from `main`, local `main` in sync with the fetched `origin/main`, the migration
+tree guard, the canary, the backup receipt and the rollout nonce.
+
+Why it exists: plain `release` mode requires `commit == HEAD == origin/main`.
+On 2026-08-10 three unrelated commits landed on `main`, and the commit
+production was actually running (`8e8523b1`) became undeployable by **every**
+existing control mode — `--recover-rollback`, `--resume-public` and
+`--recover-canary-db` recover an in-flight rollout, none of them deploy an
+arbitrary earlier commit.
+
+**Rolling back across a migration is still refused.** If the target commit has
+a different `migrations/` tree the release fails with `migration tree changed;
+use maintenance migration flow` — that guard is deliberately not
+mode-conditional.
+
+### Known, unfixed: the image tag is a shared mutable name
+
+`release-web-back-vm100.sh` derives the tag from `project.version` in the
+target commit's `pyproject.toml`, so every build of the same version writes
+`metahumotonic-web-back:1.0.0-x86` over the previous one, including the tag the
+running containers were created from. A build-succeeds-but-canary-fails release
+therefore leaves `check-web-back-live.sh` asserting image-ID equality against an
+image that was never deployed — reporting FAIL against healthy, untouched
+production, with the real image dangling.
+
+This predates the `--rollback-to` work and is **not fixed here**, because the
+fix changes the deployed image-naming contract (either require a version bump
+in preflight, or move to `${version}-${commit:0:12}` and update
+`check-web-back-live.sh` to match). That is an operator decision.
+
