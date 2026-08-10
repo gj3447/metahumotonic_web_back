@@ -6,7 +6,7 @@
   "description": "Effect-TS functional port of metahumotonic-web-back. Runs ALONGSIDE the Python/FastAPI service — neither replaces the other.",
   "license": "AGPL-3.0-only",
   "engines": {
-    "node": ">=22"
+    "node": ">=20"
   },
   "scripts": {
     "dev": "tsx watch src/main.ts",
