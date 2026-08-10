@@ -7,7 +7,7 @@ if [[ -n "${PYTHONOPTIMIZE:-}" ]]; then
   exit 1
 fi
 
-PROXMOX_HOST="${MHB_PROXMOX_HOST:-metahumo}"
+PROXMOX_HOST="${MHB_PROXMOX_HOST:-proxmox}"
 VM_ID="${MHB_VM_ID:-100}"
 EXPECTED_NODE="${MHB_EXPECTED_NODE:-cpu-edge-01}"
 EXPECTED_IP="${MHB_EXPECTED_IP:-192.168.0.24}"

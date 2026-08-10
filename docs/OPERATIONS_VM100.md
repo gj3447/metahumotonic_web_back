@@ -29,7 +29,7 @@ Run the read-only checker from the repository root:
 ops/check-web-back-live.sh
 ```
 
-It connects through `ssh metahumo` and executes `kubectl` inside guest 100 with
+It connects through `ssh proxmox` and executes `kubectl` inside guest 100 with
 QEMU guest-agent execution. It verifies the context, node, Service,
 EndpointSlices, both Docker containers, direct health/readiness, public API, and
 the intentionally private health boundary. It also requires both replicas, the
