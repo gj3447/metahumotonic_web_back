@@ -83,7 +83,26 @@ Both gates are fire-tested — an injected violation makes them fail — and
 `shared_composition` strips comments before matching, because its first version
 flagged a *comment* that explained the rule it was enforcing.
 
-### 4. Evidence is machine-generated (§6)
+### 4. The mutation oracle — is the property suite worth anything?
+
+`harness/oracles/mutation.py` breaks the implementation nine ways and demands
+that the property suite notice every time. A green suite proves nothing on its
+own; this is the check that the laws bite.
+
+It earned its keep on the day it was written. Eight mutants died at once. The
+ninth — deleting single-flight from `Cache` — **survived**, and two adversarial
+LLM reviewers had already judged all 67 laws non-vacuous and missed it.
+
+The cause turned out to be in the implementation, not the test: `Cache` had TWO
+single-flight paths, and deleting either alone left the guarantee standing, so
+no test could distinguish them. One was pure optimisation over an atomic claim
+that already closed the race. It is gone (PROMPT T — prefer the boring single
+mechanism) and the mutant is now lethal. 9/9.
+
+Slow — one full property run per mutant — so it is not in the default gate set.
+Run it whenever the property suite or a pure module changes.
+
+### 5. Evidence is machine-generated (§6)
 
 `harness/_receipts/latest.json` holds per-gate verdicts, exit codes, durations,
 command lines, output digests, the commit and whether the tree was dirty.
@@ -98,6 +117,7 @@ harness/
 │   ├── manifest.json      the gate list and which DONE term each feeds
 │   ├── orphan_module.py   §4-4
 │   └── shared_composition.py  §4-3
+├── oracles/mutation.py    breaks the code 9 ways; every mutant must be caught
 ├── runner/verify.py       runs gates, folds into DONE, writes the receipt
 └── _receipts/latest.json  machine-generated evidence
 ```

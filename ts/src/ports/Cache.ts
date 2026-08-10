@@ -79,11 +79,13 @@ export const make = <A>(options: {
         const hit = current.entries.get(key)
         if (hit !== undefined && hit.expiresAtMillis > now) return hit.value
 
-        // Single-flight: join the in-flight producer rather than starting a
-        // second one. `Deferred` is the join point.
-        const pending = current.inFlight.get(key)
-        if (pending !== undefined) return yield* Deferred.await(pending)
-
+        // Single-flight lives entirely in the atomic claim below. An earlier
+        // version also had a non-atomic fast path here — read `inFlight`, join
+        // if present — which was pure optimisation: the claim already closes
+        // the read-then-modify race that path was trying to win. Mutation
+        // testing exposed it as redundant (deleting EITHER path alone left the
+        // guarantee intact, so no test could tell them apart) and PROMPT T says
+        // prefer the boring single mechanism.
         const deferred = yield* Deferred.make<A, never>()
         const claimed = yield* Ref.modify(state, (s) => {
           if (s.inFlight.has(key)) return [false, s] as const
