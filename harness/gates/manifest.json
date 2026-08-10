@@ -11,14 +11,27 @@
     "the failure SPEC §4-5 exists to prevent."
   ],
   "version": 1,
-  "doneTerms": ["Pure", "Reachable", "Contract", "Executable", "Environment", "Regression"],
+  "doneTerms": [
+    "Pure",
+    "Reachable",
+    "Contract",
+    "Executable",
+    "Environment",
+    "Regression"
+  ],
   "gates": [
     {
       "id": "ts-typecheck",
       "term": "Pure",
       "what": "TypeScript compiles under strict + exactOptionalPropertyTypes + noUncheckedIndexedAccess",
       "cwd": "ts",
-      "cmd": ["npx", "tsc", "-p", "tsconfig.json", "--noEmit"],
+      "cmd": [
+        "npx",
+        "tsc",
+        "-p",
+        "tsconfig.json",
+        "--noEmit"
+      ],
       "monitorable": true
     },
     {
@@ -26,7 +39,12 @@
       "term": "Pure",
       "what": "Vitest — pure kernels, contracts, graph, write path",
       "cwd": "ts",
-      "cmd": ["npx", "vitest", "run", "--reporter=dot"],
+      "cmd": [
+        "npx",
+        "vitest",
+        "run",
+        "--reporter=dot"
+      ],
       "monitorable": true
     },
     {
@@ -34,7 +52,13 @@
       "term": "Pure",
       "what": "PROMPT O — property tests (laws, not examples)",
       "cwd": "ts",
-      "cmd": ["npx", "vitest", "run", "--reporter=dot", "test/property.test.ts"],
+      "cmd": [
+        "npx",
+        "vitest",
+        "run",
+        "--reporter=dot",
+        "test/property.test.ts"
+      ],
       "monitorable": true
     },
     {
@@ -42,7 +66,10 @@
       "term": "Reachable",
       "what": "SPEC §4-4 orphan_module — every module reachable from an entrypoint",
       "cwd": ".",
-      "cmd": ["python3", "harness/gates/orphan_module.py"],
+      "cmd": [
+        "python3",
+        "harness/gates/orphan_module.py"
+      ],
       "monitorable": true
     },
     {
@@ -50,7 +77,10 @@
       "term": "Reachable",
       "what": "SPEC §4-3 — production entrypoint and harness consume the SAME composition graph",
       "cwd": ".",
-      "cmd": ["python3", "harness/gates/shared_composition.py"],
+      "cmd": [
+        "python3",
+        "harness/gates/shared_composition.py"
+      ],
       "monitorable": true
     },
     {
@@ -58,7 +88,15 @@
       "term": "Contract",
       "what": "Python operations contract (release/rollout/live-checker invariants)",
       "cwd": ".",
-      "cmd": ["uv", "run", "--extra", "dev", "pytest", "-q", "tests/test_operations_contract.py"],
+      "cmd": [
+        "uv",
+        "run",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q",
+        "tests/test_operations_contract.py"
+      ],
       "monitorable": true
     },
     {
@@ -66,7 +104,13 @@
       "term": "Contract",
       "what": "TS answers the same wire contract as app/ (status codes, /ready keys, headers)",
       "cwd": "ts",
-      "cmd": ["npx", "vitest", "run", "--reporter=dot", "test/http.test.ts"],
+      "cmd": [
+        "npx",
+        "vitest",
+        "run",
+        "--reporter=dot",
+        "test/http.test.ts"
+      ],
       "monitorable": true
     },
     {
@@ -74,24 +118,31 @@
       "term": "Executable",
       "what": "Real compiled server, every route, zero infra",
       "cwd": "ts",
-      "cmd": ["bash", "scripts/smoke.sh"],
+      "cmd": [
+        "bash",
+        "scripts/smoke.sh"
+      ],
       "monitorable": true,
       "requiresBuild": true
     },
     {
       "id": "target-environment",
       "term": "Environment",
-      "what": "VM100 docker runtime behind traefik — the environment this actually ships to",
+      "what": "runtime-01 (LXC 308) — the artifact serving against the live KG, interrogated from outside",
       "cwd": ".",
-      "cmd": null,
-      "monitorable": false,
-      "notRunReason": [
-        "Deciding this needs the live VM100 (192.168.0.24) and the deployed image.",
-        "It cannot be decided from this checkout, so it is NOT_RUN rather than GREEN.",
-        "Per SPEC §5 that blocks DONE — correctly. The TS tree has never been",
-        "deployed and claiming Environment GREEN would be the exact false-GREEN",
-        "that §4-5 warns about.",
-        "The real check already exists: ops/check-web-back-live.sh, run against VM100."
+      "cmd": [
+        "python3",
+        "harness/gates/target_environment.py"
+      ],
+      "monitorable": true,
+      "inconclusiveExit": 2,
+      "$comment": [
+        "Was NOT_RUN until 2026-08-10, and that correctly blocked DONE: the TS",
+        "tree had never been deployed, so no local trace could decide it.",
+        "runtime-01 changed that. The gate exits 2 (INCONCLUSIVE) rather than 0",
+        "when runtime-01 is unreachable — 'I could not ask' is not 'yes'.",
+        "It deliberately does NOT check production (VM100); that is a different",
+        "environment running a different artifact."
       ]
     },
     {
@@ -99,7 +150,14 @@
       "term": "Regression",
       "what": "The whole Python suite — app/ must keep passing on its own",
       "cwd": ".",
-      "cmd": ["uv", "run", "--extra", "dev", "pytest", "-q"],
+      "cmd": [
+        "uv",
+        "run",
+        "--extra",
+        "dev",
+        "pytest",
+        "-q"
+      ],
       "monitorable": true
     }
   ]

@@ -79,6 +79,11 @@ def run_gate(gate: dict[str, Any]) -> dict[str, Any]:
 
     if out.startswith("__TIMEOUT__") or out.startswith("__MISSING_TOOL__"):
         verdict, why = INCONCLUSIVE, out.strip()
+    elif code == gate.get("inconclusiveExit", -999):
+        # The gate reached its own conclusion that it could not conclude — e.g.
+        # the target environment is unreachable. That is not a pass and not a
+        # failure, and flattening it to either would be a lie (SPEC §4-5).
+        verdict, why = INCONCLUSIVE, out.strip()[-600:]
     elif code == 0:
         verdict, why = GREEN, ""
     else:
