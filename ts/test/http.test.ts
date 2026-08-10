@@ -1,30 +1,34 @@
 /**
- * HTTP-level tests.
+ * HTTP-level tests, driven through the real `HttpApiBuilder` app.
  *
- * These drive the *real* API — the same `HttpApiBuilder` app `main.ts` serves —
- * through `toWebHandler`, so routing, schema decoding, status-code mapping and
- * handler wiring are all exercised. No socket, no infra: the ports are swapped
- * for their in-memory layers by supplying a different set of `Layer`s.
+ * Two things changed after the 2026-08-10 audit:
  *
- * That substitution is the whole argument for the `R` channel. Nothing is
- * patched or monkeyed; a different composition root is simply passed in.
+ *  1. **Per-test isolation.** The previous version built ONE handler at module
+ *     scope, so state leaked between `it` blocks — visible as an inbox count
+ *     asserted with `>= 2` because the exact number depended on test order.
+ *     Every test now gets a fresh composition root.
+ *  2. **The assertions follow `app/`, not this port's earlier behaviour.**
+ *     Where the two disagreed, the Python is the contract; several tests below
+ *     exist specifically to pin a divergence that shipped once.
  */
 import { HttpApiBuilder, HttpServer } from "@effect/platform"
 import { Layer, Redacted } from "effect"
-import { afterAll, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import { Api } from "../src/api/Api.js"
 import { AppConfigTag, type AppConfig } from "../src/Config.js"
+import { ClientIpFixed } from "../src/ports/ClientIp.js"
 import { FeedbackStoreMemory } from "../src/ports/FeedbackStore.js"
 import { IdsDeterministic } from "../src/ports/Ids.js"
 import { KgPortSnapshot } from "../src/ports/KgPort.js"
 import { KgWritePortDryOnly } from "../src/ports/KgWritePort.js"
-import { SchemaGuardOffline } from "../src/ports/SchemaGuard.js"
 import { FeedbackLimiter, layerInProcess } from "../src/ports/RateLimiter.js"
+import { SchemaGuardOffline } from "../src/ports/SchemaGuard.js"
 import { HandlersLive } from "../src/server/Handlers.js"
+import { OperatorPlaneNoStore } from "../src/server/Middleware.js"
 
 const ADMIN_KEY = "admin-key-that-is-at-least-32-bytes!!"
 
-const testConfig: AppConfig = {
+const baseConfig: AppConfig = {
   host: "127.0.0.1",
   port: 0,
   version: "test-1.0.0",
@@ -78,39 +82,40 @@ const testConfig: AppConfig = {
   trustProxy: false
 }
 
-const ConfigTest = Layer.succeed(AppConfigTag, testConfig)
+/** A fresh app per test. Nothing carries over. */
+const buildApp = (overrides: Partial<AppConfig> = {}) => {
+  const cfg: AppConfig = { ...baseConfig, ...overrides }
+  const ports = Layer.mergeAll(
+    KgPortSnapshot,
+    ClientIpFixed("test-client"),
+    KgWritePortDryOnly.pipe(Layer.provideMerge(SchemaGuardOffline)),
+    FeedbackStoreMemory,
+    IdsDeterministic(),
+    layerInProcess(FeedbackLimiter, {
+      maxEvents: cfg.feedbackMaxPerWindow,
+      windowSeconds: cfg.feedbackWindowSeconds,
+      failClosed: false
+    })
+  ).pipe(Layer.provideMerge(Layer.succeed(AppConfigTag, cfg)))
 
-const PortsTest = Layer.mergeAll(
-  KgPortSnapshot,
-  KgWritePortDryOnly.pipe(Layer.provideMerge(SchemaGuardOffline)),
-  FeedbackStoreMemory,
-  IdsDeterministic(),
-  layerInProcess(FeedbackLimiter, {
-    maxEvents: testConfig.feedbackMaxPerWindow,
-    windowSeconds: testConfig.feedbackWindowSeconds,
-    failClosed: false
-  })
-).pipe(Layer.provideMerge(ConfigTest))
+  const api = HttpApiBuilder.api(Api).pipe(
+    Layer.provide(HandlersLive),
+    Layer.provide(OperatorPlaneNoStore),
+    Layer.provide(ports)
+  )
+  const web = HttpApiBuilder.toWebHandler(Layer.mergeAll(api, HttpServer.layerContext))
+  return web.handler
+}
 
-const ApiTest = HttpApiBuilder.api(Api).pipe(Layer.provide(HandlersLive), Layer.provide(PortsTest))
-
-/** The same app `main.ts` serves, minus the socket. */
-const web = HttpApiBuilder.toWebHandler(
-  Layer.mergeAll(ApiTest, HttpServer.layerContext)
-)
-const handler = web.handler
-
-afterAll(() => web.dispose())
+let handler: (req: Request) => Promise<Response>
+beforeEach(() => {
+  handler = buildApp()
+})
 
 const get = (path: string, headers: Record<string, string> = {}) =>
   handler(new Request(`http://test${path}`, { headers }))
 
-const send = (
-  method: string,
-  path: string,
-  body: unknown,
-  headers: Record<string, string> = {}
-) =>
+const send = (method: string, path: string, body: unknown, headers: Record<string, string> = {}) =>
   handler(
     new Request(`http://test${path}`, {
       method,
@@ -119,29 +124,61 @@ const send = (
     })
   )
 
-const auth = { Authorization: `Bearer ${ADMIN_KEY}` }
+/** The Python service reads `x-api-key` (app/routers/feedback.py:85). */
+const key = { "X-API-Key": ADMIN_KEY }
+
+const submit = (subject: string) => send("POST", "/api/feedback", { subject, body: "b" })
 
 // ---------------------------------------------------------------------------
 
 describe("meta", () => {
-  it("GET /health", async () => {
+  it("GET /health matches the contract the live checker asserts", async () => {
     const res = await get("/health")
     expect(res.status).toBe(200)
+    // ops/check-web-back-live.sh:289-291 asserts exactly these two keys
     expect(await res.json()).toEqual({ status: "ok", version: "test-1.0.0" })
   })
 
-  it("GET / advertises the runtime so the two ports are distinguishable", async () => {
-    const body = (await (await get("/")).json()) as { runtime: string }
-    expect(body.runtime).toBe("effect-ts")
+  it("GET /ready emits every key ops/check-web-back-live.sh:296-302 reads", async () => {
+    const res = await get("/ready")
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as Record<string, unknown>
+    expect(Object.keys(body).sort()).toEqual([
+      "degraded",
+      "kg_live",
+      "status",
+      "wiki_live",
+      "wiki_rate_limit_live",
+      "wiki_required",
+      "wiki_store_live"
+    ])
+    expect(body["status"]).toBe("ready")
+    expect(body["degraded"]).toBe(false)
   })
 
-  it("GET /ready reports each component", async () => {
-    const body = (await (await get("/ready")).json()) as {
-      ready: boolean
-      components: Array<{ name: string; ready: boolean }>
-    }
-    expect(body.ready).toBe(true)
-    expect(body.components.map((c) => c.name)).toEqual(["kg", "feedback-store", "wiki"])
+  it("GET /ready is 503 with the same body when the wiki plane is required but absent", async () => {
+    handler = buildApp({ wikiPublicWrites: true })
+    const res = await get("/ready")
+    expect(res.status).toBe(503)
+    const body = (await res.json()) as Record<string, unknown>
+    expect(body["status"]).toBe("not_ready")
+    expect(body["wiki_required"]).toBe(true)
+    expect(body["wiki_live"]).toBe(false)
+    expect(body["degraded"]).toBe(true)
+  })
+
+  it("GET / carries the endpoints array the Python payload has", async () => {
+    const body = (await (await get("/")).json()) as { endpoints: Array<string>; runtime: string }
+    expect(body.endpoints).toEqual([
+      "/health",
+      "/ready",
+      "/api/stats",
+      "/api/domains",
+      "/api/skills",
+      "/api/feedback",
+      "/api/wiki/v1"
+    ])
+    expect(body.runtime).toBe("effect-ts") // additive, tells the two apart
   })
 })
 
@@ -165,123 +202,162 @@ describe("curated KG surfaces", () => {
   })
 })
 
+describe("pagination", () => {
+  // app/routers/research.py:36 is Query(20, ge=1, le=100) -> FastAPI 422.
+  // The first version of this port clamped, so ?limit=99999 quietly returned
+  // 100 rows: an impossible request got a plausible answer.
+  it("rejects an over-range limit with 422 instead of clamping", async () => {
+    expect((await get("/api/research/findings?limit=99999")).status).toBe(422)
+  })
+
+  it("rejects a zero or negative limit", async () => {
+    expect((await get("/api/research/findings?limit=0")).status).toBe(422)
+    expect((await get("/api/research/lessons?limit=-1")).status).toBe(422)
+  })
+
+  it("rejects an offset past research_max_offset", async () => {
+    expect((await get("/api/research/findings?offset=10001")).status).toBe(422)
+  })
+
+  it("accepts the boundary values", async () => {
+    expect((await get("/api/research/findings?limit=100&offset=10000")).status).toBe(200)
+    expect((await get("/api/research/findings?limit=1&offset=0")).status).toBe(200)
+  })
+})
+
 describe("research agent feed", () => {
   it("labels snapshot magnitudes so an agent cannot cite them as live", async () => {
     const feed = (await (await get("/api/research/agent")).json()) as {
       generated_hint: string
       summary: { source: string }
-      doctrine_url: string
     }
     expect(feed.summary.source).toBe("snapshot")
     expect(feed.generated_hint).toContain("do not cite as current")
-    expect(feed.doctrine_url).toContain("llms.txt")
   })
 })
 
 describe("feedback", () => {
   it("accepts a valid submission", async () => {
-    const res = await send("POST", "/api/feedback", { subject: "hello", body: "world" })
+    const res = await submit("hello")
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { ok: boolean; id: string; status: string }
+    const body = (await res.json()) as { ok: boolean; id: string }
     expect(body.ok).toBe(true)
-    expect(body.id).toMatch(/^test-\d{4}$/) // deterministic Ids layer
+    expect(body.id).toMatch(/^test-\d{4}$/)
   })
 
-  it("rejects an email without consent with 400", async () => {
+  it("rejects an email without consent with 422", async () => {
     const res = await send("POST", "/api/feedback", {
       subject: "a",
       body: "b",
       email: "me@example.com"
     })
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(422)
   })
 
   it("swallows a honeypot hit and returns a null id", async () => {
-    const res = await send("POST", "/api/feedback", {
-      subject: "a",
-      body: "b",
-      honeypot: "i am a bot"
-    })
+    const res = await send("POST", "/api/feedback", { subject: "a", body: "b", honeypot: "bot" })
     expect(res.status).toBe(200)
     expect((await res.json()) as { id: null }).toMatchObject({ id: null })
   })
 
-  it("rate-limits identical submissions with 429 and a retry hint", async () => {
-    const payload = { subject: "flood", body: "flood" }
+  // The limiter keys on client IP now, so VARYING THE SUBJECT MUST NOT HELP.
+  // That bypass is the defect this test exists to prevent recurring.
+  it("rate-limits by client IP, and a varying subject does not evade it", async () => {
     const codes: Array<number> = []
-    for (let i = 0; i < 5; i += 1) {
-      codes.push((await send("POST", "/api/feedback", payload)).status)
+    for (const s of ["one", "two", "three", "four", "five"]) {
+      codes.push((await submit(s)).status)
     }
     expect(codes.slice(0, 3)).toEqual([200, 200, 200])
     expect(codes[3]).toBe(429)
 
-    const res = await send("POST", "/api/feedback", payload)
-    const body = (await res.json()) as { _tag: string; retryAfterSeconds: number }
-    expect(body._tag).toBe("RateLimited")
+    const body = (await (await submit("six")).json()) as { retryAfterSeconds: number }
     expect(body.retryAfterSeconds).toBeGreaterThan(0)
   })
 })
 
 describe("operator inbox", () => {
-  it("401s without a credential", async () => {
+  it("401s without a credential and with a wrong one", async () => {
     expect((await get("/internal/feedback")).status).toBe(401)
+    expect((await get("/internal/feedback", { "X-API-Key": "nope" })).status).toBe(401)
   })
 
-  it("401s on a wrong credential", async () => {
-    const res = await get("/internal/feedback", { Authorization: "Bearer nope" })
-    expect(res.status).toBe(401)
+  it("accepts X-API-Key, which is what the Python service reads", async () => {
+    expect((await get("/internal/feedback", key)).status).toBe(200)
   })
 
-  it("lists submissions newest-first with the correct key", async () => {
-    await send("POST", "/api/feedback", { subject: "first", body: "b" })
-    await send("POST", "/api/feedback", { subject: "second", body: "b" })
-
-    const res = await get("/internal/feedback", auth)
+  it("also accepts Authorization: Bearer (additive, not a replacement)", async () => {
+    const res = await get("/internal/feedback", { Authorization: `Bearer ${ADMIN_KEY}` })
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { items: Array<{ subject: string }>; count: number }
-    expect(body.items[0]?.subject).toBe("second")
-    expect(body.count).toBeGreaterThanOrEqual(2)
   })
 
-  it("triages a record and 404s an unknown id", async () => {
-    await send("POST", "/api/feedback", { subject: "triage-me", body: "b" })
-    const inbox = (await (await get("/internal/feedback", auth)).json()) as {
-      items: Array<{ id: string }>
+  it("never lets an intermediary cache the operator plane", async () => {
+    const res = await get("/internal/feedback", key)
+    expect(res.headers.get("cache-control")).toBe("private, no-store")
+  })
+
+  it("lists submissions newest-first with an exact count", async () => {
+    await submit("first")
+    await submit("second")
+    const body = (await (await get("/internal/feedback", key)).json()) as {
+      items: Array<{ subject: string }>
+      count: number
     }
-    const id = inbox.items[0]!.id
+    // exact, not >=: the app is fresh for this test
+    expect(body.count).toBe(2)
+    expect(body.items.map((i) => i.subject)).toEqual(["second", "first"])
+  })
 
-    const ok = await send(
-      "PATCH",
-      `/internal/feedback/${id}`,
-      { status: "reviewed", operator_note: "seen" },
-      auth
-    )
-    expect(ok.status).toBe(200)
-    const patched = (await ok.json()) as { item: { status: string; operator_note: string } }
-    expect(patched.item.status).toBe("reviewed")
-    expect(patched.item.operator_note).toBe("seen")
+  it("404s a malformed record id before touching the store", async () => {
+    // app/routers/feedback.py:156 requires 32 lowercase hex chars
+    const res = await send("PATCH", "/internal/feedback/not-a-real-id", { status: "reviewed" }, key)
+    expect(res.status).toBe(404)
+  })
 
-    const missing = await send(
+  it("409s an unknown but well-formed id — not an existence oracle", async () => {
+    const res = await send(
       "PATCH",
-      "/internal/feedback/does-not-exist",
-      { status: "spam" },
-      auth
+      `/internal/feedback/${"a".repeat(32)}`,
+      { status: "reviewed" },
+      key
     )
-    expect(missing.status).toBe(404)
+    expect(res.status).toBe(409)
+  })
+
+  it("404s DELETE of a malformed id", async () => {
+    expect((await handler(
+      new Request("http://test/internal/feedback/nope", { method: "DELETE", headers: key })
+    )).status).toBe(404)
   })
 })
 
 describe("KG Cypher proxy", () => {
-  // Both keys are empty in this config, so the surface must be OFF rather than
-  // open. This is the test that would have caught an "empty key = allow all".
   it("503s — not 200, not 401 — when no key is configured", async () => {
     const res = await send("POST", "/api/kg/read", { query: "RETURN 1" })
     expect(res.status).toBe(503)
     expect((await res.json()) as { _tag: string }).toMatchObject({ _tag: "Unavailable" })
   })
 
-  it("rejects an empty query at the schema boundary", async () => {
-    const res = await send("POST", "/api/kg/read", { query: "" })
-    expect(res.status).toBe(400)
+  it("rejects an empty query at the schema boundary with 422", async () => {
+    handler = buildApp({ kgReadKey: Redacted.make("r".repeat(40)) })
+    const res = await send("POST", "/api/kg/read", { query: "" }, { "X-API-Key": "r".repeat(40) })
+    expect(res.status).toBe(422)
+  })
+
+  it("accepts X-API-Key on the proxy, matching app/routers/kg_proxy.py:74", async () => {
+    handler = buildApp({ kgReadKey: Redacted.make("r".repeat(40)) })
+    const res = await send(
+      "POST",
+      "/api/kg/read",
+      { query: "RETURN 1" },
+      { "X-API-Key": "r".repeat(40) }
+    )
+    // snapshot KgPort refuses to run Cypher -> 503, but auth passed (not 401)
+    expect(res.status).toBe(503)
+  })
+
+  it("401s a wrong X-API-Key", async () => {
+    handler = buildApp({ kgReadKey: Redacted.make("r".repeat(40)) })
+    const res = await send("POST", "/api/kg/read", { query: "RETURN 1" }, { "X-API-Key": "wrong" })
+    expect(res.status).toBe(401)
   })
 })

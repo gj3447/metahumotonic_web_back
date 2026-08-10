@@ -180,7 +180,7 @@ export const AgentLive = HttpApiBuilder.group(Api, "agent", (handlers) =>
         const cfg = yield* AppConfigTag
         // The write key only. A read credential must not amend canon.
         yield* authorize({
-          presented: headers.authorization,
+          presented: [headers["x-api-key"], headers.authorization],
           accepted: [cfg.kgWriteKey],
           surface: "KG agent write"
         })

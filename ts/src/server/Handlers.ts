@@ -13,20 +13,35 @@ import { Api } from "../api/Api.js"
 import { AppConfigTag } from "../Config.js"
 import {
   AgentFeed,
+  CypherRequest,
+  FeedbackRequest,
+  FindingsParamsStrict,
+  InboxParamsStrict,
+  ListParamsStrict,
+  NeighborsParamsStrict,
+  PapersParamsStrict,
+  RecentParamsStrict,
   CypherResponse,
   FeedbackInboxResponse,
   FeedbackResponse,
   FeedbackTriageResponse,
   HealthResponse,
-  ReadyComponent,
   ReadyResponse,
   RootResponse
 } from "../domain/Contracts.js"
-import { BadRequest, Forbidden, KgQueryFailed, Unavailable } from "../domain/Errors.js"
+import {
+  Forbidden,
+  KgQueryFailed,
+  NotFound,
+  NotReady,
+  Unavailable
+} from "../domain/Errors.js"
+import { validate } from "../domain/Validation.js"
 import { authorize } from "../ports/Auth.js"
 import { FeedbackStoreTag } from "../ports/FeedbackStore.js"
 import { IdsTag } from "../ports/Ids.js"
 import { KgPortTag } from "../ports/KgPort.js"
+import { ClientIpTag } from "../ports/ClientIp.js"
 import { enforce, FeedbackLimiter } from "../ports/RateLimiter.js"
 import { AgentLive } from "./AgentHandlers.js"
 
@@ -42,40 +57,42 @@ export const MetaLive = HttpApiBuilder.group(Api, "meta", (handlers) =>
         return new HealthResponse({ status: "ok", version: cfg.version })
       })
     )
+    /**
+     * Degraded-tolerant readiness, matching `app/routers/meta.py` field for
+     * field — `ops/check-web-back-live.sh:296-302` reads five of these keys.
+     *
+     * The wiki plane is the only thing that can make the service NOT ready;
+     * a dead KG degrades, it does not fail.
+     */
     .handle("ready", () =>
       Effect.gen(function* () {
         const cfg = yield* AppConfigTag
         const kg = yield* KgPortTag
-        const feedback = yield* FeedbackStoreTag
 
-        const kgMode = yield* kg.mode
-        const kgReachable = kgMode === "snapshot" ? true : yield* kg.ping
+        const kgLive = cfg.neo4jLive ? yield* kg.ping : false
 
-        const components = [
-          new ReadyComponent({
-            name: "kg",
-            ready: kgReachable,
-            detail: kgMode === "snapshot" ? "snapshot fallback (MHB_NEO4J_LIVE off)" : "live bolt"
-          }),
-          new ReadyComponent({
-            name: "feedback-store",
-            ready: true,
-            detail: feedback.durable ? "durable" : "in-memory (non-durable)"
-          }),
-          new ReadyComponent({
-            name: "wiki",
-            ready: !cfg.wikiPublicWrites,
-            detail: cfg.wikiPublicWrites
-              ? "public writes enabled — requires PostgreSQL + Redis (not wired in this port)"
-              : "read-only (writes disabled)"
-          })
-        ]
+        const wikiRequired = cfg.wikiPublicWrites
+        // The wiki plane is not implemented in this port. Reporting it as live
+        // would be a lie the live-checker would then certify, so when writes
+        // are required this service declares itself not ready.
+        const wikiStoreLive = false
+        const wikiRateLimitLive = !(wikiRequired && cfg.wikiRequireRedis)
+        const wikiLive = wikiStoreLive && wikiRateLimitLive
+        const degraded = (cfg.neo4jLive && !kgLive) || (wikiRequired && !wikiLive)
 
-        return new ReadyResponse({
-          ready: components.every((c) => c.ready),
-          version: cfg.version,
-          components
-        })
+        const body = {
+          kg_live: kgLive,
+          wiki_required: wikiRequired,
+          wiki_live: wikiLive,
+          wiki_store_live: wikiStoreLive,
+          wiki_rate_limit_live: wikiRateLimitLive,
+          degraded
+        }
+
+        if (wikiRequired && !wikiLive) {
+          return yield* Effect.fail(new NotReady({ status: "not_ready", ...body }))
+        }
+        return new ReadyResponse({ status: "ready", ...body })
       })
     )
     .handle("root", () =>
@@ -84,7 +101,16 @@ export const MetaLive = HttpApiBuilder.group(Api, "meta", (handlers) =>
         return new RootResponse({
           service: "metahumotonic-web-back",
           version: cfg.version,
-          docs: "/docs",
+          // same list, same order as app/routers/meta.py:80-90
+          endpoints: [
+            "/health",
+            "/ready",
+            "/api/stats",
+            "/api/domains",
+            "/api/skills",
+            "/api/feedback",
+            "/api/wiki/v1"
+          ],
           runtime: "effect-ts"
         })
       })
@@ -113,45 +139,47 @@ export const ResearchLive = HttpApiBuilder.group(Api, "research", (handlers) =>
   handlers
     .handle("summary", () => Effect.flatMap(KgPortTag, (kg) => kg.researchSummary))
     .handle("findings", ({ urlParams }) =>
-      Effect.flatMap(KgPortTag, (kg) =>
-        kg.findings({
-          limit: urlParams.limit,
-          offset: urlParams.offset,
-          cycle: urlParams.cycle
-        })
-      )
+      Effect.gen(function* () {
+        const p = yield* validate(FindingsParamsStrict, urlParams)
+        const kg = yield* KgPortTag
+        return yield* kg.findings(p)
+      })
     )
     .handle("lessons", ({ urlParams }) =>
-      Effect.flatMap(KgPortTag, (kg) =>
-        kg.lessons({ limit: urlParams.limit, offset: urlParams.offset })
-      )
+      Effect.gen(function* () {
+        const p = yield* validate(ListParamsStrict, urlParams)
+        const kg = yield* KgPortTag
+        return yield* kg.lessons(p)
+      })
     )
     .handle("papers", ({ urlParams }) =>
-      Effect.flatMap(KgPortTag, (kg) =>
-        kg.papers({
-          limit: urlParams.limit,
-          offset: urlParams.offset,
-          domain: urlParams.domain
-        })
-      )
+      Effect.gen(function* () {
+        const p = yield* validate(PapersParamsStrict, urlParams)
+        const kg = yield* KgPortTag
+        return yield* kg.papers(p)
+      })
     )
     .handle("consensus", ({ urlParams }) =>
-      Effect.flatMap(KgPortTag, (kg) =>
-        kg.consensus({ limit: urlParams.limit, offset: urlParams.offset })
-      )
+      Effect.gen(function* () {
+        const p = yield* validate(ListParamsStrict, urlParams)
+        const kg = yield* KgPortTag
+        return yield* kg.consensus(p)
+      })
     )
     .handle("recent", ({ urlParams }) =>
-      Effect.flatMap(KgPortTag, (kg) => kg.recent({ limit: urlParams.limit }))
+      Effect.gen(function* () {
+        const p = yield* validate(RecentParamsStrict, urlParams)
+        const kg = yield* KgPortTag
+        return yield* kg.recent(p)
+      })
     )
     .handle("neighbors", ({ urlParams }) =>
       Effect.gen(function* () {
-        const cfg = yield* AppConfigTag
+        // `name` is required: tests/test_research_endpoints.py:277 expects 422
+        // when it is absent, not a 200 with an empty result.
+        const p = yield* validate(NeighborsParamsStrict, urlParams)
         const kg = yield* KgPortTag
-        if (urlParams.name.length > 512) {
-          return yield* Effect.fail(new BadRequest({ reason: "name is too long" }))
-        }
-        void cfg
-        return yield* kg.neighbors({ name: urlParams.name, limit: urlParams.limit })
+        return yield* kg.neighbors(p)
       })
     )
     /**
@@ -194,12 +222,16 @@ export const ResearchLive = HttpApiBuilder.group(Api, "research", (handlers) =>
 // --------------------------------------------------------------------------
 
 export const FeedbackLive = HttpApiBuilder.group(Api, "feedback", (handlers) =>
-  handlers.handle("submit", ({ payload }) =>
+  handlers.handle("submit", ({ payload: wire }) =>
     Effect.gen(function* () {
+      // The endpoint declares the wire shape so OpenAPI documents the fields;
+      // the constraints run here so a violation is 422, matching FastAPI.
+      const payload = yield* validate(FeedbackRequest, wire)
       const cfg = yield* AppConfigTag
       const store = yield* FeedbackStoreTag
       const ids = yield* IdsTag
       const limiter = yield* FeedbackLimiter
+      const clientIp = yield* ClientIpTag
 
       // The honeypot is handled silently: a bot gets the same shape a human
       // gets, so it learns nothing from the response.
@@ -207,20 +239,20 @@ export const FeedbackLive = HttpApiBuilder.group(Api, "feedback", (handlers) =>
         return new FeedbackResponse({ ok: true, id: null, status: "accepted" })
       }
 
-      // Turnstile is opt-in. When a secret is configured but no token was
-      // presented we refuse rather than fail open — unless explicitly told to.
+      // Keyed on the CLIENT IP, resolved through the trust-proxy rule.
+      // An earlier version keyed on the submission's subject text, which meant
+      // varying one field bypassed the limiter entirely.
+      const key = yield* clientIp.key
+      yield* enforce(limiter, `feedback:${key}`)
+
+      // Turnstile AFTER the rate limit, matching app/routers/feedback.py:56-58:
+      // rate-limit first so an invalid-token flood cannot force unbounded
+      // verifier calls.
       if (Redacted.value(cfg.turnstileSecret) !== "" && payload.turnstile_token === "") {
         if (!cfg.turnstileFailOpen) {
-          return yield* Effect.fail(
-            new Forbidden({ reason: "bot verification token is required" })
-          )
+          return yield* Effect.fail(new Forbidden({ reason: "challenge_failed" }))
         }
       }
-
-      // Keyed on the submission itself. The Python keys on client IP, which
-      // needs `trust_proxy` to be meaningful; wiring the forwarded-IP chain is
-      // left to the ingress layer rather than guessed at here.
-      yield* enforce(limiter, `feedback:${payload.type}:${payload.subject}`)
 
       if (cfg.feedbackRequireDurable && !store.durable) {
         return yield* Effect.fail(
@@ -239,18 +271,25 @@ export const FeedbackLive = HttpApiBuilder.group(Api, "feedback", (handlers) =>
   )
 )
 
+/**
+ * `app/routers/feedback.py:151-158` validates the id BEFORE touching the store
+ * and 404s a malformed one, so the endpoint is not an existence oracle.
+ */
+const isRecordId = (id: string): boolean => /^[0-9a-f]{32}$/.test(id)
+
 export const FeedbackInternalLive = HttpApiBuilder.group(Api, "feedbackInternal", (handlers) =>
   handlers
     .handle("inbox", ({ headers, urlParams }) =>
       Effect.gen(function* () {
         const cfg = yield* AppConfigTag
         yield* authorize({
-          presented: headers.authorization,
+          presented: [headers["x-api-key"], headers.authorization],
           accepted: [cfg.feedbackAdminKey],
           surface: "operator feedback inbox"
         })
+        const p = yield* validate(InboxParamsStrict, urlParams)
         const store = yield* FeedbackStoreTag
-        const page = yield* store.list({ limit: urlParams.limit })
+        const page = yield* store.list({ limit: p.limit })
         return new FeedbackInboxResponse({ items: page.items, count: page.count })
       })
     )
@@ -258,13 +297,18 @@ export const FeedbackInternalLive = HttpApiBuilder.group(Api, "feedbackInternal"
       Effect.gen(function* () {
         const cfg = yield* AppConfigTag
         yield* authorize({
-          presented: headers.authorization,
+          presented: [headers["x-api-key"], headers.authorization],
           accepted: [cfg.feedbackAdminKey],
           surface: "operator feedback inbox"
         })
+        if (!isRecordId(path.recordId)) {
+          return yield* Effect.fail(new NotFound({ reason: "feedback not found" }))
+        }
         const store = yield* FeedbackStoreTag
         const ids = yield* IdsTag
         const now = yield* ids.nowIso
+        // A forbidden transition and an unknown id both surface as 409 — the
+        // bounded lifecycle lives in the store, not here.
         const item = yield* store.triage(path.recordId, {
           status: payload.status,
           operatorNote: payload.operator_note,
@@ -273,20 +317,30 @@ export const FeedbackInternalLive = HttpApiBuilder.group(Api, "feedbackInternal"
         return new FeedbackTriageResponse({ ok: true, item })
       })
     )
+    /**
+     * ERASE, not archive.
+     *
+     * The first version of this port marked the record `spam` and kept it,
+     * including the submitter's contact address. `app/routers/feedback.py:153`
+     * is explicit: "Permanently erase an inbox item, including an optional
+     * contact address." Retaining it was a silent privacy regression.
+     */
     .handle("discard", ({ headers, path }) =>
       Effect.gen(function* () {
         const cfg = yield* AppConfigTag
         yield* authorize({
-          presented: headers.authorization,
+          presented: [headers["x-api-key"], headers.authorization],
           accepted: [cfg.feedbackAdminKey],
           surface: "operator feedback inbox"
         })
+        if (!isRecordId(path.recordId)) {
+          return yield* Effect.fail(new NotFound({ reason: "feedback not found" }))
+        }
         const store = yield* FeedbackStoreTag
-        const ids = yield* IdsTag
-        const now = yield* ids.nowIso
-        // Discard = mark spam. The record is retained for audit, exactly as the
-        // Python DELETE does; the TTL index is what eventually removes it.
-        yield* store.triage(path.recordId, { status: "spam", operatorNote: "", now })
+        const erased = yield* store.erase(path.recordId)
+        if (!erased) {
+          return yield* Effect.fail(new NotFound({ reason: "feedback not found" }))
+        }
       })
     )
 )
@@ -317,12 +371,13 @@ export const KgProxyLive = HttpApiBuilder.group(Api, "kgProxy", (handlers) =>
         const cfg = yield* AppConfigTag
         // The write key is a superset: it is also accepted on /api/kg/read.
         yield* authorize({
-          presented: headers.authorization,
+          presented: [headers["x-api-key"], headers.authorization],
           accepted: [cfg.kgReadKey, cfg.kgWriteKey],
           surface: "KG read proxy"
         })
+        const q = yield* validate(CypherRequest, payload)
         const kg = yield* KgPortTag
-        const rows = yield* kg.run(payload.query, payload.params, "read")
+        const rows = yield* kg.run(q.query, q.params, "read")
         return capRows(rows, cfg.kgProxyMaxRows, "read")
       })
     )
@@ -330,12 +385,13 @@ export const KgProxyLive = HttpApiBuilder.group(Api, "kgProxy", (handlers) =>
       Effect.gen(function* () {
         const cfg = yield* AppConfigTag
         yield* authorize({
-          presented: headers.authorization,
+          presented: [headers["x-api-key"], headers.authorization],
           accepted: [cfg.kgWriteKey],
           surface: "KG write proxy"
         })
+        const q = yield* validate(CypherRequest, payload)
         const kg = yield* KgPortTag
-        const rows = yield* kg.run(payload.query, payload.params, "write")
+        const rows = yield* kg.run(q.query, q.params, "write")
         return capRows(rows, cfg.kgProxyMaxRows, "write")
       })
     )

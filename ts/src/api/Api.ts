@@ -15,7 +15,7 @@
  * Route paths and status codes match `app/main.py` exactly, so the two
  * services are interchangeable behind the same ingress.
  */
-import { HttpApi, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
+import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform"
 import { Schema } from "effect"
 import {
   ExploreResponse,
@@ -26,11 +26,11 @@ import { WriteBatch, WriteReceipt } from "../domain/WriteIntent.js"
 import {
   AgentFeed,
   ConsensusRecord,
-  CypherRequest,
+  CypherRequestWire,
   CypherResponse,
   DomainRecord,
   FeedbackInboxResponse,
-  FeedbackRequest,
+  FeedbackRequestWire,
   FeedbackResponse,
   FeedbackTriageRequest,
   FeedbackTriageResponse,
@@ -46,12 +46,14 @@ import {
   SkillRecord,
   StatsContract
 } from "../domain/Contracts.js"
+import { ValidationFailed } from "../domain/Validation.js"
 import {
   BadRequest,
   Conflict,
   Forbidden,
   KgQueryFailed,
   NotFound,
+  NotReady,
   RateLimited,
   Unauthorized,
   Unavailable
@@ -61,23 +63,48 @@ import {
 // shared query-parameter schemas
 // --------------------------------------------------------------------------
 
-/** `?limit=` — decoded from string, clamped, with the Python defaults. */
+/**
+ * Query params arrive as strings and are validated INSIDE the handler.
+ *
+ * Declaring `Schema.NumberFromString.pipe(between(...))` here would make an
+ * out-of-range value a fixed-400 `HttpApiDecodeError`; FastAPI answers 422
+ * (`app/routers/research.py:36` is `Query(20, ge=1, le=100)`), and twelve
+ * Python tests assert it. So the wire takes strings and `PageParams` in
+ * `Contracts` carries the real bounds.
+ */
+const RawText = Schema.optional(Schema.String)
+
+/**
+ * `?limit=` — REJECTS out of range, it does not clamp.
+ *
+ * `app/routers/research.py:36` is `Query(20, ge=1, le=100)`, so FastAPI answers
+ * 422 for `?limit=99999`. An earlier version of this file used `Schema.clamp`,
+ * which silently returned 100 rows instead — a client asking for something
+ * impossible got a plausible-looking answer. The KG layer still clamps
+ * defensively (`app/kg.py:229-231`); that is a second line of defence, not the
+ * contract.
+ */
 const Limit = (fallback: number, max: number) =>
   Schema.optionalWith(
-    Schema.NumberFromString.pipe(Schema.clamp(1, max), Schema.int()),
+    Schema.NumberFromString.pipe(Schema.int(), Schema.between(1, max)),
     { default: () => fallback }
   )
 
-/** `?offset=` — the ceiling exists so deep pagination cannot be used to mint
- *  unbounded distinct cache keys (see `research_max_offset`). */
-const Offset = Schema.optionalWith(
-  Schema.NumberFromString.pipe(Schema.clamp(0, 10_000), Schema.int()),
-  { default: () => 0 }
-)
 
-const OptionalText = Schema.optionalWith(Schema.String, { default: () => "" })
 
-const ListParams = Schema.Struct({ limit: Limit(20, 100), offset: Offset })
+
+/**
+ * Both credential headers.
+ *
+ * `x-api-key` is the one the Python service reads (`app/routers/kg_proxy.py:74`,
+ * `app/routers/feedback.py:85`). `authorization` is accepted additively so the
+ * agent surface and any newer client can use a bearer token. Declaring both
+ * keeps them in the generated OpenAPI instead of being folk knowledge.
+ */
+const CredentialHeaders = Schema.Struct({
+  "x-api-key": Schema.optional(Schema.String),
+  authorization: Schema.optional(Schema.String)
+})
 
 // --------------------------------------------------------------------------
 // meta — /health, /ready, /
@@ -85,7 +112,7 @@ const ListParams = Schema.Struct({ limit: Limit(20, 100), offset: Offset })
 
 export const MetaGroup = HttpApiGroup.make("meta")
   .add(HttpApiEndpoint.get("health", "/health").addSuccess(HealthResponse))
-  .add(HttpApiEndpoint.get("ready", "/ready").addSuccess(ReadyResponse))
+  .add(HttpApiEndpoint.get("ready", "/ready").addSuccess(ReadyResponse).addError(NotReady))
   .add(HttpApiEndpoint.get("root", "/").addSuccess(RootResponse))
 
 // --------------------------------------------------------------------------
@@ -106,43 +133,39 @@ export const ResearchGroup = HttpApiGroup.make("research")
   .add(HttpApiEndpoint.get("summary", "/summary").addSuccess(ResearchSummary))
   .add(
     HttpApiEndpoint.get("findings", "/findings")
-      .setUrlParams(
-        Schema.Struct({ limit: Limit(20, 100), offset: Offset, cycle: OptionalText })
-      )
+      .setUrlParams(Schema.Struct({ limit: RawText, offset: RawText, cycle: RawText }))
       .addSuccess(Schema.Array(FindingRecord))
+      .addError(ValidationFailed)
   )
   .add(
     HttpApiEndpoint.get("lessons", "/lessons")
-      .setUrlParams(ListParams)
+      .setUrlParams(Schema.Struct({ limit: RawText, offset: RawText }))
       .addSuccess(Schema.Array(LessonRecord))
+      .addError(ValidationFailed)
   )
   .add(
     HttpApiEndpoint.get("papers", "/papers")
-      .setUrlParams(
-        Schema.Struct({ limit: Limit(20, 100), offset: Offset, domain: OptionalText })
-      )
+      .setUrlParams(Schema.Struct({ limit: RawText, offset: RawText, domain: RawText }))
       .addSuccess(Schema.Array(PaperRecord))
+      .addError(ValidationFailed)
   )
   .add(
     HttpApiEndpoint.get("consensus", "/consensus")
-      .setUrlParams(ListParams)
+      .setUrlParams(Schema.Struct({ limit: RawText, offset: RawText }))
       .addSuccess(Schema.Array(ConsensusRecord))
+      .addError(ValidationFailed)
   )
   .add(
     HttpApiEndpoint.get("recent", "/recent")
-      .setUrlParams(Schema.Struct({ limit: Limit(30, 100) }))
+      .setUrlParams(Schema.Struct({ limit: RawText }))
       .addSuccess(Schema.Array(RecentItem))
+      .addError(ValidationFailed)
   )
   .add(
     HttpApiEndpoint.get("neighbors", "/neighbors")
-      .setUrlParams(
-        Schema.Struct({
-          name: Schema.String.pipe(Schema.minLength(1)),
-          limit: Limit(50, 200)
-        })
-      )
+      .setUrlParams(Schema.Struct({ name: RawText, limit: RawText }))
       .addSuccess(NodeNeighbors)
-      .addError(BadRequest)
+      .addError(ValidationFailed)
   )
   /** The machine-readable surface. Deliberately one request: an agent should
    *  not have to fan out across six endpoints to orient itself. */
@@ -156,8 +179,9 @@ export const ResearchGroup = HttpApiGroup.make("research")
 export const FeedbackGroup = HttpApiGroup.make("feedback")
   .add(
     HttpApiEndpoint.post("submit", "/feedback")
-      .setPayload(FeedbackRequest)
+      .setPayload(FeedbackRequestWire)
       .addSuccess(FeedbackResponse)
+      .addError(ValidationFailed)
       .addError(RateLimited)
       .addError(Unavailable)
       .addError(Forbidden)
@@ -168,9 +192,10 @@ export const FeedbackGroup = HttpApiGroup.make("feedback")
 export const FeedbackInternalGroup = HttpApiGroup.make("feedbackInternal")
   .add(
     HttpApiEndpoint.get("inbox", "/feedback")
-      .setUrlParams(Schema.Struct({ limit: Limit(50, 500) }))
-      .setHeaders(Schema.Struct({ authorization: Schema.optional(Schema.String) }))
+      .setUrlParams(Schema.Struct({ limit: RawText }))
+      .setHeaders(CredentialHeaders)
       .addSuccess(FeedbackInboxResponse)
+      .addError(ValidationFailed)
       .addError(Unauthorized)
       .addError(Unavailable)
   )
@@ -178,17 +203,18 @@ export const FeedbackInternalGroup = HttpApiGroup.make("feedbackInternal")
     HttpApiEndpoint.patch("triage", "/feedback/:recordId")
       .setPath(Schema.Struct({ recordId: Schema.String }))
       .setPayload(FeedbackTriageRequest)
-      .setHeaders(Schema.Struct({ authorization: Schema.optional(Schema.String) }))
+      .setHeaders(CredentialHeaders)
       .addSuccess(FeedbackTriageResponse)
       .addError(Unauthorized)
       .addError(NotFound)
+      .addError(Conflict)
       .addError(Unavailable)
   )
   .add(
     HttpApiEndpoint.del("discard", "/feedback/:recordId")
       .setPath(Schema.Struct({ recordId: Schema.String }))
-      .setHeaders(Schema.Struct({ authorization: Schema.optional(Schema.String) }))
-      .addSuccess(Schema.Void)
+      .setHeaders(CredentialHeaders)
+      .addSuccess(HttpApiSchema.NoContent)
       .addError(Unauthorized)
       .addError(NotFound)
       .addError(Unavailable)
@@ -209,18 +235,20 @@ export const FeedbackInternalGroup = HttpApiGroup.make("feedbackInternal")
 export const KgProxyGroup = HttpApiGroup.make("kgProxy")
   .add(
     HttpApiEndpoint.post("read", "/read")
-      .setPayload(CypherRequest)
-      .setHeaders(Schema.Struct({ authorization: Schema.optional(Schema.String) }))
+      .setPayload(CypherRequestWire)
+      .setHeaders(CredentialHeaders)
       .addSuccess(CypherResponse)
+      .addError(ValidationFailed)
       .addError(Unauthorized)
       .addError(Unavailable)
       .addError(KgQueryFailed)
   )
   .add(
     HttpApiEndpoint.post("write", "/write")
-      .setPayload(CypherRequest)
-      .setHeaders(Schema.Struct({ authorization: Schema.optional(Schema.String) }))
+      .setPayload(CypherRequestWire)
+      .setHeaders(CredentialHeaders)
       .addSuccess(CypherResponse)
+      .addError(ValidationFailed)
       .addError(Unauthorized)
       .addError(Unavailable)
       .addError(KgQueryFailed)
@@ -275,7 +303,7 @@ export const AgentGroup = HttpApiGroup.make("agent")
   .add(
     HttpApiEndpoint.post("record", "/record")
       .setPayload(WriteBatch)
-      .setHeaders(Schema.Struct({ authorization: Schema.optional(Schema.String) }))
+      .setHeaders(CredentialHeaders)
       .addSuccess(WriteReceipt)
       .addError(Unauthorized)
       .addError(Unavailable)

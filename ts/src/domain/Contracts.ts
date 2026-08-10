@@ -107,6 +107,25 @@ export class SkillRecord extends Schema.Class<SkillRecord>("SkillRecord")({
  * the equivalent here is a struct-level filter, so the cross-field rule is
  * part of the type rather than a runtime afterthought.
  */
+/**
+ * The WIRE shape: field names and base types only.
+ *
+ * This is what the endpoint declares, so OpenAPI still documents every field.
+ * The constraints live in `FeedbackRequest` below and run inside the handler,
+ * because a schema rejection at the endpoint boundary is a fixed-400
+ * `HttpApiDecodeError` and FastAPI answers 422 — see `domain/Validation.ts`.
+ */
+export const FeedbackRequestWire = Schema.Struct({
+  type: Schema.optional(Schema.String),
+  subject: Schema.String,
+  body: Schema.String,
+  email: Schema.optional(Schema.String),
+  source_path: Schema.optional(Schema.String),
+  contact_consent: Schema.optional(Schema.Boolean),
+  honeypot: Schema.optional(Schema.String),
+  turnstile_token: Schema.optional(Schema.String)
+})
+
 export const FeedbackRequest = Schema.Struct({
   type: Schema.optionalWith(FeedbackType, { default: () => "general" as const }),
   subject: noControlChars(Trimmed).pipe(
@@ -207,6 +226,12 @@ export class FeedbackTriageResponse extends Schema.Class<FeedbackTriageResponse>
 // --------------------------------------------------------------------------
 // POST /api/kg/{read,write}
 // --------------------------------------------------------------------------
+
+/** Wire shape; the length bounds are enforced in the handler for 422. */
+export const CypherRequestWire = Schema.Struct({
+  query: Schema.String,
+  params: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+})
 
 export const CypherRequest = Schema.Struct({
   query: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(20000)),
@@ -343,21 +368,71 @@ export class HealthResponse extends Schema.Class<HealthResponse>("HealthResponse
   version: Schema.String
 }) {}
 
-export class ReadyComponent extends Schema.Class<ReadyComponent>("ReadyComponent")({
-  name: Schema.String,
-  ready: Schema.Boolean,
-  detail: Schema.optionalWith(Schema.String, { default: () => "" })
-}) {}
-
+/**
+ * `/ready` — the exact payload `app/routers/meta.py:66-73` emits.
+ *
+ * This shape is load-bearing, not cosmetic: `ops/check-web-back-live.sh:296-302`
+ * asserts `status == "ready"`, `kg_live is True`, `wiki_required is True`,
+ * `wiki_live is True` and `degraded is False`. The first version of this port
+ * invented its own `{ready, version, components[]}` shape, which would have
+ * failed that gate on the first deploy.
+ *
+ * Readiness is dependency-aware but degraded-tolerant (PROM16 C5): the service
+ * serves snapshot and in-memory fallbacks when the KG or Mongo are down, so it
+ * stays READY and reports `degraded` instead of failing.
+ */
 export class ReadyResponse extends Schema.Class<ReadyResponse>("ReadyResponse")({
-  ready: Schema.Boolean,
-  version: Schema.String,
-  components: Schema.Array(ReadyComponent)
+  status: Schema.Literal("ready", "not_ready"),
+  kg_live: Schema.Boolean,
+  wiki_required: Schema.Boolean,
+  wiki_live: Schema.Boolean,
+  wiki_store_live: Schema.Boolean,
+  wiki_rate_limit_live: Schema.Boolean,
+  degraded: Schema.Boolean
 }) {}
 
 export class RootResponse extends Schema.Class<RootResponse>("RootResponse")({
   service: Schema.String,
   version: Schema.String,
-  docs: Schema.String,
+  endpoints: Schema.Array(Schema.String),
+  /** Not in the Python payload. An additive key so the two implementations
+   *  are distinguishable at runtime; readers of the Python shape are unaffected. */
   runtime: Schema.Literal("effect-ts")
 }) {}
+
+// --------------------------------------------------------------------------
+// pagination — the bounds live here, applied by the handler (see Validation.ts)
+// --------------------------------------------------------------------------
+
+/** `Query(default, ge=lo, le=hi)` — rejects, never clamps. */
+const BoundedFromString = (fallback: number, lo: number, hi: number) =>
+  Schema.optionalWith(Schema.NumberFromString.pipe(Schema.int(), Schema.between(lo, hi)), {
+    default: () => fallback
+  })
+
+export const ListParamsStrict = Schema.Struct({
+  limit: BoundedFromString(20, 1, 100),
+  offset: BoundedFromString(0, 0, 10_000)
+})
+
+export const FindingsParamsStrict = Schema.Struct({
+  limit: BoundedFromString(20, 1, 100),
+  offset: BoundedFromString(0, 0, 10_000),
+  cycle: Schema.optionalWith(Schema.String.pipe(Schema.maxLength(200)), { default: () => "" })
+})
+
+export const PapersParamsStrict = Schema.Struct({
+  limit: BoundedFromString(20, 1, 100),
+  offset: BoundedFromString(0, 0, 10_000),
+  domain: Schema.optionalWith(Schema.String.pipe(Schema.maxLength(200)), { default: () => "" })
+})
+
+export const RecentParamsStrict = Schema.Struct({ limit: BoundedFromString(30, 1, 100) })
+
+export const InboxParamsStrict = Schema.Struct({ limit: BoundedFromString(50, 1, 100) })
+
+/** `name` is REQUIRED — `tests/test_research_endpoints.py:277` asserts 422 without it. */
+export const NeighborsParamsStrict = Schema.Struct({
+  name: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(512)),
+  limit: BoundedFromString(50, 1, 200)
+})

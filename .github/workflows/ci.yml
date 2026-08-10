@@ -23,3 +23,38 @@ jobs:
         run: uv run --extra dev pytest -vv -o faulthandler_timeout=60
       - name: Validate read-only operations guard
         run: bash -n ops/check-web-back-live.sh
+
+  # The TypeScript port (ts/). Independent of the Python job: it is a parallel
+  # implementation, not a dependency, and `app/` must keep passing on its own.
+  #
+  # The smoke step is not redundant with the unit tests. The tests build their
+  # own composition root, so they cannot catch a mis-wired production Layer —
+  # on 2026-08-10 one made every prefixed route 404 while all 117 tests stayed
+  # green. `scripts/smoke.sh` starts the real compiled server instead.
+  ts-port:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      # `ci` not `install`: fails if package-lock.json and package.json disagree,
+      # so the toolchain is reproducible rather than whatever npm resolves today.
+      - name: Install (locked)
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Smoke (real server, zero infra)
+        run: bash scripts/smoke.sh

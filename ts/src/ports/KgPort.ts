@@ -28,6 +28,7 @@ import {
 } from "../domain/Contracts.js"
 import { KgQueryFailed, Unavailable } from "../domain/Errors.js"
 import * as Breaker from "./Breaker.js"
+import * as Cache from "./Cache.js"
 import * as Cypher from "./Cypher.js"
 import {
   DOMAINS_COUNT,
@@ -317,16 +318,69 @@ export const mergeRecent = (input: {
     .slice(0, input.limit)
 }
 
-/** Acquire/release the driver as a scoped resource so shutdown is structural
- *  rather than a `finally` block someone has to remember to write. */
+/**
+ * Acquire a driver AND prove it can reach the server.
+ *
+ * `neo4j.driver()` constructs successfully against a host that does not exist
+ * — verified empirically — so an earlier version of this file, which only
+ * caught construction errors, made `neo4jFallbackUris` dead configuration:
+ * `Effect.firstSuccessOf` always "succeeded" on `uris[0]`. During a Bolt
+ * outage this service degraded to the snapshot while the Python failed over.
+ *
+ * `verifyConnectivity()` is what makes the fallback real. A driver that fails
+ * it is closed here rather than leaked to the next candidate.
+ */
+const CONNECT_TIMEOUT_MILLIS = 5_000
+
+/**
+ * Race the connectivity probe against a timer INSIDE the promise.
+ *
+ * Two traps, both found by pointing the primary at a blackholed address
+ * (192.0.2.1 — packets dropped, no RST) and watching startup never finish:
+ *
+ *  1. the driver's own `connectionTimeout` does not bound
+ *     `verifyConnectivity()` in that case, and
+ *  2. wrapping it in `Effect.timeoutFail` does not help either, because this
+ *     runs inside `Effect.acquireRelease`, whose acquire is UNINTERRUPTIBLE.
+ *
+ * So the deadline has to be enforced by the promise itself.
+ */
+const withDeadline = async <A>(work: Promise<A>, millis: number, what: string): Promise<A> => {
+  let timer: NodeJS.Timeout | undefined
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${what} timed out after ${millis}ms`)), millis)
+      })
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
+
 const acquireDriver = (
   uri: string,
   user: string,
   password: string
 ): Effect.Effect<Driver, Unavailable, never> =>
-  Effect.try({
-    try: () => neo4j.driver(uri, neo4j.auth.basic(user, password)),
-    catch: (cause) => new Unavailable({ reason: `neo4j driver init failed: ${String(cause)}` })
+  Effect.tryPromise({
+    try: async () => {
+      const driver = neo4j.driver(uri, neo4j.auth.basic(user, password), {
+        connectionTimeout: CONNECT_TIMEOUT_MILLIS,
+        connectionAcquisitionTimeout: CONNECT_TIMEOUT_MILLIS,
+        maxTransactionRetryTime: CONNECT_TIMEOUT_MILLIS
+      })
+      try {
+        await withDeadline(driver.verifyConnectivity(), CONNECT_TIMEOUT_MILLIS, `neo4j ${uri}`)
+        return driver
+      } catch (cause) {
+        // Close the rejected candidate rather than leaking it to the next one.
+        await driver.close().catch(() => {})
+        throw cause
+      }
+    },
+    catch: (cause) => new Unavailable({ reason: `neo4j ${uri} unreachable: ${String(cause)}` })
   })
 
 export const KgPortLive: Layer.Layer<KgPortTag, never, AppConfigTag> = Layer.scoped(
@@ -334,6 +388,18 @@ export const KgPortLive: Layer.Layer<KgPortTag, never, AppConfigTag> = Layer.sco
   Effect.gen(function* () {
     const cfg = yield* AppConfigTag
     const breaker = yield* Breaker.make()
+
+    // Bounded TTL + single-flight, matching the Python's 120s/300s.
+    // Without this every request in live mode is a Bolt round-trip; the
+    // settings were parsed but unused in the first version of this port.
+    const statsCache = yield* Cache.make<unknown>({
+      ttlSeconds: cfg.statsCacheTtlSeconds,
+      maxEntries: cfg.cacheMaxEntries
+    })
+    const researchCache = yield* Cache.make<unknown>({
+      ttlSeconds: cfg.researchCacheTtlSeconds,
+      maxEntries: cfg.cacheMaxEntries
+    })
 
     // Not opted in → the live layer *is* the snapshot layer. Same object, so
     // there is exactly one degradation path rather than two that can drift.
@@ -386,7 +452,23 @@ export const KgPortLive: Layer.Layer<KgPortTag, never, AppConfigTag> = Layer.sco
           new KgQueryFailed({ reason: `query exceeded ${cfg.kgQueryTimeoutSeconds}s budget` })
       }))
 
-    /** A curated read: breaker-guarded, and degrading to `fallback`. */
+    /**
+     * A curated read: cached, breaker-guarded, degrading to `fallback`.
+     *
+     * Cache OUTSIDE the breaker so a served-from-cache value costs nothing
+     * even while the breaker is open, and single-flight means N concurrent
+     * misses produce one Bolt query rather than N.
+     */
+    const cachedCurated = <A>(
+      cache: Cache.TtlCache<unknown>,
+      key: string,
+      query: string,
+      params: Record<string, unknown>,
+      decode: (rows: ReadonlyArray<CypherRow>) => A,
+      fallback: A
+    ): Effect.Effect<A> =>
+      cache.get(key, curated(query, params, decode, fallback)) as Effect.Effect<A>
+
     const curated = <A>(
       query: string,
       params: Record<string, unknown>,
@@ -407,7 +489,9 @@ export const KgPortLive: Layer.Layer<KgPortTag, never, AppConfigTag> = Layer.sco
     // Named up front because `recent` is *derived* from these three rather
     // than being its own query — same as `KG.get_recent` in the Python.
     const findingsOf: KgPort["findings"] = ({ limit, offset, cycle }) =>
-      curated(
+      cachedCurated(
+        researchCache,
+        `findings:${limit}:${offset}:${cycle}`,
         Cypher.FINDINGS,
         { limit: neo4j.int(limit), offset: neo4j.int(offset), cycle },
         (rows) => rows.map(decodeFinding),
@@ -415,7 +499,9 @@ export const KgPortLive: Layer.Layer<KgPortTag, never, AppConfigTag> = Layer.sco
       )
 
     const lessonsOf: KgPort["lessons"] = ({ limit, offset }) =>
-      curated(
+      cachedCurated(
+        researchCache,
+        `lessons:${limit}:${offset}`,
         Cypher.LESSONS,
         { limit: neo4j.int(limit), offset: neo4j.int(offset) },
         (rows) => rows.map(decodeLesson),
@@ -423,7 +509,9 @@ export const KgPortLive: Layer.Layer<KgPortTag, never, AppConfigTag> = Layer.sco
       )
 
     const papersOf: KgPort["papers"] = ({ limit, offset, domain }) =>
-      curated(
+      cachedCurated(
+        researchCache,
+        `papers:${limit}:${offset}:${domain}`,
         Cypher.PAPERS,
         { limit: neo4j.int(limit), offset: neo4j.int(offset), domain },
         (rows) => rows.map(decodePaper),
@@ -431,10 +519,19 @@ export const KgPortLive: Layer.Layer<KgPortTag, never, AppConfigTag> = Layer.sco
       )
 
     const consensusOf: KgPort["consensus"] = ({ limit }) =>
-      curated(Cypher.CONSENSUS, { limit: neo4j.int(limit) }, (rows) => rows.map(decodeConsensus), [])
+      cachedCurated(
+        researchCache,
+        `consensus:${limit}`,
+        Cypher.CONSENSUS,
+        { limit: neo4j.int(limit) },
+        (rows) => rows.map(decodeConsensus),
+        []
+      )
 
     return {
-      stats: curated(
+      stats: cachedCurated(
+        statsCache,
+        "stats",
         Cypher.STATS,
         {},
         (rows) => {
@@ -453,7 +550,9 @@ export const KgPortLive: Layer.Layer<KgPortTag, never, AppConfigTag> = Layer.sco
         STATS_FALLBACK
       ),
 
-      domains: curated(
+      domains: cachedCurated(
+        statsCache,
+        "domains",
         Cypher.DOMAINS,
         {},
         (rows) =>
@@ -472,7 +571,9 @@ export const KgPortLive: Layer.Layer<KgPortTag, never, AppConfigTag> = Layer.sco
       // The skills surface is curated in code, not queried — same in both modes.
       skills: Effect.succeed(SKILLS_FALLBACK),
 
-      researchSummary: curated(
+      researchSummary: cachedCurated(
+        researchCache,
+        "summary",
         Cypher.RESEARCH_SUMMARY,
         {},
         (rows) => {
@@ -516,7 +617,9 @@ export const KgPortLive: Layer.Layer<KgPortTag, never, AppConfigTag> = Layer.sco
         }),
 
       neighbors: ({ name, limit }) =>
-        curated(
+        cachedCurated(
+          researchCache,
+          `neighbors:${name}:${limit}`,
           Cypher.NEIGHBORS,
           { name, limit: neo4j.int(limit) },
           (rows) => decodeNeighbors(name, rows),

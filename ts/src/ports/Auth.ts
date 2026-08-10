@@ -42,7 +42,16 @@ export const constantTimeEquals = (a: string, b: string): boolean => {
  * the env var" apart from "my key is wrong".
  */
 export const authorize = (options: {
-  readonly presented: string | undefined
+  /**
+   * Every place the caller might have put the credential, in precedence order.
+   *
+   * `X-API-Key` first, because that is what `app/routers/kg_proxy.py:74` and
+   * `app/routers/feedback.py:85` read — an earlier version of this port
+   * accepted only `Authorization`, which silently broke every existing client.
+   * `Authorization: Bearer` is accepted additively; accepting more forms is
+   * not a compatibility break, accepting fewer is.
+   */
+  readonly presented: ReadonlyArray<string | undefined>
   readonly accepted: ReadonlyArray<Redacted.Redacted<string>>
   readonly surface: string
 }): Effect.Effect<void, Unauthorized | Unavailable> => {
@@ -56,11 +65,14 @@ export const authorize = (options: {
     )
   }
 
-  const presented = extractKey(options.presented)
-  if (presented === "") {
+  const candidates = options.presented
+    .map((raw) => extractKey(raw))
+    .filter((k) => k !== "")
+
+  if (candidates.length === 0) {
     return Effect.fail(new Unauthorized({ reason: "missing credential" }))
   }
 
-  const ok = configured.some((k) => constantTimeEquals(presented, k))
+  const ok = candidates.some((p) => configured.some((k) => constantTimeEquals(p, k)))
   return ok ? Effect.void : Effect.fail(new Unauthorized({ reason: "invalid credential" }))
 }

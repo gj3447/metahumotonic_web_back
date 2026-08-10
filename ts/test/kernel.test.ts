@@ -206,7 +206,7 @@ describe("Auth", () => {
   it("reports a surface with no configured key as Unavailable, not Unauthorized", async () => {
     const e = await run(
       Effect.flip(
-        authorize({ presented: "anything", accepted: [Redacted.make("")], surface: "test" })
+        authorize({ presented: ["anything"], accepted: [Redacted.make("")], surface: "test" })
       )
     )
     expect(e._tag).toBe("Unavailable")
@@ -215,7 +215,7 @@ describe("Auth", () => {
   it("rejects a wrong key as Unauthorized", async () => {
     const e = await run(
       Effect.flip(
-        authorize({ presented: "wrong", accepted: [Redacted.make("right")], surface: "test" })
+        authorize({ presented: ["wrong"], accepted: [Redacted.make("right")], surface: "test" })
       )
     )
     expect(e._tag).toBe("Unauthorized")
@@ -225,7 +225,7 @@ describe("Auth", () => {
     await expect(
       run(
         authorize({
-          presented: "Bearer writekey",
+          presented: ["Bearer writekey"],
           accepted: [Redacted.make(""), Redacted.make("writekey")],
           surface: "test"
         })

@@ -66,6 +66,23 @@ export class KgQueryFailed extends Schema.TaggedError<KgQueryFailed>()("KgQueryF
   reason: Schema.String
 }, HttpApiSchema.annotations({ status: 502 })) {}
 
+/**
+ * 503 with the full readiness payload.
+ *
+ * `app/routers/meta.py:75-77` returns 503 *carrying the same body* when the
+ * wiki plane is required but not live. Modelling it as an error keeps that
+ * status/body pairing in the type rather than in a handler branch.
+ */
+export class NotReady extends Schema.TaggedError<NotReady>()("NotReady", {
+  status: Schema.Literal("not_ready"),
+  kg_live: Schema.Boolean,
+  wiki_required: Schema.Boolean,
+  wiki_live: Schema.Boolean,
+  wiki_store_live: Schema.Boolean,
+  wiki_rate_limit_live: Schema.Boolean,
+  degraded: Schema.Boolean
+}, HttpApiSchema.annotations({ status: 503 })) {}
+
 /** Every error the public API may return. Attached once, at the API root. */
 export const ApiError = Schema.Union(
   BadRequest,

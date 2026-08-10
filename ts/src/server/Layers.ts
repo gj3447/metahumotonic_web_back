@@ -10,6 +10,7 @@ import { HttpApiBuilder, HttpApiScalar, HttpMiddleware, HttpServer } from "@effe
 import { Effect, Layer } from "effect"
 import { Api } from "../api/Api.js"
 import { AppConfigLive, AppConfigTag, validateWikiConfiguration } from "../Config.js"
+import { ClientIpLive } from "../ports/ClientIp.js"
 import { FeedbackStoreMemory } from "../ports/FeedbackStore.js"
 import { IdsLive } from "../ports/Ids.js"
 import { KgPortLive } from "../ports/KgPort.js"
@@ -23,6 +24,7 @@ import {
   WikiSessionLimiter
 } from "../ports/RateLimiter.js"
 import { HandlersLive } from "./Handlers.js"
+import { OperatorPlaneNoStore } from "./Middleware.js"
 
 /**
  * Startup validation as a layer.
@@ -80,6 +82,7 @@ const WriteStack = KgWritePortLive.pipe(
 export const PortsLive = Layer.mergeAll(
   KgPortLive,
   WriteStack,
+  ClientIpLive,
   FeedbackStoreMemory,
   IdsLive,
   LimitersLive
@@ -105,8 +108,20 @@ export const CorsLive = Layer.unwrapEffect(
   })
 ).pipe(Layer.provide(AppConfigLive))
 
-/** The HTTP app: API + handlers + CORS + the derived OpenAPI page at /docs. */
-export const ApiLive = HttpApiBuilder.api(Api).pipe(Layer.provide(HandlersLive))
+/**
+ * The HTTP app: API + handlers + the API-level middleware + /docs.
+ *
+ * `OperatorPlaneNoStore` is provided HERE, to the api layer, not to `serve`.
+ * Providing it to `serve` type-checks and starts cleanly but silently drops
+ * every prefixed route — `/health` still answered 200 while `/api/stats`
+ * 404'd. The unit tests could not catch it because they build their own
+ * composition root; only starting the real `main.ts` did. Hence the smoke
+ * test in CI.
+ */
+export const ApiLive = HttpApiBuilder.api(Api).pipe(
+  Layer.provide(HandlersLive),
+  Layer.provide(OperatorPlaneNoStore)
+)
 
 export const HttpLive = HttpApiBuilder.serve(HttpMiddleware.logger).pipe(
   Layer.provide(HttpApiScalar.layer({ path: "/docs" })),
