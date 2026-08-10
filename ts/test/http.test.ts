@@ -17,6 +17,8 @@ import { AppConfigTag, type AppConfig } from "../src/Config.js"
 import { FeedbackStoreMemory } from "../src/ports/FeedbackStore.js"
 import { IdsDeterministic } from "../src/ports/Ids.js"
 import { KgPortSnapshot } from "../src/ports/KgPort.js"
+import { KgWritePortDryOnly } from "../src/ports/KgWritePort.js"
+import { SchemaGuardOffline } from "../src/ports/SchemaGuard.js"
 import { FeedbackLimiter, layerInProcess } from "../src/ports/RateLimiter.js"
 import { HandlersLive } from "../src/server/Handlers.js"
 
@@ -80,6 +82,7 @@ const ConfigTest = Layer.succeed(AppConfigTag, testConfig)
 
 const PortsTest = Layer.mergeAll(
   KgPortSnapshot,
+  KgWritePortDryOnly.pipe(Layer.provideMerge(SchemaGuardOffline)),
   FeedbackStoreMemory,
   IdsDeterministic(),
   layerInProcess(FeedbackLimiter, {

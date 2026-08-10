@@ -23,7 +23,10 @@ import {
   WalkNode,
   WalkResponse
 } from "../domain/AgentContracts.js"
+import { AppConfigTag } from "../Config.js"
+import { authorize } from "../ports/Auth.js"
 import { KgPortTag } from "../ports/KgPort.js"
+import { KgWritePortTag } from "../ports/KgWritePort.js"
 
 const toWalkNode = (v: Traversal.Visited): WalkNode =>
   new WalkNode({
@@ -161,6 +164,28 @@ export const AgentLive = HttpApiBuilder.group(Api, "agent", (handlers) =>
           blocked: count("Blocked"),
           outcomes: outcomes.slice(0, 100)
         })
+      })
+    )
+
+    /**
+     * Record what a run learned.
+     *
+     * Everything hard about this is in `KgWritePort` and `WriteIntent`: the
+     * schema mirrors the database's own triggers, so a malformed finding is a
+     * 400 that names the missing field rather than a commit-time blob. The
+     * handler's only jobs are authorisation and handing the batch over.
+     */
+    .handle("record", ({ headers, payload }) =>
+      Effect.gen(function* () {
+        const cfg = yield* AppConfigTag
+        // The write key only. A read credential must not amend canon.
+        yield* authorize({
+          presented: headers.authorization,
+          accepted: [cfg.kgWriteKey],
+          surface: "KG agent write"
+        })
+        const writer = yield* KgWritePortTag
+        return yield* writer.apply(payload)
       })
     )
 )

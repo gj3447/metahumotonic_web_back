@@ -13,6 +13,8 @@ import { AppConfigLive, AppConfigTag, validateWikiConfiguration } from "../Confi
 import { FeedbackStoreMemory } from "../ports/FeedbackStore.js"
 import { IdsLive } from "../ports/Ids.js"
 import { KgPortLive } from "../ports/KgPort.js"
+import { KgWritePortLive } from "../ports/KgWritePort.js"
+import { SchemaGuardLive } from "../ports/SchemaGuard.js"
 import {
   FeedbackLimiter,
   layerInProcess,
@@ -69,8 +71,15 @@ export const LimitersLive = Layer.unwrapEffect(
 )
 
 /** Ports: config first, then everything that depends on it. */
+/** The write path needs the read port (for the registry) and the guard. */
+const WriteStack = KgWritePortLive.pipe(
+  Layer.provideMerge(SchemaGuardLive),
+  Layer.provide(KgPortLive)
+)
+
 export const PortsLive = Layer.mergeAll(
   KgPortLive,
+  WriteStack,
   FeedbackStoreMemory,
   IdsLive,
   LimitersLive

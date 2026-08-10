@@ -22,6 +22,7 @@ import {
   PlanResponse,
   WalkResponse
 } from "../domain/AgentContracts.js"
+import { WriteBatch, WriteReceipt } from "../domain/WriteIntent.js"
 import {
   AgentFeed,
   ConsensusRecord,
@@ -263,6 +264,22 @@ export const AgentGroup = HttpApiGroup.make("agent")
         })
       )
       .addSuccess(ExploreResponse)
+  )
+  /**
+   * The write path — the other half of the feedback loop.
+   *
+   * Gated on the KG **write** key, not the read key: reading canon and
+   * amending it are different privileges. `dryRun` defaults to true in the
+   * payload schema, so the dangerous call is the one you have to spell out.
+   */
+  .add(
+    HttpApiEndpoint.post("record", "/record")
+      .setPayload(WriteBatch)
+      .setHeaders(Schema.Struct({ authorization: Schema.optional(Schema.String) }))
+      .addSuccess(WriteReceipt)
+      .addError(Unauthorized)
+      .addError(Unavailable)
+      .addError(KgQueryFailed)
   )
   .prefix("/api/agent")
 

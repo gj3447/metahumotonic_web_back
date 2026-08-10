@@ -21,7 +21,7 @@ metahumotonic_web_back/
 cd ts
 npm install
 npm run typecheck     # tsc --noEmit
-npm test              # vitest — 84 tests, no infra required
+npm test              # vitest — 106 tests, no infra required
 npm run dev           # http://localhost:8000  (docs at /docs)
 ```
 
@@ -61,6 +61,8 @@ src/
 │   └── Errors.ts      every failure as a tagged type with its HTTP status
 ├── ports/           capabilities, each an interface + one or more Layers
 │   ├── KgPort.ts      Neo4j reads; snapshot layer and live-Bolt layer
+│   ├── KgWritePort.ts the agent's write path: dry-run first, preflight, readback
+│   ├── SchemaGuard.ts the frozen SchemaRegistry, mirrored client-side
 │   ├── Cypher.ts      the queries, copied verbatim from app/kg.py
 │   ├── Snapshot.ts    the canonical fallback constants (measured 2026-06-08)
 │   ├── FeedbackStore.ts, RateLimiter.ts, Breaker.ts, Auth.ts, Ids.ts
@@ -101,6 +103,7 @@ that the work is one-dimensional; this system's work is not:
 | `GET /api/agent/walk` | `Traversal` — bounded BFS over the live KG |
 | `GET /api/agent/plan` | `WorkGraph` — the same neighbourhood as a DAG: topo order, ready-set, frontier, cycle/dangling check |
 | `GET /api/agent/explore` | `Loop` + `Scheduler` — rounds to convergence with real I/O per node |
+| `POST /api/agent/record` | `KgWritePort` — the write path (see below). Gated on the **write** key |
 
 Live run against the SYMPOSIUM KG, 2026-08-10:
 
@@ -119,6 +122,63 @@ dispatch, covered by tests, but it has **no HTTP surface and no real roster**.
 The actual commanders (occam, 나생문, 롱기누스, …) live in `PI/bhgman_tool` in
 Python. Wiring a fabricated roster to an endpoint would be theatre; the roster
 belongs to whoever owns those engines.
+
+## The write path — closing the loop
+
+Reading the KG is half a feedback loop. `verdict → root cause → lesson → next
+action` needs the last arrow to land somewhere durable, and until now the agent
+could only read.
+
+What makes this more than "run a Cypher": **the schema mirrors the database's
+own triggers.** This KG runs 17 APOC triggers that reject a bad write at commit
+time with a `TransactionHookFailed` blob — I hit three of them by hand while
+building this. Each is now a type:
+
+| trigger | mirrored as |
+|---|---|
+| `t_researchfinding_citation_required` | `CitationEvidence`, a required union — a URL, or a stated reason there isn't one |
+| `t_lesson_lakatos_mechanism_required_v27` | required enum of the canonical five |
+| `t_lesson_name_not_null` | `minLength(1)` + no-whitespace on `NodeName` |
+| `t_schema_freeze_label_v2` | `SchemaGuard`, preflight |
+| `t_schema_freeze_reltype_v1` | `SchemaGuard`, preflight |
+
+So a violation is a 400 naming the offending field, at the request boundary,
+instead of a stack trace after the transaction did its work:
+
+```
+POST /api/agent/record   {"relType": "FINDING_OF"}
+→ 400 refused 1/1 statement(s): a -[:FINDING_OF]-> b —
+       relationship types not in SchemaRegistry: FINDING_OF
+```
+
+(`FINDING_OF` does not exist; `HAS_FINDING` is the real one. That is the exact
+mistake I made by hand earlier, now unmakeable.)
+
+Four house rules, each of them a scar:
+
+1. **`dryRun` defaults to true.** Touching canon is opt-in.
+2. **Preflight before the transaction** against the live registry
+   (3,453 labels / 4,938 relationship types, loaded once at startup).
+   Fail-closed: if the registry is unreadable, nothing is admissible.
+3. **Read back, always.** *A skipped readback creates a duplicate, not a
+   missing node.* Anything planned but absent afterwards lands in `missing`
+   and `committed` goes false.
+4. **Never MERGE an endpoint into existence.** Hubs, link endpoints and
+   dispatch children are all `MATCH`ed. Merging them is how orphans appear.
+
+Deliberately **additive only** — no supersede, archive, delete, or re-label.
+Retiring canon is Occam's job and needs a human verdict.
+
+Live commit, 2026-08-10:
+
+```
+POST /api/agent/record  (dryRun:false, write key)
+→ committed: true
+  readback: ["rf-ts-agent-write-path-mirrors-kg-triggers-2026-08-10"]
+  missing:  []
+```
+
+verified independently through a separate MCP session, not from the receipt.
 
 ## What the port changes, and why
 
@@ -139,7 +199,7 @@ with 503 rather than opening it).
 
 ## Verified
 
-Typecheck clean, 84/84 tests green, and driven live against the SYMPOSIUM KG on
+Typecheck clean, 106/106 tests green, and driven live against the SYMPOSIUM KG on
 2026-08-10:
 
 - snapshot mode — `/health` `/ready` `/` `/api/stats` `/api/domains`
@@ -151,7 +211,8 @@ Typecheck clean, 84/84 tests green, and driven live against the SYMPOSIUM KG on
 - feedback accept / honeypot / 429-with-retry-hint, operator inbox
   401→200→triage→404, KG proxy 503-when-disabled, and a write rejected inside
   a READ transaction by the server itself (502 `KgQueryFailed`)
-- the three `/api/agent/*` endpoints against real nodes (see above)
+- the four `/api/agent/*` endpoints against real nodes, including a real
+  KG commit with readback (see above)
 
 ## Two defects found while porting
 
