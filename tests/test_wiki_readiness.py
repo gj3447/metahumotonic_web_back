@@ -72,6 +72,8 @@ async def test_ready_fails_closed_when_wiki_redis_is_unavailable(monkeypatch):
         "wiki_live": False,
         "wiki_store_live": True,
         "wiki_rate_limit_live": False,
+        "ontology_required": False,
+        "ontology_live": False,
         "degraded": True,
     }
 

@@ -53,6 +53,7 @@ class RequestLoggingMiddleware:
 
         request = Request(scope, receive)
         rid = uuid.uuid4().hex[:16]            # server-generated, authoritative
+        scope.setdefault("state", {})["request_id"] = rid
         correlation_id = _inbound_correlation_id(request)
         path = scope.get("path", "")
         method = scope.get("method", "")

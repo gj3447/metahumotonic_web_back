@@ -39,6 +39,17 @@ class Settings(BaseSettings):
     # draining a 90k-node label in one request)
     kg_proxy_max_rows: int = 1000
 
+    # --- Conflict-aware Metahumotonic ontology facade (internal read-only) ---
+    # This surface never reads raw KG records. An operator supplies the
+    # sanitized browser snapshot produced by SYMPOSIUM together with both its
+    # byte digest and canonical source-manifest digest.
+    ontology_enabled: bool = False
+    ontology_snapshot_path: str = ""
+    ontology_snapshot_sha256: str = ""
+    ontology_content_sha256: str = ""
+    # Deliberately separate from the raw KG proxy keys. Empty means unavailable.
+    ontology_internal_key: str = ""
+
     # --- MongoDB (feedback intake) ---
     mongo_uri: str = ""  # empty → in-memory store (no infra needed)
     mongo_db: str = "metahumotonic"

@@ -33,8 +33,37 @@
 | POST | `/api/kg/read` | **외부용 raw Cypher (읽기 전용)** — `X-API-Key` 게이트, Neo4j READ 트랜잭션(쓰기 서버 거부) |
 | POST | `/api/kg/write` | **외부용 raw Cypher (쓰기)** — write 키만, WRITE 트랜잭션 |
 | GET/POST | `/api/wiki/v1/*` | 공개 Community Wiki — 페이지·리비전·이력·diff·검토 제출 |
+| GET | `/api/v1/ontology/*` | 검증·정제된 Metahumotonic ontology snapshot — 별도 내부 키, 기본 비활성 |
 
 모든 `/api/research/*`는 캐시(~5분) + fail-soft (KG 다운 시 빈 리스트/스냅샷, 절대 500 안 냄).
+
+## Metahumotonic ontology facade (내부 전용)
+
+이 표면은 live/raw Neo4j fallback을 사용하지 않는다. SYMPOSIUM sanitizer가 만든
+browser-view JSON만 부팅 시 한 번 읽고, 운영자가 고정한 파일 SHA-256과 canonical
+content SHA-256, 정전 카디널리티 및 충돌 불변조건을 모두 확인한 뒤 메모리에서
+읽기 전용으로 제공한다. 활성화 설정이 불완전하거나 snapshot이 변조되면 startup이
+fail-closed한다. 비활성 기본값에서는 모든 ontology 요청이 `503`이다.
+
+모든 요청은 raw KG proxy 키와 분리된 `X-Ontology-Key`를 요구한다. 키는 URL이나
+브라우저 영구 저장소에 넣지 않는다. 응답은 opaque `public_id`만 사용하고 private
+cache와 content ETag를 제공한다. 사도 9번은 예수/아텐 중 하나를 임의 선택하지 않고
+`409 CONFLICT_PENDING`과 `default_servable=false` 후보만 반환한다. 현재 약어는 `OMC`만,
+Harness/Hades는 한 슬롯, HSWM은 OMC 군단장 정체성 범위만 나타낸다.
+
+| Method | Path | 설명 |
+|---|---|---|
+| GET | `/api/v1/ontology/search?q=...&kind=...` | 승인된 이름·alias 검색, HMAC cursor |
+| GET | `/api/v1/ontology/nodes/{public_id}` | 단일 정제 노드; 미결 슬롯은 409 |
+| GET | `/api/v1/ontology/nodes/{public_id}/neighbors` | 방향·predicate 필터의 1-hop 관계 |
+| GET | `/api/v1/ontology/schema` | 공개 DTO/정체성·충돌 정책 |
+| GET | `/api/v1/ontology/releases/{projection_id}` | immutable release roster·count·conflict |
+
+필수 환경변수는 `.env.example`의 `MHB_ONTOLOGY_*` 다섯 개다. 내부용으로
+활성화할 때만 read-only snapshot을 컨테이너에 mount하고, 32-byte 이상의 독립 random
+key를 secret으로 주입한다. 이 코드 변경만으로 public ingress가 열리지는 않는다.
+전체 envelope, 불변조건, digest 의미와 운영 경계는
+[`docs/ONTOLOGY.md`](docs/ONTOLOGY.md)에 고정되어 있다.
 
 ## Community Wiki (Web · REST · CLI · MCP)
 

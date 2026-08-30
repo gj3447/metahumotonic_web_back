@@ -21,6 +21,7 @@ from .kg import kg
 from .mcp_store import registry as mcp_registry_store
 from .middleware import RequestLoggingMiddleware
 from .observability import configure_logging, instrument
+from .ontology import ontology_runtime
 from .ratelimit import RateLimiter
 from .routers import (
     domains,
@@ -28,6 +29,7 @@ from .routers import (
     kg_proxy,
     mcp_registry,
     meta,
+    ontology,
     research,
     skills,
     stats,
@@ -121,6 +123,11 @@ async def lifespan(app: FastAPI):
     # startup: ensure the MCP registry unique-name index (no-op without Mongo)
     await mcp_registry_store.ensure_indexes()
 
+    # The ontology surface is fail-closed: when explicitly enabled, startup
+    # succeeds only after the operator-pinned sanitized snapshot is validated.
+    ontology_runtime.configure(settings)
+    app.state.ontology_runtime = ontology_runtime
+
     _validate_wiki_configuration()
     if settings.wiki_public_writes:
         limiter_ready = [
@@ -173,6 +180,7 @@ async def lifespan(app: FastAPI):
             _wiki_read_limiter.close(),
             return_exceptions=True,
         )
+        ontology_runtime.reset()
 
 
 app = FastAPI(
@@ -192,7 +200,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list(),
     allow_methods=["GET", "POST", "PUT", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-CSRF-Token"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "X-CSRF-Token",
+        "X-Ontology-Key",
+    ],
     allow_credentials=True,
 )
 
@@ -205,6 +219,7 @@ app.include_router(feedback.router)
 app.include_router(feedback.internal_router)
 app.include_router(kg_proxy.router)
 app.include_router(mcp_registry.router)
+app.include_router(ontology.router)
 app.include_router(create_router(wiki_runtime))
 app.include_router(create_moderation_router(wiki_runtime))
 

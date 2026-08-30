@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from .. import __version__
 from ..config import settings
 from ..kg import kg
+from ..ontology import ontology_runtime
 
 router = APIRouter()
 
@@ -58,19 +59,30 @@ async def ready(request: Request) -> Any:
             except Exception:  # noqa: BLE001 - readiness must fail closed on limiter failure
                 wiki_rate_limit_live = False
     wiki_live = wiki_store_live and wiki_rate_limit_live
+    ontology_required = settings.ontology_enabled
+    ontology_live = bool(
+        ontology_runtime.enabled
+        and ontology_runtime.ready
+        and ontology_runtime.projection is not None
+    )
     degraded = (settings.neo4j_live and not kg_live) or (
         wiki_required and not wiki_live
+    ) or (ontology_required and not ontology_live)
+    not_ready = (wiki_required and not wiki_live) or (
+        ontology_required and not ontology_live
     )
     payload = {
-        "status": "ready" if not (wiki_required and not wiki_live) else "not_ready",
+        "status": "ready" if not not_ready else "not_ready",
         "kg_live": kg_live,
         "wiki_required": wiki_required,
         "wiki_live": wiki_live,
         "wiki_store_live": wiki_store_live,
         "wiki_rate_limit_live": wiki_rate_limit_live,
+        "ontology_required": ontology_required,
+        "ontology_live": ontology_live,
         "degraded": degraded,
     }
-    if wiki_required and not wiki_live:
+    if not_ready:
         return JSONResponse(status_code=503, content=payload)
     return payload
 
@@ -88,5 +100,6 @@ async def root() -> dict:
             "/api/skills",
             "/api/feedback",
             "/api/wiki/v1",
+            "/api/v1/ontology/schema",
         ],
     }
