@@ -77,6 +77,7 @@ All success responses use this envelope:
 Endpoints:
 
 - `GET /api/v1/ontology/search?q=&kind=&limit=&cursor=`
+- `GET /api/v1/ontology/conflicts?subject_public_id=&severity=&status=&limit=&cursor=`
 - `GET /api/v1/ontology/nodes/{public_id}`
 - `GET /api/v1/ontology/nodes/{public_id}/neighbors?direction=&predicate=&limit=&cursor=`
 - `GET /api/v1/ontology/schema`
@@ -87,6 +88,9 @@ ranked exact → prefix → substring with opaque `public_id` as the tie-breaker
 The historical `OM` abbreviation does not resolve the OMC entity; `OMC` does.
 Opaque cursors are HMAC-signed and bound to source content digest, endpoint,
 filters, limit, and offset. Tampered, stale, or cross-query cursors return `400`.
+Conflict filters use exact uppercase ontology tokens and an opaque
+`subject_public_id`; scope-only conflicts remain visible in the unfiltered index
+but are never falsely attached to a public node.
 
 Every successful representation has a route/parameter-specific strong ETag and
 `Cache-Control: private`. The immutable release is private-cacheable for one
@@ -98,9 +102,10 @@ year. Errors are `private, no-store`.
   2 phases, 4 structural patterns, 15 relations, and 8 contained conflicts.
 - Apostle slot 8 is 입체운행구름; `OMC` is the current abbreviation and `OM`
   is not an alias.
-- Apostle slot 9 has `entity=null`, `CONFLICT_PENDING`, and no default-served
-  candidate. Its node endpoint returns `409`, preserving Jesus/Aten as
-  non-selected candidates.
+- Apostle positions other than 9 are exactly `SELECTED`, contain an entity, and
+  cannot carry candidates. Slot 9 has `entity=null`, `CONFLICT_PENDING`, exactly
+  two uniquely identified Jesus/Aten candidates, and no default-served
+  candidate. Its node endpoint returns `409`.
 - Harness/Hades is one commander entity and one slot.
 - The OMC roster is exactly `333`, `CHU`, `CRL`, `engineboy`, `orrr`, `HSWM`.
   HSWM is an identity/scope record, not evidence that its separate implementation

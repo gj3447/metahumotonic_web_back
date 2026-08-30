@@ -627,6 +627,23 @@ class OntologyProjection:
             raise OntologyProjectionError("apostle positions must be integers")
         if sorted(positions) != list(range(1, 13)):
             raise OntologyProjectionError("apostle positions must be exactly 1 through 12")
+        for record in apostles:
+            position = record["position"]
+            if position == 9:
+                continue
+            if record.get("selection_state") != "SELECTED":
+                raise OntologyProjectionError(
+                    "only apostle slot 9 may be conflict-pending; "
+                    "every other slot must be SELECTED"
+                )
+            if not isinstance(record.get("entity"), Mapping):
+                raise OntologyProjectionError(
+                    "selected apostle slots must contain an entity"
+                )
+            if "candidates" in record:
+                raise OntologyProjectionError(
+                    "selected apostle slots must not include candidates"
+                )
         axiom_positions = [record.get("position") for record in collections["axioms"]]
         if (
             any(
@@ -666,12 +683,23 @@ class OntologyProjection:
         if slot9.get("entity") is not None or slot9.get("body_policy") != "NO_DEFAULT":
             raise OntologyProjectionError("apostle slot 9 must not select a default entity")
         candidates = _require_list(slot9.get("candidates"), "apostle slot 9 candidates")
-        candidate_names = {
-            candidate.get("canonical_name")
-            for candidate in candidates
-            if isinstance(candidate, Mapping)
-        }
-        if candidate_names != {"예수", "검은 태양신 아텐"}:
+        if len(candidates) != 2:
+            raise OntologyProjectionError("apostle slot 9 must have exactly two candidates")
+        candidate_ids = [
+            candidate.get("candidate_id") for candidate in candidates
+        ]
+        if len(set(candidate_ids)) != len(candidate_ids):
+            raise OntologyProjectionError(
+                "apostle slot 9 candidate IDs must be unique"
+            )
+        candidate_names = [
+            candidate.get("canonical_name") for candidate in candidates
+        ]
+        if len(set(candidate_names)) != len(candidate_names):
+            raise OntologyProjectionError(
+                "apostle slot 9 candidate names must be unique"
+            )
+        if set(candidate_names) != {"예수", "검은 태양신 아텐"}:
             raise OntologyProjectionError("apostle slot 9 candidate set mismatch")
         if any(
             not isinstance(candidate, Mapping)
@@ -911,6 +939,44 @@ class OntologyProjection:
             items,
             route="search",
             params={"q": normalized_query, "kind": kind},
+            limit=limit,
+            cursor=cursor,
+        )
+
+    def conflicts_page(
+        self,
+        *,
+        subject_public_id: str | None,
+        severity: str | None,
+        status: str | None,
+        limit: int,
+        cursor: str | None,
+    ) -> Page:
+        items = [
+            deepcopy(conflict)
+            for conflict in self.conflicts
+            if (
+                subject_public_id is None
+                or conflict.get("subject_public_id") == subject_public_id
+            )
+            and (severity is None or conflict["severity"] == severity)
+            and (status is None or conflict["status"] == status)
+        ]
+        items.sort(
+            key=lambda item: (
+                item["severity"],
+                item["status"],
+                item["conflict_id"],
+            )
+        )
+        return self._page(
+            items,
+            route="conflicts",
+            params={
+                "subject_public_id": subject_public_id,
+                "severity": severity,
+                "status": status,
+            },
             limit=limit,
             cursor=cursor,
         )

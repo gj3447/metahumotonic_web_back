@@ -101,5 +101,6 @@ async def root() -> dict:
             "/api/feedback",
             "/api/wiki/v1",
             "/api/v1/ontology/schema",
+            "/api/v1/ontology/conflicts",
         ],
     }

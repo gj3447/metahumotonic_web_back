@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, Response
 from ..ontology import (
     COLLECTION_KINDS,
     PROJECTION_ID,
+    PUBLIC_ID_RE,
     SCHEMA_VERSION,
     OntologyConflictPending,
     OntologyCursorError,
@@ -21,7 +22,7 @@ from ..ontology import (
 
 router = APIRouter(prefix="/api/v1/ontology", tags=["ontology"])
 
-_PREDICATE_RE = re.compile(r"^[A-Z][A-Z0-9_]{0,99}$")
+_ONTOLOGY_TOKEN_RE = re.compile(r"^[A-Z][A-Z0-9_]{0,99}$")
 _PRIVATE_CACHE = "private, max-age=60, must-revalidate"
 _IMMUTABLE_PRIVATE_CACHE = "private, max-age=31536000, immutable"
 
@@ -225,6 +226,61 @@ async def search(request: Request) -> Any:
     )
 
 
+@router.get("/conflicts", response_model=None)
+async def conflicts(request: Request) -> Any:
+    projection, auth_error = _authorized_projection(request)
+    if auth_error is not None:
+        return auth_error
+    assert projection is not None
+    try:
+        subject_public_id = _single_query_value(request, "subject_public_id")
+        if subject_public_id is not None and not PUBLIC_ID_RE.fullmatch(
+            subject_public_id
+        ):
+            raise ValueError("subject_public_id must be an opaque ontology public ID")
+        severity = _single_query_value(request, "severity")
+        if severity is not None and not _ONTOLOGY_TOKEN_RE.fullmatch(severity):
+            raise ValueError("severity must be an uppercase ontology token")
+        status = _single_query_value(request, "status")
+        if status is not None and not _ONTOLOGY_TOKEN_RE.fullmatch(status):
+            raise ValueError("status must be an uppercase ontology token")
+        limit = _limit(request, default=20)
+        cursor = _single_query_value(request, "cursor")
+        page = projection.conflicts_page(
+            subject_public_id=subject_public_id,
+            severity=severity,
+            status=status,
+            limit=limit,
+            cursor=cursor,
+        )
+    except (ValueError, OntologyCursorError) as exc:
+        return _error(
+            request,
+            400,
+            "ONTOLOGY_BAD_REQUEST",
+            str(exc),
+            projection=projection,
+        )
+    etag = projection.etag_for(
+        "conflicts",
+        {
+            "subject_public_id": subject_public_id,
+            "severity": severity,
+            "status": status,
+            "limit": limit,
+            "cursor": cursor,
+        },
+    )
+    if _etag_matches(request, etag):
+        return _not_modified(projection, etag=etag)
+    return _success(
+        projection,
+        {"items": page.items},
+        etag=etag,
+        page={"next_cursor": page.next_cursor},
+    )
+
+
 @router.get("/nodes/{public_id}", response_model=None)
 async def node(request: Request, public_id: str) -> Any:
     projection, auth_error = _authorized_projection(request)
@@ -267,7 +323,7 @@ async def neighbors(request: Request, public_id: str) -> Any:
         if direction not in {"in", "out", "both"}:
             raise ValueError("direction must be in, out, or both")
         predicate = _single_query_value(request, "predicate")
-        if predicate is not None and not _PREDICATE_RE.fullmatch(predicate):
+        if predicate is not None and not _ONTOLOGY_TOKEN_RE.fullmatch(predicate):
             raise ValueError("predicate must be an uppercase ontology predicate")
         limit = _limit(request, default=50)
         cursor = _single_query_value(request, "cursor")

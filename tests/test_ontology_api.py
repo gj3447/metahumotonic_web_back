@@ -291,10 +291,12 @@ async def test_readiness_fails_closed_if_enabled_runtime_is_unavailable(
 
 async def test_surface_requires_its_independent_internal_key(client):
     missing = await client.get("/api/v1/ontology/schema")
+    missing_conflicts = await client.get("/api/v1/ontology/conflicts")
     wrong = await client.get(
         "/api/v1/ontology/schema", headers={"X-Ontology-Key": "wrong"}
     )
     assert missing.status_code == 401
+    assert missing_conflicts.status_code == 401
     assert wrong.status_code == 401
     assert missing.headers["Cache-Control"] == "private, no-store"
 
@@ -412,6 +414,122 @@ async def test_slot_9_returns_explicit_409_without_a_default(client):
     assert all(item["default_servable"] is False for item in details["candidates"])
 
 
+async def test_conflicts_are_paginated_filterable_and_conditionally_cached(client):
+    first = await client.get(
+        "/api/v1/ontology/conflicts",
+        params={"limit": "1"},
+        headers=_headers(),
+    )
+    assert first.status_code == 200
+    assert len(first.json()["data"]["items"]) == 1
+    cursor = first.json()["page"]["next_cursor"]
+    assert cursor
+
+    second = await client.get(
+        "/api/v1/ontology/conflicts",
+        params={"limit": "1", "cursor": cursor},
+        headers=_headers(),
+    )
+    assert second.status_code == 200
+    assert (
+        second.json()["data"]["items"][0]["conflict_id"]
+        != first.json()["data"]["items"][0]["conflict_id"]
+    )
+
+    by_subject = await client.get(
+        "/api/v1/ontology/conflicts",
+        params={"subject_public_id": _public_id(109)},
+        headers=_headers(),
+    )
+    assert by_subject.status_code == 200
+    assert [
+        item["conflict_id"] for item in by_subject.json()["data"]["items"]
+    ] == ["conflict-2"]
+    assert by_subject.json()["data"]["items"][0]["subject_public_id"] == _public_id(
+        109
+    )
+
+    by_severity = await client.get(
+        "/api/v1/ontology/conflicts",
+        params={"severity": "BLOCK_PUBLIC_DEFAULT"},
+        headers=_headers(),
+    )
+    by_status = await client.get(
+        "/api/v1/ontology/conflicts",
+        params={"status": "OPEN_CONTAINED_BY_PROJECTION"},
+        headers=_headers(),
+    )
+    assert by_severity.status_code == 200
+    assert [
+        item["conflict_id"] for item in by_severity.json()["data"]["items"]
+    ] == ["conflict-2"]
+    assert by_status.status_code == 200
+    assert len(by_status.json()["data"]["items"]) == 8
+
+    etag = by_subject.headers["ETag"]
+    cached = await client.get(
+        "/api/v1/ontology/conflicts",
+        params={"subject_public_id": _public_id(109)},
+        headers=_headers(**{"If-None-Match": etag}),
+    )
+    other_subject = await client.get(
+        "/api/v1/ontology/conflicts",
+        params={"subject_public_id": _public_id(108)},
+        headers=_headers(**{"If-None-Match": etag}),
+    )
+    assert cached.status_code == 304
+    assert cached.content == b""
+    assert other_subject.status_code == 200
+    assert other_subject.json()["data"]["items"] == []
+    assert other_subject.headers["ETag"] != etag
+
+
+async def test_conflict_cursor_and_filters_fail_closed(client):
+    first = await client.get(
+        "/api/v1/ontology/conflicts",
+        params={"status": "OPEN_CONTAINED_BY_PROJECTION", "limit": "1"},
+        headers=_headers(),
+    )
+    assert first.status_code == 200
+    cursor = first.json()["page"]["next_cursor"]
+    assert cursor
+
+    cross_filter = await client.get(
+        "/api/v1/ontology/conflicts",
+        params={"severity": "WARN", "limit": "1", "cursor": cursor},
+        headers=_headers(),
+    )
+    replacement = "x" if cursor[-1] != "x" else "y"
+    tampered = await client.get(
+        "/api/v1/ontology/conflicts",
+        params={
+            "status": "OPEN_CONTAINED_BY_PROJECTION",
+            "limit": "1",
+            "cursor": f"{cursor[:-1]}{replacement}",
+        },
+        headers=_headers(),
+    )
+    repeated = await client.get(
+        "/api/v1/ontology/conflicts?severity=WARN&severity=BLOCK_PUBLIC_DEFAULT",
+        headers=_headers(),
+    )
+    invalid_subject = await client.get(
+        "/api/v1/ontology/conflicts",
+        params={"subject_public_id": "apostle-9"},
+        headers=_headers(),
+    )
+    invalid_status = await client.get(
+        "/api/v1/ontology/conflicts",
+        params={"status": "open"},
+        headers=_headers(),
+    )
+    assert cross_filter.status_code == 400
+    assert tampered.status_code == 400
+    assert repeated.status_code == 400
+    assert invalid_subject.status_code == 400
+    assert invalid_status.status_code == 400
+
+
 async def test_neighbors_support_direction_predicate_and_cursor(client):
     response = await client.get(
         f"/api/v1/ontology/nodes/{_public_id(104)}/neighbors",
@@ -511,5 +629,74 @@ def test_exact_dto_allowlist_rejects_unknown_fields_and_rewired_graph():
     with pytest.raises(OntologyProjectionError, match="legion commander topology"):
         OntologyProjection.from_mapping(
             rewired,
+            cursor_secret=INTERNAL_KEY.encode("utf-8"),
+        )
+
+
+def test_only_apostle_slot_9_may_be_conflict_pending():
+    malformed = _snapshot()
+    selected_slot = malformed["data"]["collections"]["apostles"][0]
+    slot_9 = malformed["data"]["collections"]["apostles"][8]
+    selected_slot["selection_state"] = "CONFLICT_PENDING"
+    selected_slot["entity"] = None
+    selected_slot["body_policy"] = "NO_DEFAULT"
+    selected_slot["candidates"] = deepcopy(slot_9["candidates"])
+
+    with pytest.raises(OntologyProjectionError, match="only apostle slot 9"):
+        OntologyProjection.from_mapping(
+            malformed,
+            cursor_secret=INTERNAL_KEY.encode("utf-8"),
+        )
+
+    candidates_on_selected = _snapshot()
+    candidates_on_selected["data"]["collections"]["apostles"][0][
+        "candidates"
+    ] = deepcopy(
+        candidates_on_selected["data"]["collections"]["apostles"][8][
+            "candidates"
+        ]
+    )
+    with pytest.raises(OntologyProjectionError, match="must not include candidates"):
+        OntologyProjection.from_mapping(
+            candidates_on_selected,
+            cursor_secret=INTERNAL_KEY.encode("utf-8"),
+        )
+
+    selected_without_entity = _snapshot()
+    selected_without_entity["data"]["collections"]["apostles"][0]["entity"] = None
+    with pytest.raises(OntologyProjectionError, match="must contain an entity"):
+        OntologyProjection.from_mapping(
+            selected_without_entity,
+            cursor_secret=INTERNAL_KEY.encode("utf-8"),
+        )
+
+
+def test_apostle_slot_9_requires_exactly_two_unique_candidates():
+    duplicate_id = _snapshot()
+    candidates = duplicate_id["data"]["collections"]["apostles"][8]["candidates"]
+    candidates[1]["candidate_id"] = candidates[0]["candidate_id"]
+    with pytest.raises(OntologyProjectionError, match="candidate IDs must be unique"):
+        OntologyProjection.from_mapping(
+            duplicate_id,
+            cursor_secret=INTERNAL_KEY.encode("utf-8"),
+        )
+
+    duplicate_name = _snapshot()
+    candidates = duplicate_name["data"]["collections"]["apostles"][8]["candidates"]
+    candidates[1]["canonical_name"] = candidates[0]["canonical_name"]
+    with pytest.raises(OntologyProjectionError, match="candidate names must be unique"):
+        OntologyProjection.from_mapping(
+            duplicate_name,
+            cursor_secret=INTERNAL_KEY.encode("utf-8"),
+        )
+
+    extra_candidate = _snapshot()
+    candidates = extra_candidate["data"]["collections"]["apostles"][8][
+        "candidates"
+    ]
+    candidates.append(deepcopy(candidates[0]))
+    with pytest.raises(OntologyProjectionError, match="exactly two candidates"):
+        OntologyProjection.from_mapping(
+            extra_candidate,
             cursor_secret=INTERNAL_KEY.encode("utf-8"),
         )

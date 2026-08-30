@@ -9,6 +9,7 @@ async def test_root_lists_endpoints(client):
     assert r.status_code == 200
     assert "/api/feedback" in r.json()["endpoints"]
     assert "/ready" in r.json()["endpoints"]
+    assert "/api/v1/ontology/conflicts" in r.json()["endpoints"]
 
 
 async def test_ready_is_degraded_tolerant(client):

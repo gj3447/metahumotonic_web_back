@@ -54,6 +54,7 @@ Harness/Hades는 한 슬롯, HSWM은 OMC 군단장 정체성 범위만 나타낸
 | Method | Path | 설명 |
 |---|---|---|
 | GET | `/api/v1/ontology/search?q=...&kind=...` | 승인된 이름·alias 검색, HMAC cursor |
+| GET | `/api/v1/ontology/conflicts?subject_public_id=...` | 정제된 충돌 목록·필터·HMAC cursor |
 | GET | `/api/v1/ontology/nodes/{public_id}` | 단일 정제 노드; 미결 슬롯은 409 |
 | GET | `/api/v1/ontology/nodes/{public_id}/neighbors` | 방향·predicate 필터의 1-hop 관계 |
 | GET | `/api/v1/ontology/schema` | 공개 DTO/정체성·충돌 정책 |
