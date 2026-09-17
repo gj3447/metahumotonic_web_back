@@ -9,7 +9,7 @@
 #
 # No infrastructure required: the service degrades to its snapshot fallback.
 set -euo pipefail
-# Local socket probes must not be sent to the package egress proxy.
+# Preserve the shared runtime fix, and explicitly target loopback below.
 export NO_PROXY="127.0.0.1,localhost,::1"
 export no_proxy="$NO_PROXY"
 
@@ -19,22 +19,41 @@ cd "$ROOT"
 
 [[ -f dist/src/main.js ]] || { echo "smoke: dist missing — run npm run build" >&2; exit 1; }
 
-MHB_PORT="$PORT" MHB_LOG_JSON=false MHB_FEEDBACK_ADMIN_KEY="smoke-key-at-least-32-bytes-long!!!!" \
-  node dist/src/main.js > /tmp/mhb-smoke-$PORT.log 2>&1 &
+[[ "$PORT" =~ ^[0-9]+$ ]] && ((PORT >= 1 && PORT <= 65535)) || { echo "smoke: invalid port" >&2; exit 1; }
+WORK="$(mktemp -d)"
+LOG="$WORK/server.log"
+RUN_MARKER="smoke-$$-$(date +%s)"
+# Test only our loopback process; the package proxy is not the tested server.
+probe() { command curl --noproxy 127.0.0.1 "$@"; }
+# Never inherit production DB connections, credentials or feature opt-ins.
+env -i PATH="$PATH" MHB_HOST=127.0.0.1 MHB_PORT="$PORT" MHB_VERSION="$RUN_MARKER" \
+  MHB_LOG_JSON=false MHB_FEEDBACK_ADMIN_KEY="smoke-key-at-least-32-bytes-long!!!!" \
+  node dist/src/main.js > "$LOG" 2>&1 &
 SRV=$!
-cleanup() { kill "$SRV" 2>/dev/null || true; }
+cleanup() {
+  kill "$SRV" 2>/dev/null || true
+  wait "$SRV" 2>/dev/null || true
+  rm -rf -- "$WORK"
+}
 trap cleanup EXIT
-
+ready=0
 for _ in $(seq 1 60); do
-  curl -sf --max-time 2 -o /dev/null "http://127.0.0.1:$PORT/health" && break
-  sleep 0.5
+  kill -0 "$SRV" 2>/dev/null || break
+  if probe -sf --max-time 2 "http://127.0.0.1:$PORT/health" > "$WORK/health.json" &&
+    python3 -c 'import json,sys; b=json.load(open(sys.argv[1])); sys.exit(0 if b.get("status")=="ok" and b.get("version")==sys.argv[2] else 1)' "$WORK/health.json" "$RUN_MARKER" 2>/dev/null; then
+    ready=1; break
+  fi
+  sleep 0.2
 done
+if [[ "$ready" != 1 ]]; then
+  echo "smoke: own server did not become ready" >&2; tail -40 "$LOG" >&2; exit 1
+fi
 
 fail=0
 check() { # check <expected> <path> [curl args...]
   local want="$1" path="$2"; shift 2
   local got
-  got="$(curl -s --max-time 10 -o /dev/null -w '%{http_code}' "$@" "http://127.0.0.1:$PORT$path")"
+  got="$(probe -s --max-time 10 -o /dev/null -w '%{http_code}' "$@" "http://127.0.0.1:$PORT$path")"
   if [[ "$got" == "$want" ]]; then
     printf '  ok    %-46s %s\n' "$path" "$got"
   else
@@ -67,7 +86,7 @@ check 200 /internal/feedback -H "X-API-Key: smoke-key-at-least-32-bytes-long!!!!
 check 503 /api/kg/read -X POST -H 'Content-Type: application/json' -d '{"query":"RETURN 1"}'
 
 echo "smoke: /ready shape (ops/check-web-back-live.sh reads these)"
-curl -s --max-time 10 "http://127.0.0.1:$PORT/ready" | python3 -c '
+probe -s --max-time 10 "http://127.0.0.1:$PORT/ready" | python3 -c '
 import json, sys
 body = json.load(sys.stdin)
 required = {"status", "kg_live", "wiki_required", "wiki_live", "wiki_store_live",
@@ -79,7 +98,7 @@ print("  ok    /ready carries all 7 keys")
 ' || fail=1
 
 echo "smoke: / endpoints array"
-curl -s --max-time 10 "http://127.0.0.1:$PORT/" | python3 -c '
+probe -s --max-time 10 "http://127.0.0.1:$PORT/" | python3 -c '
 import json, sys
 body = json.load(sys.stdin)
 eps = body.get("endpoints") or []
@@ -87,9 +106,30 @@ assert len(eps) >= 7, body
 print("  ok    / lists " + str(len(eps)) + " endpoints")
 ' || fail=1
 
+echo "smoke: CORS on the real compiled socket"
+for origin in https://metahumotonic.com https://untrusted.example; do
+  probe -s --max-time 5 -D "$WORK/headers" -o /dev/null \
+    -X OPTIONS -H "Origin: $origin" -H "Access-Control-Request-Method: POST" \
+    -H "Access-Control-Request-Headers: content-type,x-api-key" \
+    "http://127.0.0.1:$PORT/api/kg/read"
+  python3 - "$WORK/headers" "$origin" <<'PY_CORS' || fail=1
+import sys
+lines=open(sys.argv[1]).read().splitlines()
+headers=dict(line.split(':',1) for line in lines if ':' in line)
+headers={k.strip().lower():v.strip() for k,v in headers.items()}
+origin=sys.argv[2]
+if origin=='https://metahumotonic.com':
+    assert headers.get('access-control-allow-origin')==origin
+    assert 'x-api-key' in headers.get('access-control-allow-headers','').lower()
+else:
+    assert 'access-control-allow-origin' not in headers
+print('  ok    origin-specific CORS',origin)
+PY_CORS
+done
+
 if [[ "$fail" != 0 ]]; then
   echo "smoke: FAILED — server log follows" >&2
-  tail -40 "/tmp/mhb-smoke-$PORT.log" >&2
+  tail -40 "$LOG" >&2
   exit 1
 fi
 echo "smoke: all checks passed"

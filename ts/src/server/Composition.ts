@@ -37,6 +37,7 @@ import {
 } from "../ports/RateLimiter.js"
 import { SchemaGuardLive, SchemaGuardTag } from "../ports/SchemaGuard.js"
 import { HandlersLive } from "./Handlers.js"
+import { TurnstileVerifierLive, TurnstileVerifierTag } from "../ports/TurnstileVerifier.js"
 import { OperatorPlaneNoStore } from "./Middleware.js"
 
 /**
@@ -101,6 +102,7 @@ export interface PortOverrides {
   readonly schemaGuard?: Layer.Layer<SchemaGuardTag, never, KgPortTag>
   readonly clientIp?: Layer.Layer<ClientIpTag>
   readonly feedbackStore?: Layer.Layer<FeedbackStoreTag>
+  readonly turnstile?: Layer.Layer<TurnstileVerifierTag, never, AppConfigTag>
   readonly ids?: Layer.Layer<IdsTag>
   /** All four tags, or none. Supplying a subset would leave the rest bound to
    *  the production layer — a wiring difference dressed up as a substitution. */
@@ -135,6 +137,7 @@ export const portsLayer = (overrides: PortOverrides = {}) => {
     writeStack,
     overrides.clientIp ?? ClientIpLive,
     overrides.feedbackStore ?? FeedbackStoreMemory,
+    overrides.turnstile ?? TurnstileVerifierLive,
     overrides.ids ?? IdsLive,
     overrides.limiters ?? LimitersLive
   )
@@ -173,9 +176,10 @@ export const corsLayer = (
     Effect.gen(function* () {
       const cfg = yield* AppConfigTag
       return HttpApiBuilder.middlewareCors({
-        allowedOrigins: cfg.corsOrigins,
+        allowedOrigins: (origin) => cfg.corsOrigins.includes(origin),
         allowedMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "X-CSRF-Token"],
+        allowedHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "X-CSRF-Token", "X-API-Key"],
+        exposedHeaders: ["X-Data-Source", "X-Data-Quality", "X-Records-Omitted", "Retry-After"],
         credentials: true
       })
     })
@@ -200,7 +204,10 @@ export const serveLayer = (overrides: PortOverrides = {}) =>
  */
 export const webHandlerLayer = (overrides: PortOverrides = {}) =>
   Layer.mergeAll(
-    apiLayer.pipe(Layer.provide(portsLayer(overrides))),
+    apiLayer.pipe(
+      Layer.provide(corsLayer(overrides.config ?? AppConfigLive)),
+      Layer.provide(portsLayer(overrides))
+    ),
     HttpServer.layerContext
   )
 

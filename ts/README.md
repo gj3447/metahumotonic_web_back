@@ -19,6 +19,27 @@ metahumotonic_web_back/
 └── ts/           TypeScript / Effect ← this
 ```
 
+## Boundary hardening — 2026-09-17
+
+The existing Python runtime remains separate; these changes do not implement the
+missing durable Wiki/MCP planes or authorize a production switch.
+
+- Turnstile now calls the fixed Siteverify endpoint through an Effect port. It
+  checks literal success, configured hostname/action, a five-second deadline and
+  a 16 KiB response budget. Invalid input and malformed/non-2xx replies fail
+  closed. The existing explicit fail-open flag applies only to transport failure.
+  Tokens are not cached/retried or logged; remote IP is not sent.
+- Production and web-handler tests load the same CORS configuration, including
+  the declared X-API-Key header. Origins are exact-matched, including error paths.
+- Vitest defaults to one worker for constrained development. HTTP fixtures dispose
+  their scoped runtimes. `--maxWorkers` remains an explicit larger-budget opt-in.
+- Socket smoke uses a fresh temporary directory, a clean application environment,
+  loopback-only binding, and a unique health marker. An unrelated listener or an
+  inherited package proxy cannot satisfy its readiness check.
+
+Validation order: `npm ci`, `npm run typecheck`, `npm test`, `npm run smoke`.
+Turnstile tests use fixtures rather than production credentials or live challenges.
+
 ## Run it
 
 ```bash

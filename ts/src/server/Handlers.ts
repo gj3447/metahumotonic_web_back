@@ -8,7 +8,7 @@
  * are the ones listed in `Api.ts`, checked by the compiler.
  */
 import { HttpApiBuilder } from "@effect/platform"
-import { Effect, Layer, Redacted } from "effect"
+import { Effect, Layer } from "effect"
 import { Api } from "../api/Api.js"
 import { AppConfigTag } from "../Config.js"
 import {
@@ -44,6 +44,7 @@ import { KgPortTag } from "../ports/KgPort.js"
 import { ClientIpTag } from "../ports/ClientIp.js"
 import { enforce, FeedbackLimiter } from "../ports/RateLimiter.js"
 import { AgentLive } from "./AgentHandlers.js"
+import { TurnstileVerifierTag } from "../ports/TurnstileVerifier.js"
 
 // --------------------------------------------------------------------------
 // meta
@@ -251,10 +252,9 @@ export const FeedbackLive = HttpApiBuilder.group(Api, "feedback", (handlers) =>
       // Turnstile AFTER the rate limit, matching app/routers/feedback.py:56-58:
       // rate-limit first so an invalid-token flood cannot force unbounded
       // verifier calls.
-      if (Redacted.value(cfg.turnstileSecret) !== "" && payload.turnstile_token === "") {
-        if (!cfg.turnstileFailOpen) {
-          return yield* Effect.fail(new Forbidden({ reason: "challenge_failed" }))
-        }
+      const verifier = yield* TurnstileVerifierTag
+      if (!(yield* verifier.verify(payload.turnstile_token))) {
+        return yield* Effect.fail(new Forbidden({ reason: "challenge_failed" }))
       }
 
       if (cfg.feedbackRequireDurable && !store.durable) {

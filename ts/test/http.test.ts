@@ -13,7 +13,7 @@
  */
 import { HttpApiBuilder } from "@effect/platform"
 import { Layer, Redacted } from "effect"
-import { beforeEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type AppConfig } from "../src/Config.js"
 import { ClientIpFixed } from "../src/ports/ClientIp.js"
 import { FeedbackStoreMemory } from "../src/ports/FeedbackStore.js"
@@ -94,6 +94,7 @@ const baseConfig: AppConfig = {
  * hands `webHandlerLayer` a set of port substitutions and nothing else. If the
  * wiring is wrong, it is wrong in both planes, which is the point.
  */
+const disposers: Array<() => Promise<void>> = []
 const buildApp = (overrides: Partial<AppConfig> = {}) => {
   const cfg: AppConfig = { ...baseConfig, ...overrides }
   const web = HttpApiBuilder.toWebHandler(
@@ -130,6 +131,7 @@ const buildApp = (overrides: Partial<AppConfig> = {}) => {
       )
     })
   )
+  disposers.push(web.dispose)
   return web.handler
 }
 
@@ -413,5 +415,65 @@ describe("KG Cypher proxy", () => {
     handler = buildApp({ kgReadKey: Redacted.make("r".repeat(40)) })
     const res = await send("POST", "/api/kg/read", { query: "RETURN 1" }, { "X-API-Key": "wrong" })
     expect(res.status).toBe(401)
+  })
+})
+
+// Regression: new boundaries must be measured through the real composition.
+afterEach(async () => {
+  vi.unstubAllGlobals()
+  await Promise.all(disposers.splice(0).map((dispose) => dispose()))
+})
+describe("security boundary regressions", () => {
+  it("verifies a nonempty Turnstile token before accepting feedback", async () => {
+    const upstream = vi.fn(async () => new Response(JSON.stringify({success: false}), {
+      status: 200, headers: {"content-type": "application/json"}
+    }))
+    vi.stubGlobal("fetch", upstream)
+    handler = buildApp({turnstileSecret: Redacted.make("fixture-only-verifier-secret")})
+    const res = await send("POST", "/api/feedback", {
+      subject: "a", body: "b", turnstile_token: "fixture-token-not-a-proof"
+    })
+    expect(res.status).toBe(403)
+    expect(upstream).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps CORS in the harness and accepts declared X-API-Key preflight", async () => {
+    const res = await handler(new Request("http://test/api/kg/read", {
+      method: "OPTIONS", headers: {
+        Origin: "https://metahumotonic.com",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type,x-api-key"
+      }
+    }))
+    expect(res.status).toBeGreaterThanOrEqual(200)
+    expect(res.status).toBeLessThan(300)
+    expect(res.headers.get("access-control-allow-origin")).toBe("https://metahumotonic.com")
+    expect(res.headers.get("access-control-allow-headers")?.toLowerCase()).toContain("x-api-key")
+  })
+})
+
+describe("CORS and verification failure boundaries", () => {
+  it("preserves unauthorized status and attaches CORS only for an allowed origin", async () => {
+    const allowed = await get("/internal/feedback", {Origin: "https://metahumotonic.com"})
+    expect(allowed.status).toBe(401)
+    expect(allowed.headers.get("access-control-allow-origin")).toBe("https://metahumotonic.com")
+    const denied = await get("/internal/feedback", {Origin: "https://untrusted.example"})
+    expect(denied.status).toBe(401)
+    expect(denied.headers.get("access-control-allow-origin")).toBeNull()
+  })
+  it("does not verify honeypots or already rate-limited submissions", async () => {
+    const upstream = vi.fn(async () => new Response(JSON.stringify({success:false}), {status:200}))
+    vi.stubGlobal("fetch", upstream)
+    handler = buildApp({turnstileSecret: Redacted.make("fixture-only"), feedbackMaxPerWindow:1})
+    const post = (honeypot="") => send("POST", "/api/feedback", {
+      subject:"a", body:"b", turnstile_token:"fixture", honeypot
+    })
+    expect((await post("bot")).status).toBe(200)
+    expect(upstream).toHaveBeenCalledTimes(0)
+    expect((await post()).status).toBe(403)
+    expect((await post()).status).toBe(429)
+    expect(upstream).toHaveBeenCalledTimes(1)
+    const inbox = await get("/internal/feedback", key)
+    expect((await inbox.json() as {count:number}).count).toBe(0)
   })
 })
