@@ -16,6 +16,7 @@ from neo4j.exceptions import Neo4jError
 
 from .breaker import Breaker
 from .cache import TTLCache
+from .domain_projection import DomainProjection, project_domains
 from .config import settings
 from .contracts import (
     ConsensusRecord,
@@ -431,14 +432,24 @@ class KGClient:
             domains=_DOMAINS_COUNT, skills=skills,
         )
 
+    async def get_domain_projection(self) -> DomainProjection:
+        # Cache records and quality metadata together, not in shared side state.
+        return await self._cache.get_or_set(
+            "domains:projection:v1", self._fetch_domain_projection
+        )
+
     async def get_domains(self) -> list[DomainRecord]:
-        return await self._cache.get_or_set("domains", self._fetch_domains)
+        return list((await self.get_domain_projection()).items)
 
     async def _fetch_domains(self) -> list[DomainRecord]:
+        return list((await self._fetch_domain_projection()).items)
+
+    async def _fetch_domain_projection(self) -> DomainProjection:
         rows = await self._run(_DOMAINS_CYPHER)
-        if rows:
-            return [DomainRecord(**r) for r in rows]
-        return list(_DOMAINS_FALLBACK)
+        result = project_domains(rows, _DOMAINS_FALLBACK)
+        if result.omitted:
+            log.warning("domain_projection_invalid_rows omitted=%d", result.omitted)
+        return result
 
     async def get_skills(self) -> list[SkillRecord]:
         # Skills are a curated canon surface, not a live query.
