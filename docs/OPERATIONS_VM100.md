@@ -1,3 +1,13 @@
+# Current verification note — 2026-09-17
+
+The August 8 "not completed" statements below are historical. The stored rollout
+receipt reached DONE for 8e8523b1aa75df5a76aaa206884768636c237da9 and both replicas
+were observed serving the public community wiki on September 17. That does not
+prove the newest main is deployed. Use the actual image revision and exact release
+receipt for each rollout, not this note or the constant application version.
+The domains response boundary now has docs/DOMAIN_PROJECTION.md regression gates.
+The TS candidate remains separate from the live stateful Python implementation.
+
 # VM100 backend operations
 
 This is the canonical operations path for `metahumotonic-web-back` as of

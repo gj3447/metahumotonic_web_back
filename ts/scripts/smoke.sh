@@ -9,6 +9,9 @@
 #
 # No infrastructure required: the service degrades to its snapshot fallback.
 set -euo pipefail
+# Local socket probes must not be sent to the package egress proxy.
+export NO_PROXY="127.0.0.1,localhost,::1"
+export no_proxy="$NO_PROXY"
 
 PORT="${SMOKE_PORT:-9101}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

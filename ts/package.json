@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Effect-TS functional port of metahumotonic-web-back. Runs ALONGSIDE the Python/FastAPI service — neither replaces the other.",
+  "description": "Effect-TS functional port of metahumotonic-web-back. Runs ALONGSIDE the Python/FastAPI service \u2014 neither replaces the other.",
   "license": "AGPL-3.0-only",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "tsx watch src/main.ts",
@@ -17,7 +17,9 @@
     "test:watch": "vitest",
     "prestart": "npm run build",
     "start:tsx": "tsx src/main.ts",
-    "smoke": "npm run build && bash scripts/smoke.sh"
+    "smoke": "npm run build && bash scripts/smoke.sh",
+    "preinstall": "node scripts/check-runtime.mjs",
+    "check:runtime": "node scripts/check-runtime.mjs"
   },
   "dependencies": {
     "@effect/platform": "^0.97.1",
