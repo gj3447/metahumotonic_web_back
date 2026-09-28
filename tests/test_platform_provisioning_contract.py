@@ -73,3 +73,17 @@ exit 0
     assert result.returncode == 1  # createdb failed
     assert state.read_text() == "owner=0\nruntime=0\n"
     assert not (root / "receipt.json").exists()
+
+
+def test_platform_migration_controller_is_exact_commit_and_secret_free() -> None:
+    controller = (ROOT / "ops/migrate-platform-storage.sh").read_text()
+    remote = (ROOT / "ops/remote/migrate-platform-catalog.sh").read_text()
+    assert 'mode="${1:-status}"' in controller
+    assert 'git -C "$root" diff --quiet' in controller
+    assert 'git -C "$root" cat-file -e "$commit^{commit}"' in controller
+    assert 'MHB_PLATFORM_IMAGE must be digest pinned' in controller
+    assert 'org.opencontainers.image.revision' in remote
+    assert 'VERIFIED_BEFORE_RUNTIME_GRANT' in remote
+    assert 'provision-platform-database.sh" grant-runtime' in remote
+    assert 'MHB_PLATFORM_DATABASE_URL=' in remote
+    assert 'secretMaterialPrinted' in remote and 'wikiTouched' in remote
