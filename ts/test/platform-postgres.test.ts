@@ -242,8 +242,9 @@ describe.skipIf(!dsn)("PostgreSQL inventory, independent readback and shared HTT
     const readback = await runCli("readback")
     expect(readback.code).toBe(0)
     expect(JSON.parse(readback.output)).toMatchObject({ status: "PASS", operation: "readback", result: JSON.parse(expected.output).result })
-    await pool.query("UPDATE mhb_platform.schema_migrations SET checksum='0'.repeat(64)")
+    await pool.query("UPDATE mhb_platform.schema_migrations SET checksum=$1", ["0".repeat(64)])
     expect((await runCli("readback")).code).toBe(1) // SQL checksum mismatch is fail-closed
+    await pool.query("UPDATE mhb_platform.schema_migrations SET checksum=$1", [JSON.parse(expected.output).result.migrationChecksum])
     const start = async () => {
       const socket = createServer(); socket.listen(0, "127.0.0.1"); await once(socket, "listening")
       const port = (socket.address() as { port: number }).port; await new Promise<void>((resolve) => socket.close(() => resolve()))
