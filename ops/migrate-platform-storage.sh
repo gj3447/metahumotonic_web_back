@@ -8,7 +8,7 @@ commit="${MHB_PLATFORM_COMMIT:-$(git -C "$root" rev-parse HEAD)}"; image="${MHB_
 [[ -z "$(git -C "$root" status --porcelain --untracked-files=all)" ]] || { echo 'FAIL exact-commit operation requires fully clean worktree' >&2; exit 1; }
 git -C "$root" cat-file -e "$commit^{commit}" || { echo 'FAIL commit unavailable' >&2; exit 1; }
 git -C "$root" merge-base --is-ancestor "$commit" origin/main || { echo 'FAIL commit must be reachable from origin/main' >&2; exit 1; }
-[[ "$image" =~ @sha256:[0-9a-f]{64}$ ]] || { echo 'FAIL MHB_PLATFORM_IMAGE must be digest pinned' >&2; exit 1; }
+[[ "$image" =~ @sha256:[0-9a-f]{64}$ || "$image" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo 'FAIL MHB_PLATFORM_IMAGE must be a digest reference or image ID; tags are refused' >&2; exit 1; }
 local_dir="$(mktemp -d)"; trap 'rm -rf "$local_dir"; ssh -o BatchMode=yes "$host" "rm -rf -- '\''$remote_dir'\''" >/dev/null 2>&1 || true' EXIT
 git -C "$root" show "$commit:ops/remote/migrate-platform-catalog.sh" >"$local_dir/helper"
 git -C "$root" show "$commit:ops/remote/provision-platform-database.sh" >"$local_dir/provision"
