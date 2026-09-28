@@ -1,6 +1,8 @@
 from pathlib import Path
 import os
 import subprocess
+import time
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -14,6 +16,7 @@ def test_platform_bootstrap_is_dedicated_and_dry_run_by_default() -> None:
     assert 'rollback-empty refuses destructive drop' in remote
     assert 'secretMaterialPrinted' in remote and 'MHB_PLATFORM_DATABASE_URL' not in remote
     assert 'baseline.dump.enc' in remote and 'aes-256-cbc' in remote
+    assert 'chmod 600 "$root/baseline.dump.enc"' in remote
     assert 'FAILED_RECOVERY_REQUIRES_OPERATOR' in remote
     assert 'tagged_roles_without_database()' in remote
     assert "role_has_owned_objects()" in remote
@@ -86,6 +89,7 @@ def test_platform_migration_controller_is_exact_commit_and_secret_free() -> None
     assert 'MHB_PLATFORM_IMAGE must be a digest reference or image ID' in controller
     assert 'org.opencontainers.image.revision' in remote
     assert 'stage-image' in remote and 'catalog artifact digest mismatch' in remote
+    assert '"$image" != sha256:*' in remote
     assert 'expected == result' in remote
     assert 'databaseWrites":false' in remote
     assert 'remote_dir="/var/tmp/mhb-platform-migrate-$nonce"' in controller
@@ -100,9 +104,54 @@ def test_local_image_stage_is_exact_and_db_free() -> None:
     assert 'docker save' in stage and 'docker load' in stage
     assert 'source-archive-sha256' in stage and 'databaseWrites":false' in stage
     assert 'source.tar' in stage and 'sudo -n docker load' in stage
+    assert 'sudo -n docker version' in stage
+    assert 'sudo -n docker image inspect' in stage
+    assert 'rm -rf -- \'$vm_dir\'' in stage
     assert '--read-only' in remote and '--cap-drop ALL' in remote
     assert 'no-new-privileges' in remote and '--pids-limit 128' in remote
     assert 'VERIFIED_BEFORE_RUNTIME_GRANT' in remote
     assert '"$provision" grant-runtime' in remote
+    assert '-d "$database" -c "REASSIGN OWNED BY $manager TO $owner; DROP OWNED BY $manager"' in remote
+    assert '-d postgres -c "REVOKE $owner FROM $manager; DROP ROLE $manager"' in remote
+    assert remote.index('if ! cleanup_manager; then') < remote.rindex('"$provision" grant-runtime')
+    assert remote.rindex('"$provision" grant-runtime') < remote.rindex('"status":"PASS"')
     assert 'MHB_PLATFORM_DATABASE_URL=' in remote
     assert 'secretMaterialPrinted' in remote and 'wikiTouched' in remote
+
+
+def test_migrator_role_cleanup_real_postgres_contract() -> None:
+    """Exercise the role-handoff SQL against PostgreSQL when explicitly enabled.
+
+    CI environments without a local Postgres image keep the normal suite
+    hermetic; data-01 staging enables this with MHB_RUN_POSTGRES_CONTRACT=1.
+    """
+    if os.environ.get("MHB_RUN_POSTGRES_CONTRACT") != "1":
+        import pytest
+        pytest.skip("set MHB_RUN_POSTGRES_CONTRACT=1 with Docker and postgres:16-alpine staged")
+    if subprocess.run(["docker", "image", "inspect", "postgres:16-alpine"], capture_output=True).returncode:
+        raise AssertionError("postgres:16-alpine must be staged for the real cleanup contract")
+    name = f"mhb-cleanup-{uuid.uuid4().hex[:12]}"
+    subprocess.run(["docker", "run", "-d", "--rm", "--name", name, "-e", "POSTGRES_PASSWORD=test", "postgres:16-alpine"], check=True, capture_output=True, text=True)
+    try:
+        for _ in range(45):
+            ready = subprocess.run(["docker", "exec", name, "pg_isready", "-U", "postgres"], capture_output=True)
+            if ready.returncode == 0:
+                break
+            time.sleep(1)
+        else:
+            raise AssertionError("temporary PostgreSQL did not become ready")
+        sql = """
+CREATE ROLE mhb_platform_owner NOLOGIN;
+CREATE ROLE mhb_platform_migrator LOGIN;
+GRANT mhb_platform_owner TO mhb_platform_migrator;
+CREATE DATABASE metahumotonic_platform OWNER mhb_platform_owner;
+"""
+        subprocess.run(["docker", "exec", "-i", name, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres"], input=sql, check=True, text=True, capture_output=True)
+        subprocess.run(["docker", "exec", "-i", name, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "mhb_platform_migrator", "-d", "metahumotonic_platform"], input="CREATE TABLE migrator_owned (id integer);", check=True, text=True, capture_output=True)
+        cleanup = "REASSIGN OWNED BY mhb_platform_migrator TO mhb_platform_owner; DROP OWNED BY mhb_platform_migrator;"
+        subprocess.run(["docker", "exec", "-i", name, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "metahumotonic_platform", "-c", cleanup], check=True, text=True, capture_output=True)
+        subprocess.run(["docker", "exec", "-i", name, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres", "-c", "REVOKE mhb_platform_owner FROM mhb_platform_migrator; DROP ROLE mhb_platform_migrator"], check=True, text=True, capture_output=True)
+        result = subprocess.run(["docker", "exec", name, "psql", "-X", "-At", "-U", "postgres", "-d", "metahumotonic_platform", "-c", "SELECT tableowner FROM pg_tables WHERE tablename='migrator_owned'; SELECT count(*) FROM pg_roles WHERE rolname='mhb_platform_migrator';"], check=True, text=True, capture_output=True)
+        assert result.stdout.splitlines() == ["mhb_platform_owner", "0"]
+    finally:
+        subprocess.run(["docker", "rm", "-f", name], capture_output=True)

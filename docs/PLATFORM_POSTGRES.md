@@ -60,10 +60,12 @@ the catalog digest and row counts. The temporary migrator role and its env file
 are removed before the command returns. It does not print a DSN, password, or
 catalog body, and it refuses any database other than `metahumotonic_platform`.
 
-**Current prerequisite is unmet:** no verified digest-pinned backend image is
-currently staged on data-01. `apply` must not be attempted until the exact
-commit image is published, its OCI revision label is verified, and the explicit
-`stage-image` command succeeds. The image string below is illustrative only.
+The dedicated `metahumotonic_platform` bootstrap is provisioned on data-01;
+its root-owned receipt and encrypted baseline backup are the operational
+record. Migration/import is still pending. Do not run `apply` until an exact
+commit image has been staged on data-01 and both its OCI revision label and
+source-archive digest have been verified. The image string below is
+illustrative only.
 
 ```sh
 MHB_PLATFORM_IMAGE='registry.example/metahumotonic-web-back@sha256:<digest>' \
@@ -76,11 +78,23 @@ MHB_PLATFORM_IMAGE='registry.example/metahumotonic-web-back@sha256:<digest>' \
 MHB_PLATFORM_COMMIT='<40-char-commit>' ops/migrate-platform-storage.sh apply
 ```
 
+For a local exact-commit build rather than a registry pull, first use
+`ops/stage-platform-image-local.sh stage`. It archives the selected Git commit,
+builds it on VM100, streams the image to data-01 with `sudo -n docker`, and
+prints only the resulting image ID and source archive digest. Feed that image
+ID back to the `status` and `apply` controller commands; no public ingress is
+changed by either staging path.
+
 `apply` is idempotent at the schema/catalog level. It never rolls back an
 imported catalog or observations: after migration/import, the receipt records
 the logical catalog digest and readback counts, then and only then grants the
 limited runtime role. Any failure before that grant removes only the temporary
 migrator credentials; existing platform history remains for operator review.
+The receipt becomes `PASS` only after the runtime grant succeeds. A matching
+`VERIFIED_BEFORE_RUNTIME_GRANT` receipt is an idempotent recovery state: rerun
+the same exact image, commit, and catalog to retry only that grant. A migrator
+cleanup failure is recorded as `FAILED_MIGRATOR_CLEANUP_REQUIRES_OPERATOR` and
+is never reported as a successful migration.
 
 기본값은 기존 Git snapshot 모드다. `MHB_PLATFORM_DATABASE_URL`을 설정하면
 PostgreSQL이 필수 의존성이 된다. `MHB_PLATFORM_DATABASE_REQUIRED=true`는 URL을

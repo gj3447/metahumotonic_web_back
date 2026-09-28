@@ -82,6 +82,7 @@ SQL
   backup_key="$(openssl rand -hex 32)"; printf '%s\n' "$backup_key" >"$secret_root/backup-key"; chmod 600 "$secret_root/backup-key"
   docker exec "$container" pg_dump -U postgres -Fc "$database" >"$root/baseline.dump"
   printf '%s' "$backup_key" | openssl enc -aes-256-cbc -pbkdf2 -salt -in "$root/baseline.dump" -out "$root/baseline.dump.enc" -pass stdin
+  chmod 600 "$root/baseline.dump.enc"
   rm -f "$root/baseline.dump"; backup_sha="$(sha256sum "$root/baseline.dump.enc" | awk '{print $1}')"
   printf '{"schema":"metahumotonic/platform-storage-receipt@1","status":"PROVISIONED","database":"metahumotonic_platform","ownerRole":"mhb_platform_owner","runtimeRole":"mhb_platform_runtime","migration":"NOT_APPLIED","baselineBackupSha256":"%s","wikiTouched":false}\n' "$backup_sha" >"$receipt"; chmod 600 "$receipt"; trap - ERR
   emit apply OWNED 'dedicated database and roles created; migration/import and runtime grants remain explicit'; exit 0
