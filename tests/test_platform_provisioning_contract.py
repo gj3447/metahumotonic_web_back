@@ -184,3 +184,22 @@ def test_post_import_backup_is_dedicated_encrypted_and_restore_verified() -> Non
     assert 'rm -f -- "$plain" "$restored_plain"' in helper
     assert helper.index("remove_restore_container || fail 'isolated restore container cleanup failed'") < helper.index('python3 - "$receipt"')
     assert 'sudo -n bash' in controller and 'printf \'%s\\n\' "$backup_key"' in controller
+
+
+def test_verified_platform_backup_offhost_mirror_is_secret_free_and_no_overwrite() -> None:
+    helper = (ROOT / "ops/remote/mirror-platform-post-import-backup.sh").read_text()
+    controller = (ROOT / "ops/mirror-platform-post-import-backup.sh").read_text()
+    assert 'source_root="/var/lib/metahumotonic-platform/post-import-backups"' in helper
+    assert 'destination_root="/var/lib/metahumotonic-platform/offhost-backups"' in helper
+    assert 'metahumotonic_wiki' not in helper and 'mhb_wiki' not in helper
+    assert "b.get('status')=='VERIFIED'" in helper and "b.get('restoreDrill')=='PASS'" in helper
+    assert 'source-stream' in helper and 'destination-prepare' in helper and 'destination-finalize' in helper
+    assert 'test ! -e "$run_dir" && test ! -L "$run_dir"' in helper
+    assert 'test ! -e "$target" && test ! -L "$target"' in helper
+    assert 'sha256sum "$stage"' in helper and "hashlib.sha256(a.read_bytes()).hexdigest()==b[field]" in helper
+    assert "source.get('status')=='VERIFIED'" in helper and "source.get('restoreDrill')=='PASS'" in helper
+    assert 'root:root:700' in helper and 'root:root:600' in helper
+    assert 'mode="${1:-status}"' in controller and '^(status|mirror)$' in controller
+    assert 'source-stream' in controller and 'destination-receive' in controller
+    assert '| ssh -o BatchMode=yes "$vm_host"' in controller
+    assert 'MHB_PLATFORM_BACKUP_RECEIPT' in controller

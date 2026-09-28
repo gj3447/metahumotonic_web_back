@@ -119,6 +119,18 @@ ops/backup-platform-post-import.sh status
 ops/backup-platform-post-import.sh capture
 ```
 
+### off-host encrypted mirror
+
+`ops/mirror-platform-post-import-backup.sh` requires the exact root-only
+`VERIFIED` post-import receipt path in `MHB_PLATFORM_BACKUP_RECEIPT`. `status`
+validates that source receipt and artifacts without creating a mirror.
+`mirror` streams the encrypted dump, its key, and the source receipt directly
+from data-01 to VM100 over noninteractive SSH; the local controller does not
+write their contents to disk or print them. VM100 refuses an existing or
+symlinked destination, checks each SHA-256 while receiving and again before its
+own `VERIFIED` receipt, and stores only root-owned `0700` directories and
+`0600` files. It does not contact the Wiki database or change public ingress.
+
 기본값은 기존 Git snapshot 모드다. `MHB_PLATFORM_DATABASE_URL`을 설정하면
 PostgreSQL이 필수 의존성이 된다. `MHB_PLATFORM_DATABASE_REQUIRED=true`는 URL을
 빠뜨린 경우에도 readiness와 내부 자산 조회를 실패시킨다. 운영 설정에 URL이 있는데
