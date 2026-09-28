@@ -58,19 +58,23 @@ or runtime container is used.
 
 The stateful gate is intentionally separate from `release-web-back-vm100.sh`.
 That release controller continues to build and roll out only the Python owner.
-Use `ops/run-ts-wiki-stateful-canary-vm100.sh` only after a data-01 operator has
-created the exact receipt-owned disposable database named
-`metahumotonic_wiki_canary_<commit12>_<nonce12>` through the existing Wiki
-backup/restore and canary-database helpers. The controller never creates,
-backs up, restores, or drops a database; the existing data helper remains the
-only database cleanup authority.
+`ops/run-ts-wiki-stateful-canary-vm100.sh` is a repeatable private drill. It
+requires the exact root-only `VERIFIED` `current-production` encrypted backup
+receipt through `MHB_WIKI_STATEFUL_BACKUP_RECEIPT`. On data-01 it validates the
+receipt, encrypted dump, and key hashes, then invokes the existing
+receipt/COMMENT-owned canary database helper to create the exact disposable
+database `metahumotonic_wiki_canary_<commit12>_<nonce12>`. The controller never
+reads or prints backup key material; the existing data helper remains the only
+database cleanup authority.
 
 The caller supplies two already-built VM100 images whose OCI revision labels
 match the full commit: the Python `Dockerfile.legacy` image and the TS
 `Dockerfile` image. It defaults to `dry-run`; `run` stages only user-owned
-remote helper copies and starts the disposable network resources. `cleanup`
-uses the same commit and nonce and invokes the existing label-bound runtime
-cleanup helper. The controller does not build an image, so a successful build
+remote helper copies and starts the disposable database and network resources.
+On success or failure its EXIT cleanup removes only exact label-bound runtime
+resources and tells the data helper to drop the exact receipt-owned database.
+A drop failure stays durable in the data receipt and fails the controller.
+`cleanup` retries that exact cleanup with the same commit and nonce. The controller does not build an image, so a successful build
 followed by a failed canary invocation cannot leave a controller-created image.
 The existing release workspace at `releases/<commit>` must be root-owned
 `0700`; the runtime helper reserves its nonce-owned work directory there.
@@ -81,14 +85,14 @@ MHB_WIKI_STATEFUL_NONCE='<32-hex>' \
 MHB_WIKI_STATEFUL_PYTHON_IMAGE='metahumotonic-web-back:<version>-x86' \
 MHB_WIKI_STATEFUL_GATEWAY_IMAGE='metahumotonic-web-back-ts:<version>-x86' \
 MHB_WIKI_STATEFUL_DATABASE='metahumotonic_wiki_canary_<commit12>_<nonce12>' \
+MHB_WIKI_STATEFUL_BACKUP_RECEIPT='/var/lib/metahumotonic-wiki/releases/<backup-commit>-<backup-nonce>/current-backup-receipt.json' \
   ops/run-ts-wiki-stateful-canary-vm100.sh dry-run
 ```
 
-Before `run`, the standalone controller calls the data-01 helper's read-only
-`verify-restored` mode. It requires the exact canary receipt to be `RESTORED`
-and verifies the actual database owner and comment marker. `cleanup` does not
-require that state: it first removes only a gateway container whose commit and
-nonce labels match, then invokes the existing runtime cleanup helper so an
-interrupted run remains recoverable. Controller helper staging uses unique
-user-owned `mktemp -d` directories and removes only its known regular helper
-files before `rmdir`; it never recursively removes a privileged shared path.
+Before `run`, the controller validates the original production backup receipt
+and its root-only encrypted artifacts. It creates no public route and performs
+no mutation of `metahumotonic_wiki`. If the release directory is absent, it
+creates an empty root-owned `0700` directory; if present, it validates that
+exact ownership and mode. Controller helper staging uses unique user-owned
+`mktemp -d` directories and removes only its known regular helper files before
+`rmdir`; it never recursively removes a privileged shared path.
