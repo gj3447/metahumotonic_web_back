@@ -119,6 +119,7 @@ done
 # credentials, connection strings, response bodies or container environment.
 CANARY_READ_KEY="$read_key" docker exec -e CANARY_READ_KEY "$name" node --input-type=module - <<'NODE'
 const base = 'http://127.0.0.1:18080'
+const { createHash } = await import('node:crypto')
 const get = async (path, headers = {}) => {
   const response = await fetch(path.startsWith('http://') || path.startsWith('https://') ? path : base + path, { headers, signal: AbortSignal.timeout(3000) })
   if (!response.ok) throw new Error(`${path} returned ${response.status}`)
@@ -129,9 +130,21 @@ await get('/ready')
 const legacyOrigin = 'http://127.0.0.1:8000'
 const parityHeaders = ['content-type', 'cache-control', 'etag', 'location', 'www-authenticate']
 const digest = async (response) => {
-  const bytes = new Uint8Array(await response.arrayBuffer())
-  if (bytes.byteLength > 1_048_576) throw new Error('delegated response exceeds parity bound')
-  return (await import('node:crypto')).createHash('sha256').update(bytes).digest('hex')
+  const hash = createHash('sha256')
+  const reader = response.body?.getReader()
+  if (!reader) return hash.digest('hex')
+  let size = 0
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    size += value.byteLength
+    if (size > 1_048_576) {
+      await reader.cancel()
+      throw new Error('delegated response exceeds parity bound')
+    }
+    hash.update(value)
+  }
+  return hash.digest('hex')
 }
 const delegated = async (origin, path, method) => fetch(origin + path, {
   method, redirect: 'manual', signal: AbortSignal.timeout(3000)

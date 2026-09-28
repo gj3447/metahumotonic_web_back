@@ -13,6 +13,12 @@ validate_source() {
   [[ "$receipt" =~ ^/var/lib/metahumotonic-platform/post-import-backups/[0-9a-f]{40}-[0-9a-f]{32}/receipt\.json$ ]] || fail 'invalid source receipt path'
   read -r backup_id encrypted key_file encrypted_sha key_sha receipt_sha < <(python3 - "$receipt" "$source_root" "$source_key_root" <<'PY'
 import hashlib,json,pathlib,stat,sys
+def sha256(path):
+    digest=hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024*1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
 p=pathlib.Path(sys.argv[1]); root=pathlib.Path(sys.argv[2]); keyroot=pathlib.Path(sys.argv[3]); s=p.stat()
 assert s.st_uid==0 and s.st_gid==0 and stat.S_IMODE(s.st_mode)==0o600 and not p.is_symlink()
 b=json.loads(p.read_text(encoding='utf-8')); commit=b.get('migrationCommit','')
@@ -23,7 +29,7 @@ encrypted=pathlib.Path(b['encryptedBackup']); key=pathlib.Path(b['keyFile'])
 assert run.parent==root and encrypted==run/'platform.dump.enc' and key==keyroot/(expected_id+'.key')
 for artifact,field in ((encrypted,'encryptedBackupSha256'),(key,'keySha256')):
     a=artifact.stat(); assert a.st_uid==0 and a.st_gid==0 and stat.S_IMODE(a.st_mode)==0o600 and not artifact.is_symlink()
-    assert hashlib.sha256(artifact.read_bytes()).hexdigest()==b[field]
+    assert sha256(artifact)==b[field]
 assert len(b['encryptedBackupSha256'])==64 and len(b['keySha256'])==64
 print(expected_id,encrypted,key,b['encryptedBackupSha256'],b['keySha256'],hashlib.sha256(p.read_bytes()).hexdigest())
 PY
@@ -69,11 +75,18 @@ PY
     [[ "$backup_id" =~ ^[0-9a-f]{40}-[0-9a-f]{32}$ ]] || fail 'invalid destination backup ID'
     python3 - "$receipt_file" "$run_dir/platform.dump.enc" "$key_file" "$run_dir/source-receipt.json" <<'PY'
 import hashlib,json,os,pathlib,stat,sys
+def sha256(path):
+    digest=hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024*1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
 p,e,k,s=map(pathlib.Path,sys.argv[1:]); b=json.loads(p.read_text()); assert b.get('status')=='RESERVED'
 for a,field in ((e,'sourceEncryptedBackupSha256'),(k,'sourceKeySha256'),(s,'sourceReceiptSha256')):
-    m=a.stat(); assert m.st_uid==0 and m.st_gid==0 and stat.S_IMODE(m.st_mode)==0o600 and not a.is_symlink(); assert hashlib.sha256(a.read_bytes()).hexdigest()==b[field]
+    m=a.stat(); assert m.st_uid==0 and m.st_gid==0 and stat.S_IMODE(m.st_mode)==0o600 and not a.is_symlink(); assert sha256(a)==b[field]
 source=json.loads(s.read_text()); assert source.get('schema')=='metahumotonic/platform-post-import-backup@1' and source.get('status')=='VERIFIED' and source.get('restoreDrill')=='PASS' and source.get('database')=='metahumotonic_platform'
 assert source['encryptedBackupSha256']==b['sourceEncryptedBackupSha256'] and source['keySha256']==b['sourceKeySha256']
+assert b['backupId']==source['migrationCommit']+'-'+b['backupId'].split('-',1)[1]
 b['status']='VERIFIED'; b['restoreDrill']='SOURCE_VERIFIED'; t=p.with_suffix('.tmp'); t.write_text(json.dumps(b,sort_keys=True)+'\n'); os.chmod(t,0o600); os.chown(t,0,0); t.replace(p)
 PY
     for path in "$destination_root" "$destination_key_root" "$run_dir"; do test "$(stat -c '%U:%G:%a' "$path")" = root:root:700; done

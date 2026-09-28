@@ -196,7 +196,7 @@ def test_verified_platform_backup_offhost_mirror_is_secret_free_and_no_overwrite
     assert 'source-stream' in helper and 'destination-prepare' in helper and 'destination-finalize' in helper
     assert 'test ! -e "$run_dir" && test ! -L "$run_dir"' in helper
     assert 'test ! -e "$target" && test ! -L "$target"' in helper
-    assert 'sha256sum "$stage"' in helper and "hashlib.sha256(a.read_bytes()).hexdigest()==b[field]" in helper
+    assert 'sha256sum "$stage"' in helper and "sha256(a)==b[field]" in helper
     assert "source.get('status')=='VERIFIED'" in helper and "source.get('restoreDrill')=='PASS'" in helper
     assert 'root:root:700' in helper and 'root:root:600' in helper
     assert 'mode="${1:-status}"' in controller and '^(status|mirror)$' in controller
