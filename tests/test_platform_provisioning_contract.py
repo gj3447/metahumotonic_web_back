@@ -169,10 +169,18 @@ def test_post_import_backup_is_dedicated_encrypted_and_restore_verified() -> Non
     assert 'pg_dump -U postgres -Fc "$database"' in helper
     assert 'openssl enc -aes-256-cbc -pbkdf2 -salt' in helper
     assert 'chmod 600 "$encrypted" "$key_file"' in helper
+    assert 'umask 077' in helper
+    assert 'chown root:root "$plain"; chmod 600 "$plain"' in helper
+    assert 'chown root:root "$restored_plain"; chmod 600 "$restored_plain"' in helper
     assert '--network none --read-only' in helper
     assert 'docker inspect "$container" --format \'{{.Image}}\'' in helper
+    assert "s/^PGDATA=//p" in helper
+    assert '--tmpfs /var/lib/postgresql:rw,size=768m' in helper
+    assert 'com.metahumotonic.platform-backup-nonce=$nonce' in helper
+    assert 'restore container nonce ownership mismatch' in helper
     assert 'pg_restore -U postgres --no-owner --no-privileges -d postgres' in helper
     assert '[[ "$restored_counts" == "$source_counts" ]]' in helper
     assert '"status":"VERIFIED"' in helper and '"restoreDrill":"PASS"' in helper
     assert 'rm -f -- "$plain" "$restored_plain"' in helper
+    assert helper.index("remove_restore_container || fail 'isolated restore container cleanup failed'") < helper.index('python3 - "$receipt"')
     assert 'sudo -n bash' in controller and 'printf \'%s\\n\' "$backup_key"' in controller
