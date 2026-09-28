@@ -69,16 +69,16 @@ MHB_HOST=127.0.0.1
 MHB_PORT=18082
 ENV
 chmod 600 "$env_file"
-docker create --name "$name" --network "container:$container" --read-only --tmpfs /tmp:rw,noexec,nosuid,size=32m --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m --cpus 1 --env-file "$env_file" --label metahumotonic.owner=platform-read-canary --label "metahumotonic.nonce=$nonce" "$image" >/dev/null
+docker create --name "$name" --network "container:$container" --no-healthcheck --read-only --tmpfs /tmp:rw,noexec,nosuid,size=32m --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m --cpus 1 --env-file "$env_file" --label metahumotonic.owner=platform-read-canary --label "metahumotonic.nonce=$nonce" "$image" >/dev/null
 docker start "$name" >/dev/null
 ready=false
-for _ in $(seq 1 30); do
-  if docker exec "$name" node -e 'fetch("http://127.0.0.1:18082/ready").then(async r=>{const b=await r.json();if(r.ok&&b.platform_postgres_live===true&&b.platform_postgres_required===true)process.exit(0);process.exit(1)}).catch(()=>process.exit(1))' >/dev/null 2>&1; then ready=true; break; fi
+for _ in $(seq 1 20); do
+  if timeout 6 docker exec "$name" node -e 'fetch("http://127.0.0.1:18082/ready",{signal:AbortSignal.timeout(4000)}).then(async r=>{const b=await r.json();if(r.ok&&b.platform_postgres_live===true&&b.platform_postgres_required===true)process.exit(0);process.exit(1)}).catch(()=>process.exit(1))' >/dev/null 2>&1; then ready=true; break; fi
   sleep 1
 done
 [[ "$ready" == true ]] || fail 'ready did not pass'
-docker exec "$name" node -e 'fetch("http://127.0.0.1:18082/api/platform/v1/programs",{headers:{"x-api-key":process.env.MHB_PLATFORM_READ_KEY}}).then(async r=>{const b=await r.json();process.exit(r.ok&&b.source==="postgres"?0:1)}).catch(()=>process.exit(1))'
-docker exec "$name" node -e 'fetch("http://127.0.0.1:18082/api/platform/v1/observations",{method:"POST",headers:{"x-api-key":process.env.MHB_PLATFORM_READ_KEY,"content-type":"application/json"},body:"{}"}).then(r=>process.exit(r.status===405?0:1)).catch(()=>process.exit(1))'
+timeout 8 docker exec "$name" node -e 'fetch("http://127.0.0.1:18082/api/platform/v1/programs",{signal:AbortSignal.timeout(4000),headers:{"x-api-key":process.env.MHB_PLATFORM_READ_KEY}}).then(async r=>{const b=await r.json();process.exit(r.ok&&b.source==="postgres"?0:1)}).catch(()=>process.exit(1))'
+timeout 8 docker exec "$name" node -e 'fetch("http://127.0.0.1:18082/api/platform/v1/observations",{method:"POST",signal:AbortSignal.timeout(4000),headers:{"x-api-key":process.env.MHB_PLATFORM_READ_KEY,"content-type":"application/json"},body:"{}"}).then(r=>process.exit(r.status===405?0:1)).catch(()=>process.exit(1))'
 remove_owned_container
 rm -f "$env_file"
 printf '{"schema":"metahumotonic/platform-read-canary@1","status":"PASS","commit":"%s","image":"%s","ready":true,"postgresRead":true,"mutationBlocked":true,"publishedPorts":false,"databaseWrites":false,"publicIngressChanged":false,"secretMaterialPrinted":false}\n' "$commit" "$image" >"$receipt"; chmod 600 "$receipt"; trap - EXIT

@@ -29,3 +29,5 @@ def test_scripts_parse_and_controller_requires_exact_id_commit():
     assert "MHB_PLATFORM_READ_CANARY_NONCE" in controller
     remote = text("ops/remote/run-ts-platform-read-canary.sh")
     assert "container_is_owned" in remote and "docker logs" not in remote
+    assert "--no-healthcheck" in remote
+    assert "timeout 6 docker exec" in remote and "AbortSignal.timeout(4000)" in remote
