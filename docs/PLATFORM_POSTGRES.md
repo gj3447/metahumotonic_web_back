@@ -3,6 +3,9 @@
 웹백은 공개 학습 허브와 회사 프로그램의 공통 API를 제공한다. 내부 자산 목록에서
 프로그램·소유 저장소·서비스·MCP·배포·장비를 연결하고, 운영 관측을 출처와 함께 보존한다.
 이번 단계에서는 이 관측 이력을 TS/Effect에서 PostgreSQL에 직접 저장·조회하도록 구현했다.
+2026-09-28에 data-01의 전용 DB에 카탈로그 197개 자산과 과거 관측 109개를 이관했고,
+런타임 계정으로 독립 readback을 확인했다. [운영 증거](evidence/company-platform-production-migration-2026-09-28.json)에
+이미지·CI·DB 영수증과 권한 검증을 기록했다. 공개 요청은 여전히 Python 백엔드가 담당한다.
 
 ## 저장 모델과 역할
 
@@ -60,12 +63,11 @@ the catalog digest and row counts. The temporary migrator role and its env file
 are removed before the command returns. It does not print a DSN, password, or
 catalog body, and it refuses any database other than `metahumotonic_platform`.
 
-The dedicated `metahumotonic_platform` bootstrap is provisioned on data-01;
-its root-owned receipt and encrypted baseline backup are the operational
-record. Migration/import is still pending. Do not run `apply` until an exact
-commit image has been staged on data-01 and both its OCI revision label and
-source-archive digest have been verified. The image string below is
-illustrative only.
+The dedicated `metahumotonic_platform` bootstrap and catalog migration have
+completed on data-01. Their root-owned receipts and encrypted baseline backup
+are the operational record. The exact image ID and source archive digest are
+recorded in the production evidence above. A new migration must pin and stage
+its own exact commit; the registry image string below is illustrative only.
 
 ```sh
 MHB_PLATFORM_IMAGE='registry.example/metahumotonic-web-back@sha256:<digest>' \
@@ -205,11 +207,12 @@ python3 scripts/check-platform-postgres-local.py \
 ```
 
 CI에 별도 `platform-postgres` job을 추가했다. 일반 TS 테스트에서는 이 10개가 외부 DB
-테스트로 제외되고, 위 실행기나 CI job에서는 누락·skip을 허용하지 않는다. 원격 CI와 실제
-운영 DB migration·설정·배포는 아직 실행하지 않았다.
+테스트로 제외되고, 위 실행기나 CI job에서는 누락·skip을 허용하지 않는다. 최신 원격 CI
+7개 job과 data-01 이관·독립 readback은 통과했다. VM100 공개 TS 런타임의 DB 설정과
+트래픽 전환은 아직 실행하지 않았다.
 
-자동 probe 수집기, OTel, OIDC/MCP OAuth는 후속 단계다. 현재 구현은 이 수집기들이 사용할
-지속 저장·검증·조회 경로이며 기존 조사 관측을 자동으로 최신 상태로 바꾸지 않는다.
+고정 대상 probe 수집기는 구현·테스트됐지만 운영 자동 실행은 아직 켜지 않았다. OTel,
+OIDC/MCP OAuth는 후속 단계다. 기존 조사 관측은 이관되어도 자동으로 최신 상태가 되지 않는다.
 
 트랜잭션은 같은 연결에서 수행하고 pool은 Effect Layer가 닫는다. 연결·쿼리·잠금 제한을
 설정하고 SQL은 parameter binding을 사용한다. 드라이버 계약 근거:

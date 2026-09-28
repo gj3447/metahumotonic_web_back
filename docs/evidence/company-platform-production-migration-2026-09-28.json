@@ -1,0 +1,50 @@
+{
+  "schema": "metahumotonic/platform-production-migration-evidence@1",
+  "observedAt": "2026-09-28T08:09:39Z",
+  "environment": "data-01 dedicated platform PostgreSQL",
+  "commit": "aaa533cf75b602d4d7a7382dc03e6ad0efb74ad3",
+  "ci": {
+    "url": "https://github.com/gj3447/metahumotonic_web_back/actions/runs/36395363757",
+    "conclusion": "success",
+    "successfulJobs": 7
+  },
+  "image": {
+    "id": "sha256:da9d9678c47ab38b0d8948ef48531d3e2cec804470b3ae7ee45b5508bcf46a85",
+    "sourceArchiveSha256": "c52e477f39bb8701c6ebf0edcc4afa4a3bcc186705f8f65c96fa1b4b731f8905",
+    "revisionLabelMatchesCommit": true,
+    "stagedOnVm100AndData01": true
+  },
+  "database": {
+    "name": "metahumotonic_platform",
+    "ownerRole": "mhb_platform_owner",
+    "schema": "mhb_platform",
+    "tables": 5,
+    "catalogVersions": 1,
+    "assets": 197,
+    "ingestReceipts": 1,
+    "observations": 109,
+    "catalogArtifactSha256": "67ad9ec09fb8cb9fb27dcc8cf4ccda2e159a0a63c5feaee321e95fb528e80379",
+    "catalogDigest": "1dfc6cc20d118e6fae9844046ef489b5d66ae3fb1d3191bd7bd19f5b7d585dbc",
+    "migrationChecksum": "d5fb606590db5d80401e73489b023b72d40677e24dd90463955c731e4061a6af"
+  },
+  "independentReadback": {
+    "migrationReceiptStatus": "PASS",
+    "migrationReceiptMode": "root:root:600",
+    "runtimeCliStatus": "PASS",
+    "migratorRolesRemaining": 0,
+    "runtimeCanSelectCatalog": true,
+    "runtimeCanInsertObservations": true,
+    "runtimeCanUpdateCatalog": false,
+    "temporaryMigrationEnvFilesRemaining": 0,
+    "encryptedBaselineSha256MatchesBootstrapReceipt": true,
+    "encryptedBaselineMode": "root:root:600",
+    "wikiDatabaseOwnerUnchanged": true
+  },
+  "publicState": {
+    "siteHttpStatus": 200,
+    "researchSource": "live",
+    "pythonBackendStillPublicOwner": true,
+    "tsPublicCutover": false
+  },
+  "scope": "Catalog and historical observations imported into the dedicated platform database. No public TS cutover or claim that historical observations are current health."
+}
