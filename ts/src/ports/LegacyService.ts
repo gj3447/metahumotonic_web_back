@@ -16,7 +16,7 @@ export interface LegacyService {
   readonly forward: (request: Request, clientIp: string) => Effect.Effect<Response, Unavailable | PayloadTooLarge>
 }
 export class LegacyServiceTag extends Context.Tag("LegacyService")<LegacyServiceTag, LegacyService>() {}
-const forwardedHeaders = ["accept", "content-type", "cookie", "origin", "x-csrf-token", "idempotency-key", "x-api-key", "x-ontology-key", "if-none-match", "if-match", "user-agent"]
+const forwardedHeaders = ["accept", "authorization", "content-type", "cookie", "origin", "x-csrf-token", "idempotency-key", "x-api-key", "x-ontology-key", "if-none-match", "if-match", "user-agent"]
 export const LegacyServiceLive = Layer.effect(LegacyServiceTag, Effect.gen(function* () {
   const cfg = yield* PlatformConfigTag
   return {

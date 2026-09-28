@@ -242,12 +242,12 @@ describe("stateful domain boundary", () => {
       res.end(JSON.stringify({ detail: { code: "revision_conflict" } }))
     }))
     const response = await app({ legacyOrigin: origin }).request("/api/wiki/v1/pages/example", null, {
-      method: "PATCH", headers: { "content-type": "application/json", "idempotency-key": "once", "x-csrf-token": "csrf", cookie: "wiki_session=old", "x-forwarded-for": "spoofed" }, body: '{"content":"new"}'
+      method: "PATCH", headers: { "content-type": "application/json", authorization: "Bearer delegated-agent-token", "idempotency-key": "once", "x-csrf-token": "csrf", cookie: "wiki_session=old", "x-forwarded-for": "spoofed" }, body: '{"content":"new"}'
     })
     expect(response.status).toBe(409)
     expect(response.headers.getSetCookie()).toHaveLength(2)
     expect(await response.json()).toEqual({ detail: { code: "revision_conflict" } })
-    expect(received).toMatchObject({ url: "/api/wiki/v1/pages/example", body: '{"content":"new"}', headers: { "idempotency-key": "once", "x-csrf-token": "csrf", cookie: "wiki_session=old" } })
+    expect(received).toMatchObject({ url: "/api/wiki/v1/pages/example", body: '{"content":"new"}', headers: { authorization: "Bearer delegated-agent-token", "idempotency-key": "once", "x-csrf-token": "csrf", cookie: "wiki_session=old" } })
     expect((received["headers"] as Record<string, unknown>)["x-forwarded-for"]).not.toBe("spoofed")
   })
   it("does not forward arbitrary internal routes or redirects", async () => {
