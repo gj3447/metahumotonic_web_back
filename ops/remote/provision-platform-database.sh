@@ -18,18 +18,45 @@ state() {
 emit() { printf '{"schema":"metahumotonic/platform-storage@1","mode":"%s","state":"%s","database":"metahumotonic_platform","ownerRole":"mhb_platform_owner","runtimeRole":"mhb_platform_runtime","secretMaterialPrinted":false,"wikiTouched":false,"detail":"%s"}\n' "$1" "$2" "$3"; }
 current="$(state)"
 case "$mode" in dry-run) emit dry-run "$current" 'would create only absent dedicated roles/database; no SQL mutation performed'; exit 0;; status) emit status "$current" 'read-only ownership check'; exit 0;; esac
+role_count() { q "SELECT count(*) FROM pg_roles WHERE rolname='$1'"; }
+role_is_tagged() { [[ "$(comment pg_roles pg_authid rolname "$1")" == metahumotonic-platform-bootstrap@1 ]]; }
+role_has_owned_objects() { q "SELECT count(*) FROM pg_shdepend d JOIN pg_roles r ON d.refclassid='pg_authid'::regclass AND d.refobjid=r.oid WHERE r.rolname IN ('$owner','$runtime') AND d.deptype='o'"; }
+empty_owned_database() {
+  [[ "$(q "SELECT count(*) FROM pg_database WHERE datname='$database'")" == 1 ]] || return 1
+  [[ "$(q "SELECT r.rolname FROM pg_database d JOIN pg_roles r ON r.oid=d.datdba WHERE d.datname='$database'")" == "$owner" ]] || return 1
+  role_is_tagged "$owner" && role_is_tagged "$runtime" || return 1
+  local schemas objects
+  schemas="$(qd "SELECT count(*) FROM pg_namespace WHERE nspname NOT IN ('pg_catalog','information_schema','public') AND nspname NOT LIKE 'pg_%'" 2>/dev/null)"
+  objects="$(qd "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_%' AND c.relkind IN ('r','p','v','m','S','f')" 2>/dev/null)"
+  [[ "${schemas:-nonempty}" == 0 && "${objects:-nonempty}" == 0 ]]
+}
+tagged_roles_without_database() {
+  [[ "$(q "SELECT count(*) FROM pg_database WHERE datname='$database'")" == 0 ]] || return 1
+  [[ "$(role_count "$owner")" == 1 ]] && role_is_tagged "$owner" || return 1
+  local runtime_count; runtime_count="$(role_count "$runtime")"
+  if [[ "$runtime_count" == 1 ]]; then role_is_tagged "$runtime" || return 1
+  elif [[ "$runtime_count" != 0 ]]; then return 1; fi
+  [[ "$(role_has_owned_objects)" == 0 ]]
+}
+drop_tagged_roles() {
+  [[ "$(role_count "$runtime")" == 0 ]] || docker exec "$container" dropuser -U postgres "$runtime"
+  docker exec "$container" dropuser -U postgres "$owner"
+}
+clear_bootstrap_files() { rm -f "$secret_root/runtime-password" "$secret_root/backup-key" "$root/baseline.dump" "$root/baseline.dump.enc" "$receipt"; }
+if [[ "$mode" == apply && "$current" == FOREIGN_OR_PARTIAL ]] && tagged_roles_without_database; then
+  drop_tagged_roles && clear_bootstrap_files || fail 'tagged partial roles could not be safely compensated'
+  current=ABSENT
+fi
 [[ "$current" == OWNED ]] || [[ "$mode" == apply && "$current" == ABSENT ]] || fail 'refusing foreign, partial or already-provisioned state'
 if [[ "$mode" == apply ]]; then
   read -r runtime_password; [[ "$runtime_password" =~ ^[0-9a-f]{64}$ ]] || fail 'invalid runtime secret'
   install -d -m 700 -o root -g root "$root" "$secret_root"; [[ ! -e "$receipt" && ! -e "$secret_root/runtime-password" ]] || fail 'existing platform receipt or secret refuses overwrite'
   compensate_apply_failure() {
-    local schemas="" objects=""
     trap - ERR; set +e
-    schemas="$(qd "SELECT count(*) FROM pg_namespace WHERE nspname NOT IN ('pg_catalog','information_schema','public') AND nspname NOT LIKE 'pg_%'" 2>/dev/null)"
-    objects="$(qd "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_%' AND c.relkind IN ('r','p','v','m','S','f')" 2>/dev/null)"
-    if [[ "$(state)" == OWNED && "${schemas:-nonempty}" == 0 && "${objects:-nonempty}" == 0 ]]; then
-      docker exec "$container" dropdb -U postgres "$database" && docker exec "$container" dropuser -U postgres "$runtime" && docker exec "$container" dropuser -U postgres "$owner"
-      rm -f "$secret_root/runtime-password" "$secret_root/backup-key" "$root/baseline.dump" "$root/baseline.dump.enc" "$receipt"
+    if empty_owned_database; then
+      docker exec "$container" dropdb -U postgres "$database" && drop_tagged_roles && clear_bootstrap_files
+    elif tagged_roles_without_database; then
+      drop_tagged_roles && clear_bootstrap_files
     else
       printf '%s\n' '{"schema":"metahumotonic/platform-storage-receipt@1","status":"FAILED_RECOVERY_REQUIRES_OPERATOR","database":"metahumotonic_platform","wikiTouched":false}' >"$receipt"
       chmod 600 "$receipt"
@@ -38,10 +65,12 @@ if [[ "$mode" == apply ]]; then
   }
   trap compensate_apply_failure ERR
   docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U postgres >/dev/null <<SQL
+BEGIN;
 CREATE ROLE $owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
 COMMENT ON ROLE $owner IS 'metahumotonic-platform-bootstrap@1';
 CREATE ROLE $runtime LOGIN PASSWORD '$runtime_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
 COMMENT ON ROLE $runtime IS 'metahumotonic-platform-bootstrap@1';
+COMMIT;
 SQL
   docker exec "$container" createdb -U postgres -O "$owner" "$database"
   docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U postgres >/dev/null <<SQL
