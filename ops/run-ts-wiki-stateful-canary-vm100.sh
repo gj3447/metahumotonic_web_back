@@ -38,7 +38,7 @@ data_remote "test -f '$data_helper' && test -f '$data_lock' && test ! -L '$data_
 gateway_name="mhb-wiki-canary-gateway-${commit:0:12}-${nonce:0:12}"
 cleanup_gateway() { remote "if sudo -n docker container inspect '$gateway_name' >/dev/null 2>&1; then test \"\$(sudo -n docker inspect '$gateway_name' --format '{{index .Config.Labels \"com.metahumotonic.wiki-canary.commit\"}}')\" = '$commit' && test \"\$(sudo -n docker inspect '$gateway_name' --format '{{index .Config.Labels \"com.metahumotonic.wiki-canary.nonce\"}}')\" = '$nonce' && sudo -n docker rm -f '$gateway_name' >/dev/null; fi"; }
 receipt="/var/lib/metahumotonic-web-back/private-wiki-stateful-receipts/${commit}-${nonce}.json"
-database_owned=false; database_create_started=false; runtime_attempted=false; data_locked=false; runtime_locked=false
+database_owned=false; database_create_started=false; data_locked=false; runtime_locked=false
 gateway_needs_cleanup() { remote "sudo -n docker container inspect '$gateway_name' >/dev/null 2>&1"; }
 runtime_needs_cleanup() {
   local short="${commit:0:12}-${nonce:0:12}"
@@ -55,8 +55,16 @@ REMOTE"
 cleanup_all() {
   status=$?; trap - EXIT; local runtime_failed=false database_failed=false release_failed=false locks_failed=false staging_failed=false
   if gateway_needs_cleanup; then cleanup_gateway || runtime_failed=true; fi
-  if [[ "$runtime_attempted" == true ]] || runtime_needs_cleanup; then remote "sudo -n bash '$runtime' cleanup '$commit' '$nonce'" || runtime_failed=true; fi
-  if [[ "$database_owned" == true || "$database_create_started" == true ]]; then data_remote "sudo -n bash '$data_helper' drop postgresql '$database' mhb_wiki unused unused '$commit' '$nonce' unused" || database_failed=true; fi
+  if runtime_needs_cleanup; then remote "sudo -n bash '$runtime' cleanup '$commit' '$nonce'" || runtime_failed=true; fi
+  if [[ "$database_owned" == true ]]; then
+    data_remote "sudo -n bash '$data_helper' drop postgresql '$database' mhb_wiki unused unused '$commit' '$nonce' unused" || database_failed=true
+  elif [[ "$database_create_started" == true ]]; then
+    if data_remote "sudo -n test -f '/var/lib/metahumotonic-wiki/canaries/${commit}-${nonce}.json'"; then
+      data_remote "sudo -n bash '$data_helper' drop postgresql '$database' mhb_wiki unused unused '$commit' '$nonce' unused" || database_failed=true
+    else
+      data_remote "test \"\$(sudo -n docker exec postgresql psql -U postgres -Atqc \"SELECT count(*) FROM pg_database WHERE datname='$database'\")\" = 0" || database_failed=true
+    fi
+  fi
   cleanup_release_dir || release_failed=true
   if [[ "$runtime_locked" == true ]]; then remote "sudo -n bash '$runtime_lock' release mhb-wiki-runtime-operation '$nonce'" || locks_failed=true; fi
   if [[ "$data_locked" == true ]]; then data_remote "sudo -n bash '$data_lock' release mhb-wiki-data-operation '$nonce'" || locks_failed=true; fi
@@ -104,5 +112,4 @@ REMOTE")"
 [[ "$release_state" == PRESENT || "$release_state" == CREATED ]] || fail 'invalid release directory state'
 [[ "$release_state" == CREATED ]] && release_created=true
 remote "sudo -n install -d -m 700 -o root -g root /var/lib/metahumotonic-web-back/private-wiki-stateful-receipts"
-runtime_attempted=true
 remote "sudo -n bash '$canary' '$python_image' '$commit' '$env_file' '$database' '$receipt' '$nonce' '$redis_image' '$runtime' '$gateway_image'"

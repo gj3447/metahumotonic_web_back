@@ -54,6 +54,9 @@ def test_stateful_controller_creates_and_cleans_exact_receipt_owned_drill():
     assert "install -d -m 700 -o root -g root" in source
     assert "mhb-wiki-data-operation" in source and "mhb-wiki-runtime-operation" in source
     assert "exact canary database or receipt already exists" in source
+    assert "runtime_attempted" not in source
+    assert "database_create_started" in source
+    assert "sudo -n test -f '/var/lib/metahumotonic-wiki/canaries/${commit}-${nonce}.json'" in source
     assert "cleanup_gateway" in source
     assert "sudo -n docker rm -f '$gateway_name'" in source
     assert "sudo -n rm -rf" not in source
