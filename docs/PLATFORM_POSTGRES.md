@@ -144,6 +144,11 @@ It uses the exact image ID recorded by the verified source receipt, compares all
 five platform table counts, removes the plaintext and owned container before
 writing a root-only drill receipt. The image must already be staged on VM100;
 the drill never pulls an image, connects to data-01, or touches Wiki data.
+The production drill and independent readback are recorded in
+[`docs/evidence/company-platform-offhost-restore-drill-2026-09-28.json`](evidence/company-platform-offhost-restore-drill-2026-09-28.json).
+VM100 now holds both this encrypted copy and its root-only key, so VM100 root
+access is part of the backup trust boundary. Scheduling and retention remain
+separate operational work.
 
 기본값은 기존 Git snapshot 모드다. `MHB_PLATFORM_DATABASE_URL`을 설정하면
 PostgreSQL이 필수 의존성이 된다. `MHB_PLATFORM_DATABASE_REQUIRED=true`는 URL을

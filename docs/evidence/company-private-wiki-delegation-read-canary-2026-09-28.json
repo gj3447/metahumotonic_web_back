@@ -1,0 +1,29 @@
+{
+  "schema": "metahumotonic/private-wiki-delegation-read-evidence@1",
+  "observedAt": "2026-09-28T08:45:09Z",
+  "environment": "VM100 unpublished TS/Effect canary beside existing Python Wiki owner",
+  "exactCommit": "1a933416ece94bfa573dde468bc19c9a544f1211",
+  "candidateImageId": "sha256:670896288508da09b0717dbbd2f12d63cacbcf16a26f300f116171638b4c9cc8",
+  "receiptSchema": "metahumotonic/ts-canary@2",
+  "receiptStatus": "PASS",
+  "fixedReadChecks": {
+    "methods": ["GET", "HEAD"],
+    "paths": [
+      "/api/wiki/v1",
+      "/api/wiki/v1/pages?limit=1",
+      "/api/wiki/v1/pages/mhb-read-parity-missing",
+      "/api/v1/ontology/schema"
+    ],
+    "statusAndSelectedHeadersEqual": true,
+    "boundedGetBodySha256Equal": true,
+    "legacyBoundaryMarkerPresent": true
+  },
+  "otherCanaryChecks": ["ready", "public-hub", "platform-auth", "mcp-initialize"],
+  "publishedPorts": false,
+  "publicIngressChanged": false,
+  "domainDataWrites": false,
+  "legacyReadLimiterStateMayChange": true,
+  "ownedCanaryContainerAndImageRemaining": false,
+  "publicSiteHttpStatus": 200,
+  "scope": "Fixed anonymous reads only. This does not establish session/cookie/CSRF or Wiki mutation parity, moderation, Redis failure behavior, persistence, or public TS cutover."
+}

@@ -1,0 +1,30 @@
+{
+  "schema": "metahumotonic/platform-offhost-restore-drill-evidence@1",
+  "observedAt": "2026-09-28T08:47:15Z",
+  "environment": "VM100 isolated restore from verified off-host platform mirror",
+  "drillCodeCommit": "b9fb3d383f8b20a3955c64bb0ec171f09df49af8",
+  "backupId": "aaa533cf75b602d4d7a7382dc03e6ad0efb74ad3-d31c0d80d767dfcd84a27cff4408b363",
+  "drillNonce": "0e40ec612b6be37279508452278ff1e5",
+  "sourceReceiptSha256": "c87cc482b4ce09b6240df0543c248e4d7cb05266945c89eed7d0ed3bd90afb9f",
+  "exactPostgresImageId": "sha256:78481659c47e862334611ccdaf7c369c986b3046da9857112f3b309114a65fb4",
+  "sourceAndRestoredCounts": {
+    "schemaMigrations": 1,
+    "catalogVersions": 1,
+    "assets": 197,
+    "ingestReceipts": 1,
+    "historicalObservations": 109
+  },
+  "receiptStatus": "VERIFIED",
+  "restoreDrill": "PASS",
+  "independentReadback": {
+    "artifactBoundToMirror": true,
+    "countsEqualSource": true,
+    "exactImageMatchesSourceReceipt": true,
+    "directoriesRootOnly0700": true,
+    "receiptRootOnly0600": true,
+    "plaintextFileRemaining": false,
+    "temporaryRestoreContainerRemaining": false
+  },
+  "publicSiteHttpStatus": 200,
+  "scope": "One verified off-host snapshot was independently restored on VM100. This is not a recurring backup schedule, retention policy, Wiki backup, current program health claim, or public TS cutover."
+}

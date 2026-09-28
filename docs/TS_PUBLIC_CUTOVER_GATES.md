@@ -6,6 +6,10 @@
 Python 기능 대체를 뜻하지 않는다. [운영 증거](evidence/company-private-ts-platform-read-canary-2026-09-28.json)를
 기준으로 다음 경계를 차례로 닫는다.
 
+Wiki·ontology의 고정 익명 GET/HEAD 위임은 [VM100 private canary](evidence/company-private-wiki-delegation-read-canary-2026-09-28.json)에서
+Python 직접 응답과 일치했다. 이 조회는 Python의 Redis 읽기 제한 카운터를 올릴 수
+있다. 세션·변경 요청·장애 동작의 게이트는 아직 남아 있다.
+
 | 순서 | 전환 조건 | 완료 판정 |
 |---|---|---|
 | 1. Wiki·ontology 위임 | Python은 Wiki DB·세션·ontology의 private owner로 유지한다. TS의 고정 경로 위임에서 익명/세션 발급, 쿠키·CSRF 변경, agent bearer 변경, idempotency 재전송, ETag 충돌, moderation의 public 404·내부 접근, Redis 장애를 실제 두 런타임으로 비교한다. | GET뿐 아니라 상태 변경·장애 계약이 일치하고 Python 데이터 소유권이 유지된다. |

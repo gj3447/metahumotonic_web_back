@@ -28,3 +28,6 @@ private-route ingress exclusion, Redis outage handling, or data durability.
 Those tests require a disposable Wiki database/runtime canary before any
 public route cutover. Python remains the Wiki and ontology owner throughout
 this gate.
+
+The first private read parity PASS and its exact image are recorded in
+[`docs/evidence/company-private-wiki-delegation-read-canary-2026-09-28.json`](evidence/company-private-wiki-delegation-read-canary-2026-09-28.json).
