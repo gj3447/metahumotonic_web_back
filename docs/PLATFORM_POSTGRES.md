@@ -239,3 +239,49 @@ OIDC/MCP OAuth는 후속 단계다. 기존 조사 관측은 이관되어도 자�
 설정하고 SQL은 parameter binding을 사용한다. 드라이버 계약 근거:
 [node-postgres transactions](https://node-postgres.com/features/transactions),
 [node-postgres pool](https://node-postgres.com/apis/pool).
+
+## PostgreSQL 전용 비공개 TS 읽기 canary
+
+공개 전환 전에 TS/Effect 서버의 회사 자산 조회 경로만 확인하려면
+`ops/provision-platform-read-canary-role.sh`와
+`ops/run-ts-platform-read-canary-data01.sh`를 사용한다. 둘 다 기본값은 변경 없는
+`dry-run`이며, Wiki·제품 DB, MongoDB, Redis, Neo4j, 기존 Python runtime credential을
+읽거나 전달하지 않는다. 이 단계는 **운영 실행 전 CI와 ACL 검토가 끝난 operator step**이다.
+
+전용 `mhb_platform_shadow_reader`는 `NOINHERIT`, `NOSUPERUSER`, `NOCREATEDB`,
+`NOCREATEROLE`, `NOREPLICATION`, `NOBYPASSRLS` login이다. bootstrap 소유 표식과
+현재 `mhb_platform` 필수 테이블이 확인된 전용 플랫폼 DB에만 생성한다. role password와
+receipt는 data-01 root:root 0600 경로에만 기록하고, stdout·argv·Git·canary receipt에는
+쓰지 않는다. apply 직후 SQL로 CONNECT/USAGE/현재 테이블 SELECT는 허용되고,
+TEMP/CREATE/INSERT/UPDATE/DELETE/TRUNCATE는 거부되는지 확인한다. 기존 reader role,
+foreign role, 불완전 플랫폼 DB, 또는 기존 secret/receipt는 fail-closed한다.
+
+```sh
+ops/provision-platform-read-canary-role.sh dry-run
+ops/provision-platform-read-canary-role.sh status
+# ACL review 뒤에만: ops/provision-platform-read-canary-role.sh apply
+```
+
+canary는 data-01에 이미 존재하는 tag 없는 exact image ID만 받는다. controller는 full
+Git commit에서 계산한 source archive SHA-256을 image label과 비교하고,
+`org.opencontainers.image.revision`도 같은 commit인지 확인한다. image publication/staging이
+아직 충족되지 않으면 실행할 수 없다. 컨테이너는 PostgreSQL container의 network namespace를
+공유하지만 `-p`를 사용하지 않아 공개 port가 없고, loopback HTTP probe는 `docker exec`로만
+수행한다. `read-only` filesystem, tmpfs, capability drop, no-new-privileges, 512 MiB,
+1 CPU, 128 pids 제한을 건다.
+
+```sh
+MHB_PLATFORM_READ_CANARY_IMAGE='sha256:<64-hex-image-id>' \
+MHB_PLATFORM_READ_CANARY_COMMIT='<40-hex-commit>' \
+  ops/run-ts-platform-read-canary-data01.sh dry-run
+```
+
+실행 환경에는 PostgreSQL reader DSN과 일회용 internal read key만 들어가며,
+Mongo/Redis/Neo4j/legacy URI와 credential은 명시적으로 빈 값이다. Redis limiter는 GET에도
+쓰기 때문에 구성하지 않는다. `MHB_SHADOW_READ_ONLY=true`는 모든 GET/HEAD/OPTIONS 이외
+요청을 라우팅 전 405로 차단한다. PASS는 `/ready`의 PostgreSQL live/required, PostgreSQL
+source program read, 그리고 POST 차단을 모두 뜻한다. 컨테이너와 env는 PASS/실패 뒤
+정리하지만 staged image 및 reader role은 제거하지 않는다. `cleanup`은 canary-owned
+container/work path만 제거한다; reader role의 `rollback-empty`는 별도 operator action이다.
+
+새 migration은 transient migrator가 만든 table을 owner로 재소유시킬 수 있으므로 reader의 future-table 권한을 자동으로 상속하지 않는다. 새 schema version은 migration review에서 reader SELECT를 명시적으로 부여하고 privilege-denial 검증을 다시 통과한 뒤에만 이 canary 범위를 확장한다.

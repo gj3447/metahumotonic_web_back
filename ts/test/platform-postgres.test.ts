@@ -28,7 +28,7 @@ const catalog = Either.getOrThrow(decodeCatalog(JSON.parse(readFileSync(new URL(
 const appConfig = Effect.runSync(configFromEnv.pipe(Effect.withConfigProvider(ConfigProvider.fromMap(new Map()))))
 const READ = "platform-postgres-test-read-credential", WRITE = "platform-postgres-test-write-credential"
 const cfg: PlatformConfig = { catalog, catalogDigest: contentDigest(catalog), readKey: Redacted.make(READ), writeKey: Redacted.make(WRITE),
-  legacyOrigin: null, legacyRequired: false, ontologyRequired: false, bindings: [], maxBodyBytes: 524288, timeoutMs: 1000 }
+  legacyOrigin: null, legacyRequired: false, ontologyRequired: false, shadowReadOnly: false, bindings: [], maxBodyBytes: 524288, timeoutMs: 1000 }
 const observation = (id: string, patch: Partial<PlatformObservation> = {}): PlatformObservation => ({
   id: `obs:test:${id}`, subjectId: "program:usl", check: "readiness", outcome: "healthy",
   observedAt: new Date(Date.now() - 1000).toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString(),

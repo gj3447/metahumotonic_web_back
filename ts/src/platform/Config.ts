@@ -26,6 +26,8 @@ export interface PlatformConfig {
   readonly legacyOrigin: string | null
   readonly legacyRequired: boolean
   readonly ontologyRequired: boolean
+  /** Emergency private-canary circuit breaker: mutations stop before routing. */
+  readonly shadowReadOnly: boolean
   readonly catalog: PlatformCatalog
   readonly catalogDigest: string
   readonly bindings: ReadonlyArray<McpBinding>
@@ -79,6 +81,7 @@ export const PlatformConfigLive = Layer.effect(PlatformConfigTag, Effect.gen(fun
     readKey, writeKey, legacyOrigin: origin || null,
     legacyRequired: yield* Config.boolean("MHB_LEGACY_REQUIRED").pipe(Config.withDefault(false)),
     ontologyRequired: yield* Config.boolean("MHB_ONTOLOGY_ENABLED").pipe(Config.withDefault(false)),
+    shadowReadOnly: yield* Config.boolean("MHB_SHADOW_READ_ONLY").pipe(Config.withDefault(false)),
     catalog, catalogDigest: contentDigest(catalog),
     bindings, maxBodyBytes: 524_288, timeoutMs: 10_000
   }

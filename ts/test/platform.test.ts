@@ -23,7 +23,7 @@ const WRITE = "write-credential-32-bytes-for-tests-only"
 const clean = Effect.withConfigProvider(ConfigProvider.fromMap(new Map()))
 const config = Effect.runSync(configFromEnv.pipe(clean))
 const platform: PlatformConfig = {
-  readKey: Redacted.make(READ), writeKey: Redacted.make(WRITE), legacyOrigin: null, legacyRequired: false, ontologyRequired: false,
+  readKey: Redacted.make(READ), writeKey: Redacted.make(WRITE), legacyOrigin: null, legacyRequired: false, ontologyRequired: false, shadowReadOnly: false,
   catalog, catalogDigest: "test-digest", bindings: [], maxBodyBytes: 524288, timeoutMs: 1000
 }
 const disposers: Array<() => Promise<unknown>> = []
@@ -58,6 +58,16 @@ const connect = async (handler: (request: Request) => Promise<Response>, key = R
   disposers.push(() => client.close())
   return client
 }
+
+describe("private read canary guard", () => {
+  it("rejects every mutation before authentication or downstream routing", async () => {
+    const web = app({ shadowReadOnly: true })
+    const response = await web.request("/api/platform/v1/observations", null, { method: "POST", body: "{}" })
+    expect(response.status).toBe(405)
+    expect(response.headers.get("allow")).toBe("GET, HEAD, OPTIONS")
+    await expect(response.json()).resolves.toEqual({ reason: "shadow_read_only" })
+  })
+})
 
 describe("evidence-backed program graph", () => {
   it("serves authenticated inventory, detail, summary and JSON-LD with bounded query contracts", async () => {
