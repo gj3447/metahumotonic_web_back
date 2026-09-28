@@ -1,0 +1,27 @@
+{
+  "schema": "metahumotonic/public-mcp-directory-readback@1",
+  "observedAt": "2026-09-28T07:50:48Z",
+  "sourceCommit": "71acbc3cb2c1fb9b1fbd5760ff72c6d6bd9890a6",
+  "sourceFile": "ops/mcp-public-directory-2026-09-28.json",
+  "operatorCli": {
+    "operation": "seed",
+    "database": "metahumotonic",
+    "collection": "mcp_servers",
+    "written": 3,
+    "readbackNames": ["hspine", "maplelineage", "ontology"],
+    "connectionRecipesStored": 0
+  },
+  "publicApi": {
+    "manifestSource": "live",
+    "statusSource": "live",
+    "registered": 3,
+    "verified": 2,
+    "available": 1,
+    "credentialVault": "disabled",
+    "connectionFieldsPresent": false,
+    "operationalNotesPresent": false,
+    "capabilitiesSource": "category-inferred"
+  },
+  "privateToolAccessGranted": false,
+  "credentialsRecorded": false
+}
