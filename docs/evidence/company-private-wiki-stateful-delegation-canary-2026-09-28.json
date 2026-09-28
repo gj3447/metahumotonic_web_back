@@ -1,0 +1,32 @@
+{
+  "schema": "metahumotonic/private-wiki-stateful-delegation-evidence@1",
+  "observedAt": "2026-09-28T09:13:04Z",
+  "environment": "VM100 private TS/Effect gateway plus Python Wiki owner, disposable Redis and restored Wiki PostgreSQL database on data-01",
+  "exactCommit": "4f903d3e2f8a1881e8e60af82b76aeb9dcc016a7",
+  "pythonImageId": "sha256:18165cf3cc8e17a3edc77582664682df7188f3cd5eaf4c78870fa7b031df688b",
+  "gatewayImageId": "sha256:c96b914f86b1e341c702d78f55ee621489ad617668438e3eb3d61374214800c2",
+  "redisImageId": "sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952",
+  "wikiMigrationsSha256": "2a25d01abbd26ab17b0ad95528f094f122018d7bdd01759c8159b2e74abe2452",
+  "sourceBackup": "root-only VERIFIED encrypted current-production Wiki backup with PASS restore drill; encrypted dump and key hashes rechecked before disposable restore",
+  "disposableDatabase": "metahumotonic_wiki_canary_4f903d3e2f8a_e29e990170e1",
+  "databaseReceiptStatus": "DROPPED",
+  "databaseExistsAfterCleanup": false,
+  "runtimeReceiptStatus": "CLEANED",
+  "canaryReceiptStatus": "PASS",
+  "canaryReceiptCleanup": "PASS",
+  "checks": [
+    "TS-delegated browser session, cookie and CSRF write",
+    "TS-delegated agent bearer write, idempotency replay and conflict, stale revision CAS, direct Python readback",
+    "direct Python browser and agent stateful baseline",
+    "direct Python history, diff, recent changes, submit and report",
+    "direct Python moderation quarantine, public exclusion, release and resolve",
+    "direct Python CLI live and MCP initialize/list/call"
+  ],
+  "exactRuntimeContainersAndNetworkRemaining": false,
+  "temporaryWorkdirRemaining": false,
+  "publicIngressChanged": false,
+  "productionWikiDatabaseMutated": false,
+  "publicSiteHttpStatus": 200,
+  "ci": "https://github.com/gj3447/metahumotonic_web_back/actions/runs/36401681452",
+  "scope": "Positive private stateful Wiki delegation paths only. This does not establish exact TS/Python response parity for every route, Redis outage behavior, production state-store ACLs, or a TS public rollout/rollback."
+}

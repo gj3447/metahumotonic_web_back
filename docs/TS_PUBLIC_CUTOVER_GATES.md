@@ -8,7 +8,14 @@ Python 기능 대체를 뜻하지 않는다. [운영 증거](evidence/company-pr
 
 Wiki·ontology의 고정 익명 GET/HEAD 위임은 [VM100 private canary](evidence/company-private-wiki-delegation-read-canary-2026-09-28.json)에서
 Python 직접 응답과 일치했다. 이 조회는 Python의 Redis 읽기 제한 카운터를 올릴 수
-있다. 세션·변경 요청·장애 동작의 게이트는 아직 남아 있다.
+있다. 이 조회만으로 세션·변경 요청·장애 동작은 검증되지 않는다.
+
+Wiki의 긍정 경로 상태 변경도 [별도 private canary](evidence/company-private-wiki-stateful-delegation-canary-2026-09-28.json)에서
+통과했다. TS를 거친 브라우저 세션·쿠키·CSRF 쓰기와 agent bearer·멱등 재전송·
+충돌·stale revision CAS를 복원한 일회용 DB에 실행하고 Python 직접 읽기로 확인했다.
+Python의 moderation·CLI·MCP 기준 경로도 같은 일회용 런타임에서 통과했고 DB는
+삭제했다. 이 결과는 모든 응답의 TS/Python 동등성이나 Redis 장애·운영 권한 검증을
+대신하지 않는다.
 
 | 순서 | 전환 조건 | 완료 판정 |
 |---|---|---|
