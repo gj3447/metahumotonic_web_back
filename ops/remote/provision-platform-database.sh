@@ -22,7 +22,21 @@ case "$mode" in dry-run) emit dry-run "$current" 'would create only absent dedic
 if [[ "$mode" == apply ]]; then
   read -r runtime_password; [[ "$runtime_password" =~ ^[0-9a-f]{64}$ ]] || fail 'invalid runtime secret'
   install -d -m 700 -o root -g root "$root" "$secret_root"; [[ ! -e "$receipt" && ! -e "$secret_root/runtime-password" ]] || fail 'existing platform receipt or secret refuses overwrite'
-  trap 'rm -f "$secret_root/runtime-password" "$secret_root/backup-key" "$root/baseline.dump" "$root/baseline.dump.enc" "$receipt"' ERR
+  compensate_apply_failure() {
+    local schemas="" objects=""
+    trap - ERR; set +e
+    schemas="$(qd "SELECT count(*) FROM pg_namespace WHERE nspname NOT IN ('pg_catalog','information_schema','public') AND nspname NOT LIKE 'pg_%'" 2>/dev/null)"
+    objects="$(qd "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_%' AND c.relkind IN ('r','p','v','m','S','f')" 2>/dev/null)"
+    if [[ "$(state)" == OWNED && "${schemas:-nonempty}" == 0 && "${objects:-nonempty}" == 0 ]]; then
+      docker exec "$container" dropdb -U postgres "$database" && docker exec "$container" dropuser -U postgres "$runtime" && docker exec "$container" dropuser -U postgres "$owner"
+      rm -f "$secret_root/runtime-password" "$secret_root/backup-key" "$root/baseline.dump" "$root/baseline.dump.enc" "$receipt"
+    else
+      printf '%s\n' '{"schema":"metahumotonic/platform-storage-receipt@1","status":"FAILED_RECOVERY_REQUIRES_OPERATOR","database":"metahumotonic_platform","wikiTouched":false}' >"$receipt"
+      chmod 600 "$receipt"
+    fi
+    exit 1
+  }
+  trap compensate_apply_failure ERR
   docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U postgres >/dev/null <<SQL
 CREATE ROLE $owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
 COMMENT ON ROLE $owner IS 'metahumotonic-platform-bootstrap@1';

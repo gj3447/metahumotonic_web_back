@@ -12,6 +12,10 @@ def test_platform_bootstrap_is_dedicated_and_dry_run_by_default() -> None:
     assert 'rollback-empty refuses destructive drop' in remote
     assert 'secretMaterialPrinted' in remote and 'MHB_PLATFORM_DATABASE_URL' not in remote
     assert 'baseline.dump.enc' in remote and 'aes-256-cbc' in remote
+    assert 'FAILED_RECOVERY_REQUIRES_OPERATOR' in remote
+    assert 'schemas="$(qd "SELECT count(*) FROM pg_namespace' in remote
+    assert 'objects="$(qd "SELECT count(*) FROM pg_class' in remote
+    assert 'if [[ "$(state)" == OWNED && "${schemas:-nonempty}" == 0 && "${objects:-nonempty}" == 0 ]]' in remote
 
 def test_platform_runtime_role_cannot_receive_ddl_update_or_delete() -> None:
     remote = (ROOT / "ops/remote/provision-platform-database.sh").read_text()
