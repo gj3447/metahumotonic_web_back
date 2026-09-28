@@ -49,7 +49,11 @@ remove_restore_container() {
 cleanup() {
   status=$?; trap - EXIT
   rm -f -- "$plain" "$restored_plain"
-  remove_restore_container || exit 1
+  if ! remove_restore_container; then exit 1; fi
+  if [[ "$status" != 0 && ! -e "$receipt" ]]; then
+    rm -f -- "$encrypted" "$key_file"
+    rmdir -- "$run_dir" 2>/dev/null || true
+  fi
   exit "$status"
 }
 trap cleanup EXIT
@@ -71,8 +75,7 @@ postgres_pgdata="$(docker inspect "$container" --format '{{range .Config.Env}}{{
 timeout 60 docker run -d --name "$restore_container" --label "com.metahumotonic.platform-backup-nonce=$nonce" --network none --read-only --memory 1536m --memory-swap 1536m --cpus 1 --pids-limit 256 --tmpfs /var/lib/postgresql:rw,size=768m --tmpfs /var/run/postgresql:rw,size=16m --tmpfs /tmp:rw,size=128m -e POSTGRES_HOST_AUTH_METHOD=trust "$postgres_image" >/dev/null
 for _ in $(seq 1 45); do docker exec "$restore_container" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
 docker exec "$restore_container" pg_isready -U postgres >/dev/null 2>&1 || fail 'isolated restore PostgreSQL did not become ready'
-docker cp "$restored_plain" "$restore_container:/tmp/platform.dump"
-timeout 300 docker exec "$restore_container" pg_restore -U postgres --no-owner --no-privileges -d postgres /tmp/platform.dump >/dev/null
+timeout 300 docker exec -i "$restore_container" pg_restore -U postgres --no-owner --no-privileges -d postgres <"$restored_plain" >/dev/null
 restored_counts="$(docker exec "$restore_container" psql -X -v ON_ERROR_STOP=1 -U postgres -d postgres -Atqc "SELECT (SELECT count(*) FROM mhb_platform.schema_migrations), (SELECT count(*) FROM mhb_platform.catalog_versions), (SELECT count(*) FROM mhb_platform.asset_versions), (SELECT count(*) FROM mhb_platform.ingest_receipts), (SELECT count(*) FROM mhb_platform.observations)")"
 [[ "$restored_counts" == "$source_counts" ]] || fail 'isolated restore count mismatch'
 for path in "$run_dir" "$backup_root" "$key_root"; do test "$(stat -c '%U:%G:%a' "$path")" = root:root:700; done

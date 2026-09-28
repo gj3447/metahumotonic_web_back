@@ -178,7 +178,7 @@ def test_post_import_backup_is_dedicated_encrypted_and_restore_verified() -> Non
     assert '--tmpfs /var/lib/postgresql:rw,size=768m' in helper
     assert 'com.metahumotonic.platform-backup-nonce=$nonce' in helper
     assert 'restore container nonce ownership mismatch' in helper
-    assert 'pg_restore -U postgres --no-owner --no-privileges -d postgres' in helper
+    assert 'docker exec -i "$restore_container" pg_restore -U postgres --no-owner --no-privileges -d postgres <"$restored_plain"' in helper
     assert '[[ "$restored_counts" == "$source_counts" ]]' in helper
     assert '"status":"VERIFIED"' in helper and '"restoreDrill":"PASS"' in helper
     assert 'rm -f -- "$plain" "$restored_plain"' in helper
