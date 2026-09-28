@@ -240,6 +240,13 @@ def test_scheduled_platform_backup_workflow_is_serialized_and_explicit() -> None
     assert 'MHB_PLATFORM_BACKUP_RECEIPT="$receipt"' in workflow
     assert 'MHB_PLATFORM_OFFHOST_BACKUP_ID="$backup_id"' in workflow
     assert "'$helper' failure '$token' '$stage'" in workflow
+    assert 'remote_dir="/var/tmp/mhb-platform-backup-workflow-$token"' in workflow
+    assert "mkdir '$remote_dir'" in workflow and "test ! -L '$remote_dir'" in workflow
+    assert "stat -c '%u:%a' '$helper'" in workflow
+    assert 'if [[ "$release_failed" == true ]]; then status=1; fi' in workflow
+    assert 'stage="lock_release_vm"' in workflow and 'stage="lock_release_data"' in workflow
+    assert 'if [[ "$release_failed" == false ]]; then' in workflow
+    assert 'Retain the exact helper and staging directory if a lock could not be' in workflow
     assert 'mode="${1:-}"; token="${2:-}"; stage="${3:-}"' in lock
     assert 'test ! -e "$lock" && test ! -L "$lock"' in lock
     assert 'status\':\'FAILED\'' in lock and 'logger -p user.err' in lock

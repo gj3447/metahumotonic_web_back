@@ -159,6 +159,11 @@ and binds that backup ID into the VM100 restore drill. It releases only its own
 locks. A failed run writes root-only non-secret failure evidence on VM100 and
 also sends a syslog event; partial backups and mirrors are retained for review
 and never rotated by this workflow.
+If either owned lock cannot be released, the workflow exits failed with a
+`lock_release_vm` or `lock_release_data` evidence stage and retains the exact
+token-owned remote helper and `0700` staging directory. It never deletes an
+unowned or symlinked `/var/tmp` path; an operator can use the retained helper
+to inspect and recover that exact lock.
 
 `ops/systemd/mhb-platform-backup-workflow.service` and its weekly Sunday timer
 are templates only. They are **not installed by this repository change**. Before

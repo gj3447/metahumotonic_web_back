@@ -13,18 +13,42 @@ if [[ "$mode" == status ]]; then
   exit 0
 fi
 for command in ssh scp openssl python3; do command -v "$command" >/dev/null || { echo "FAIL $command is required" >&2; exit 1; }; done
-token="$(openssl rand -hex 16)"; helper="/var/tmp/mhb-platform-backup-workflow-${$}.sh"; stage="lock_data"; data_locked=false; vm_locked=false
+token="$(openssl rand -hex 16)"; remote_dir="/var/tmp/mhb-platform-backup-workflow-$token"; helper="$remote_dir/helper"; stage="stage_helpers"; data_locked=false; vm_locked=false
+cleanup_staging() {
+  local host="$1"
+  ssh -o BatchMode=yes "$host" "test ! -L '$remote_dir' -a ! -L '$helper'; test \"\$(stat -c '%u:%a' '$remote_dir')\" = \"\$(id -u):700\"; test \"\$(stat -c '%u:%a' '$helper')\" = \"\$(id -u):700\"; rm -f -- '$helper'; rmdir -- '$remote_dir'"
+}
 release() {
   status=$?; trap - EXIT
-  [[ "$vm_locked" == true ]] && ssh -o BatchMode=yes "$vm_host" "sudo -n bash '$helper' release '$token'" >/dev/null 2>&1 || true
-  [[ "$data_locked" == true ]] && ssh -o BatchMode=yes "$data_host" "sudo -n bash '$helper' release '$token'" >/dev/null 2>&1 || true
+  local release_failed=false
+  if [[ "$vm_locked" == true ]]; then
+    stage="lock_release_vm"
+    if ! ssh -o BatchMode=yes "$vm_host" "sudo -n bash '$helper' release '$token'" >/dev/null 2>&1; then release_failed=true; fi
+  fi
+  if [[ "$data_locked" == true ]]; then
+    stage="lock_release_data"
+    if ! ssh -o BatchMode=yes "$data_host" "sudo -n bash '$helper' release '$token'" >/dev/null 2>&1; then release_failed=true; fi
+  fi
+  if [[ "$release_failed" == true ]]; then status=1; fi
   if [[ "$status" != 0 ]]; then ssh -o BatchMode=yes "$vm_host" "sudo -n bash '$helper' failure '$token' '$stage'" >/dev/null 2>&1 || true; fi
-  ssh -o BatchMode=yes "$data_host" "rm -f -- '$helper'" >/dev/null 2>&1 || true
-  ssh -o BatchMode=yes "$vm_host" "rm -f -- '$helper'" >/dev/null 2>&1 || true
+  # Retain the exact helper and staging directory if a lock could not be
+  # released; an operator needs that helper to inspect/recover the owned lock.
+  if [[ "$release_failed" == false ]]; then
+    stage="staging_cleanup"
+    if ! cleanup_staging "$data_host" || ! cleanup_staging "$vm_host"; then
+      status=1
+      ssh -o BatchMode=yes "$vm_host" "sudo -n bash '$helper' failure '$token' '$stage'" >/dev/null 2>&1 || true
+    fi
+  fi
   exit "$status"
 }
 trap release EXIT
+ssh -o BatchMode=yes "$data_host" "umask 077; mkdir '$remote_dir'; test ! -L '$remote_dir'; test \"\$(stat -c '%u:%a' '$remote_dir')\" = \"\$(id -u):700\""
+ssh -o BatchMode=yes "$vm_host" "umask 077; mkdir '$remote_dir'; test ! -L '$remote_dir'; test \"\$(stat -c '%u:%a' '$remote_dir')\" = \"\$(id -u):700\""
 scp -q -o BatchMode=yes "$root/ops/remote/manage-platform-backup-workflow.sh" "$data_host:$helper"; scp -q -o BatchMode=yes "$root/ops/remote/manage-platform-backup-workflow.sh" "$vm_host:$helper"
+ssh -o BatchMode=yes "$data_host" "test ! -L '$helper'; chmod 700 '$helper'; test \"\$(stat -c '%u:%a' '$helper')\" = \"\$(id -u):700\""
+ssh -o BatchMode=yes "$vm_host" "test ! -L '$helper'; chmod 700 '$helper'; test \"\$(stat -c '%u:%a' '$helper')\" = \"\$(id -u):700\""
+stage="lock_data"
 ssh -o BatchMode=yes "$data_host" "sudo -n bash '$helper' acquire '$token'"; data_locked=true
 stage="lock_vm"; ssh -o BatchMode=yes "$vm_host" "sudo -n bash '$helper' acquire '$token'"; vm_locked=true
 stage="capture"; capture="$("$root/ops/backup-platform-post-import.sh" capture)"
