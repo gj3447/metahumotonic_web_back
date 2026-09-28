@@ -21,7 +21,8 @@ def test_shadow_canary_limits_env_and_forbids_public_or_write_paths() -> None:
     assert "MHB_WIKI_SESSION_SECRET" not in remote
     assert "MHB_ONTOLOGY_MCP_URL" not in remote and "MHB_HSPINE_MCP_URL" not in remote
     assert "publicIngressChanged\":false" in remote
-    assert "databaseWrites\":false" in remote
+    assert "databaseWrites\":\"not-proven-by-canary\"" in remote
+    assert "MHB_SHADOW_(NEO4J_URI|MONGO_URI|REDIS_URL" in remote and "archive ownership or digest mismatch" in remote
     assert "POST', headers" in remote  # verifies the process itself gets a blocked mutation probe
 
 
@@ -36,7 +37,7 @@ def test_shadow_mode_blocks_http_mutation_and_feedback_initialization() -> None:
 
 
 def test_shadow_controller_dry_run_has_no_remote_side_effect(tmp_path: Path) -> None:
-    commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    commit = subprocess.check_output(["git", "rev-parse", "origin/main"], cwd=ROOT, text=True).strip()
     result = subprocess.run(
         ["bash", str(ROOT / "ops" / "run-ts-shadow-canary-vm100.sh"), "--dry-run", commit],
         cwd=ROOT,

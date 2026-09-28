@@ -45,6 +45,7 @@ local_archive="$(mktemp)"
 cleanup_archive() { rm -f -- "$local_archive"; }
 trap 'cleanup_archive; cleanup_local' EXIT
 git archive --format=tar "$commit" >"$local_archive"
+archive_sha="$(sha256sum "$local_archive" | awk '{print $1}')"
 remote "install -d -m 700 '$remote_work'"
 scp -q -o BatchMode=yes "$local_archive" "$runtime_host:$archive"
-remote "sudo -n bash '$helper' run '$commit' '$nonce' '$archive' '$legacy_container' '$runtime_env_file'"
+remote "sudo -n chown root:root '$archive'; sudo -n chmod 600 '$archive'; sudo -n bash '$helper' run '$commit' '$nonce' '$archive' '$legacy_container' '$runtime_env_file' '$archive_sha'"
