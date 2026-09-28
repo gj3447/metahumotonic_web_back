@@ -1,0 +1,22 @@
+{
+  "schema": "metahumotonic/python-redis-timeout-rollout-evidence@1",
+  "observedAt": "2026-09-28T09:38:00Z",
+  "exactCommit": "0d6a8469e5929ade63a04f9f6bdc1c4874be94b5",
+  "sourceArchiveSha256": "0229ee1bc0684cb256ab8a93900dcac7a3e7f6157fcd70cc167ecdffea08fb2c",
+  "pythonImageId": "sha256:65a89d99dda26d60ac20f6ae8683c9f168ebbc1e21985b79aa88704b7c42e711",
+  "rolloutNonce": "9b0b906cb7af9b97cbf435806f037db8",
+  "deploymentReceiptStatus": "DONE",
+  "replicas": 2,
+  "replicaHealth": ["healthy", "healthy"],
+  "preflight": ["verified encrypted Wiki backup and restore drill", "receipt-owned disposable Wiki canary restored and removed", "HTTP, CLI and MCP release canary passed", "migration tree unchanged"],
+  "publicChecks": {
+    "siteRootHttpStatus": 200,
+    "wikiPagesHttpStatus": 200,
+    "wikiPagesContentType": "application/json",
+    "privateReadyHttpStatus": 404
+  },
+  "pendingDisposableCanaries": 0,
+  "operationLocksRemaining": false,
+  "ci": "https://github.com/gj3447/metahumotonic_web_back/actions/runs/36404165256",
+  "scope": "The public Python owner now carries bounded Redis limiter I/O and breaker reconnect protection. The TS/Effect gateway remains private; this rollout is not TS public cutover. A live blackholed-Redis latency drill remains unperformed."
+}

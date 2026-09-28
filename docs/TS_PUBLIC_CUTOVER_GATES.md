@@ -19,6 +19,12 @@ Python의 moderation·CLI·MCP 기준 경로도 같은 일회용 런타임에서
 세션·조회·쓰기의 Python/TS 503 응답과 재시작 후 복구를 확인했다. Redis 블랙홀의
 시간 제한, 전체 경로 응답 동등성, 운영 저장소 권한은 여전히 별도 검증 대상이다.
 
+Python rate limiter에는 Redis 연결·명령·종료의 3초 제한과 동시 요청의 재연결
+폭주 방지가 적용됐다. 모의 블랙홀·동시 요청 테스트와 CI를 통과한 코드는
+[Python 공개 릴리스](evidence/company-python-redis-timeout-rollout-2026-09-28.json)에서
+두 복제본에 배포되어 정상 조회를 확인했다. 실제 네트워크 블랙홀의 종단 지연은
+아직 측정하지 않았다.
+
 | 순서 | 전환 조건 | 완료 판정 |
 |---|---|---|
 | 1. Wiki·ontology 위임 | Python은 Wiki DB·세션·ontology의 private owner로 유지한다. TS의 고정 경로 위임에서 익명/세션 발급, 쿠키·CSRF 변경, agent bearer 변경, idempotency 재전송, ETag 충돌, moderation의 public 404·내부 접근, Redis 장애를 실제 두 런타임으로 비교한다. | GET뿐 아니라 상태 변경·장애 계약이 일치하고 Python 데이터 소유권이 유지된다. |
