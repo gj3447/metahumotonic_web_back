@@ -24,3 +24,9 @@ platform PG가 없으면 그 사실을 receipt에 구분해 남긴다.
 성공 후에도 container/image/workdir를 nonce ownership 검사 후 자동 삭제한다. cleanup이
 필요하면 `ops/run-ts-shadow-canary-vm100.sh --cleanup <commit> <nonce>`를 사용한다. 이
 canary가 통과해도 public traffic 전환이나 Python owner retirement를 뜻하지 않는다.
+
+실행 전 root-owned 0600 env에는 운영 DSN 대신 별도 read-only
+`MHB_SHADOW_NEO4J_URI`, `MHB_SHADOW_NEO4J_USER`, `MHB_SHADOW_NEO4J_PASSWORD`,
+`MHB_SHADOW_MONGO_URI`, `MHB_SHADOW_REDIS_URL`이 모두 있어야 한다. 선택적
+platform readback에는 `MHB_SHADOW_PLATFORM_DATABASE_URL`을 쓴다. 값은 첫 `=`
+뒤 전체를 보존하므로 signed URL·query string을 포함할 수 있다.

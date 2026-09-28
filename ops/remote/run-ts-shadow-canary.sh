@@ -47,9 +47,12 @@ command -v docker >/dev/null && docker info >/dev/null || fail 'Docker unavailab
 # session secret is passed.  This stream is consumed by Docker; no env copy is
 # written to disk and values never appear in receipt or stdout.
 selected_env() {
-  awk -F= '
-    BEGIN { split("NEO4J_URI MONGO_URI REDIS_URL PLATFORM_DATABASE_URL", keys, " "); for (i in keys) needed[keys[i]]=1 }
-    /^MHB_SHADOW_(NEO4J_URI|MONGO_URI|REDIS_URL|PLATFORM_DATABASE_URL)=/ { key=$1; sub(/^MHB_SHADOW_/, "", key); if ($2 != "") { print "MHB_" key "=" $2; seen[key]=1 } }
+  awk '
+    BEGIN { split("NEO4J_URI NEO4J_USER NEO4J_PASSWORD MONGO_URI REDIS_URL PLATFORM_DATABASE_URL", keys, " "); for (i in keys) needed[keys[i]]=1 }
+    /^MHB_SHADOW_(NEO4J_URI|NEO4J_USER|NEO4J_PASSWORD|MONGO_URI|REDIS_URL|PLATFORM_DATABASE_URL)=/ {
+      at=index($0,"="); key=substr($0,12,at-12); value=substr($0,at+1)
+      if (value != "") { print "MHB_" key "=" value; seen[key]=1 }
+    }
     END { for (key in needed) if (key != "PLATFORM_DATABASE_URL" && !seen[key]) exit 42 }
   ' "$env_file"
 }
