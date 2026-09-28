@@ -1,0 +1,29 @@
+{
+  "schema": "metahumotonic/platform-post-import-backup-evidence@1",
+  "observedAt": "2026-09-28T08:22:06Z",
+  "environment": "data-01 dedicated platform PostgreSQL",
+  "sourceMigrationCommit": "aaa533cf75b602d4d7a7382dc03e6ad0efb74ad3",
+  "sourceCounts": {
+    "schemaMigrations": 1,
+    "catalogVersions": 1,
+    "assets": 197,
+    "ingestReceipts": 1,
+    "observations": 109
+  },
+  "backup": {
+    "encryptedArtifactSha256": "aab9bb8efe4b10e88b86130bca591719457c1fd6bf94a88e0835764064f96457",
+    "plaintextDumpSha256": "5224675efcff9dda927ef6fd825d39664a9a476d3b74950813db427a112696d4",
+    "receiptStatus": "VERIFIED",
+    "receiptAndArtifactsRootOnly": true,
+    "encryptedAndKeyHashesMatchReceipt": true,
+    "plaintextFilesRemaining": 0
+  },
+  "restoreDrill": {
+    "status": "PASS",
+    "postgresImageId": "sha256:78481659c47e862334611ccdaf7c369c986b3046da9857112f3b309114a65fb4",
+    "isolatedNoNetworkContainerRemoved": true,
+    "restoredCountsEqualSource": true
+  },
+  "publicSiteHttpStatus": 200,
+  "scope": "One verified encrypted backup retained on data-01. Off-host copy, recurring schedule, retention policy, and public TS cutover are not established by this evidence."
+}

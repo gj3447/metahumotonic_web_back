@@ -108,6 +108,10 @@ temporary PostgreSQL container using the exact image ID of the running database
 container. The restore container has no network and is removed before success.
 The receipt becomes `VERIFIED` only after restored table counts equal the source
 counts. It does not contact or back up the Wiki database.
+2026-09-28에 실제 전용 DB의 암호화 백업과 동일 PostgreSQL 18 이미지에서의 격리 복원 검증을
+완료했다. [백업 증거](evidence/company-platform-post-import-backup-2026-09-28.json)에
+해시·수량·정리 상태를 기록했다. 이는 data-01 안의 한 번 백업이며, 외부 복제·주기 실행·
+보존 정책은 아직 구성하지 않았다.
 
 ```sh
 ops/backup-platform-post-import.sh status
