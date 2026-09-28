@@ -31,3 +31,24 @@ this gate.
 
 The first private read parity PASS and its exact image are recorded in
 [`docs/evidence/company-private-wiki-delegation-read-canary-2026-09-28.json`](evidence/company-private-wiki-delegation-read-canary-2026-09-28.json).
+
+## Disposable stateful delegation gate
+
+The Wiki release canary additionally builds the default `Dockerfile` from the
+same exact archive as the Python `Dockerfile.legacy` image. It starts that TS
+image only on the canary Docker network, without a published port, and gives it
+a newly written minimal environment: its only upstream is the disposable
+Python canary. Mongo, Neo4j, Redis, and platform PostgreSQL configuration are
+empty or disabled in the TS gateway. The Python canary environment also clears
+Mongo and Neo4j and rewrites Redis and Wiki PostgreSQL to its disposable
+instances.
+
+The gateway issues a browser session, checks CSRF rejection and acceptance,
+then issues an agent session and checks idempotent create replay, conflict, and
+stale-head CAS through the TS proxy. Direct reads from the disposable Python
+owner must observe the delegated writes. Container labels bind the gateway to
+the exact commit and canary nonce; cleanup removes it before the existing
+runtime helper removes the network, Redis, and work directory. The TS image is
+label-checked against the archive commit and removed after a successful gate.
+No production Wiki database, session, Redis, MongoDB, Neo4j, public ingress,
+or runtime container is used.
