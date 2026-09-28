@@ -1,0 +1,29 @@
+{
+  "schema": "metahumotonic/company-web-back-release-evidence@1",
+  "observedAt": "2026-09-28T07:47:02Z",
+  "productionRuntime": "python",
+  "commit": "85efb1f78965afcb614e21202aa6f626a155d833",
+  "imageId": "sha256:d88226e89459e742f8b84d951cfeef152f0564e946947f47a1b404944dcbab26",
+  "ci": "https://github.com/gj3447/metahumotonic_web_back/actions/runs/36392786949",
+  "rollout": {
+    "method": "ops/release-web-back-vm100.sh",
+    "status": "PASS",
+    "replicasHealthy": 2,
+    "wikiCanary": "PASS",
+    "publicReadback": "PASS",
+    "rollbackReceipt": "retained by the VM100 release controller"
+  },
+  "publicReadback": {
+    "websiteHttpStatus": 200,
+    "researchSummarySource": "live",
+    "wikiPageListHttpStatus": 200,
+    "mcpManifestSource": "live",
+    "mcpRegisteredServers": 0,
+    "mcpCredentialVault": "disabled",
+    "mcpVaultHttpStatus": 404,
+    "privateHealthAndModerationBoundary": "PASS"
+  },
+  "typescriptPublicCutover": false,
+  "platformPostgresActivated": false,
+  "credentialsRecorded": false
+}
