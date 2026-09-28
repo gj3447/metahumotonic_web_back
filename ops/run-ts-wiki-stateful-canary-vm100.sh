@@ -16,13 +16,13 @@ redis_image="$(tr -d '\n' <"$repo_root/ops/redis-canary-image.txt")"; [[ "$redis
 if [[ "$mode" == dry-run ]]; then printf '{"schema":"metahumotonic/wiki-stateful-delegation-controller@1","mode":"dry-run","commit":"%s","database":"%s","publicIngressChanged":false,"productionDatabaseMutated":false,"prerequisites":["exact images already built on VM100","data-01 verify-restored receipt/owner check"]}\n' "$commit" "$database"; exit 0; fi
 for command in ssh scp mktemp; do command -v "$command" >/dev/null || fail "$command is required"; done
 remote() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$runtime_host" "$@"; }; data_remote() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$data_host" "$@"; }
-user_name="$(id -un)"; group_name="$(id -gn)"; runtime_stage=""; data_stage=""
+runtime_stage=""; data_stage=""
 valid_stage() { [[ "$1" =~ ^/var/tmp/mhb-wiki-stateful\.[A-Za-z0-9]{6}$ ]]; }
-remove_stage() { local host="$1" stage="$2"; [[ -z "$stage" ]] && return 0; valid_stage "$stage" || return 1; ssh -o BatchMode=yes -o ConnectTimeout=10 "$host" "test ! -L '$stage' && test \"\$(stat -c '%U:%G:%a' '$stage')\" = '$user_name:$group_name:700' && rm -f -- '$stage'/'canary.sh' '$stage'/'runtime.sh' '$stage'/'data.sh' && rmdir -- '$stage'" >/dev/null 2>&1; }
+remove_stage() { local host="$1" stage="$2"; [[ -z "$stage" ]] && return 0; valid_stage "$stage" || return 1; ssh -o BatchMode=yes -o ConnectTimeout=10 "$host" "test ! -L '$stage' && test \"\$(stat -c '%u:%g:%a' '$stage')\" = \"\$(id -u):\$(id -g):700\" && rm -f -- '$stage'/'canary.sh' '$stage'/'runtime.sh' '$stage'/'data.sh' && rmdir -- '$stage'" >/dev/null 2>&1; }
 cleanup_local() { remove_stage "$runtime_host" "$runtime_stage" || true; remove_stage "$data_host" "$data_stage" || true; }; trap cleanup_local EXIT
 runtime_stage="$(remote 'umask 077; mktemp -d /var/tmp/mhb-wiki-stateful.XXXXXX')"; valid_stage "$runtime_stage" || fail 'unsafe runtime staging path'
 data_stage="$(data_remote 'umask 077; mktemp -d /var/tmp/mhb-wiki-stateful.XXXXXX')"; valid_stage "$data_stage" || fail 'unsafe data staging path'
-for pair in "$runtime_host:$runtime_stage" "$data_host:$data_stage"; do host="${pair%%:*}"; stage="${pair#*:}"; ssh -o BatchMode=yes "$host" "test ! -L '$stage' && test \"\$(stat -c '%U:%G:%a' '$stage')\" = '$user_name:$group_name:700'"; done
+for pair in "$runtime_host:$runtime_stage" "$data_host:$data_stage"; do host="${pair%%:*}"; stage="${pair#*:}"; ssh -o BatchMode=yes "$host" "test ! -L '$stage' && test \"\$(stat -c '%u:%g:%a' '$stage')\" = \"\$(id -u):\$(id -g):700\""; done
 canary="$runtime_stage/canary.sh"; runtime="$runtime_stage/runtime.sh"; data_helper="$data_stage/data.sh"
 scp -q -o BatchMode=yes "$repo_root/ops/remote/run-ts-wiki-stateful-canary.sh" "$runtime_host:$canary"
 scp -q -o BatchMode=yes "$repo_root/ops/remote/manage-wiki-canary-runtime.sh" "$runtime_host:$runtime"

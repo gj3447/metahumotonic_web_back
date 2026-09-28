@@ -39,6 +39,7 @@ def test_standalone_controller_never_calls_public_release_or_builds_images():
     assert "bash '$runtime' cleanup" in source
     assert "mktemp -d /var/tmp/mhb-wiki-stateful.XXXXXX" in source
     assert 'valid_stage() { [[ "$1" =~ ^/var/tmp/mhb-wiki-stateful\\.[A-Za-z0-9]{6}$ ]]; }' in source
+    assert "stat -c '%u:%g:%a'" in source and "\\$(id -u):\\$(id -g):700" in source
     assert "verify-restored" in source
     assert "releases/$commit" in source
     assert "cleanup_gateway" in source
