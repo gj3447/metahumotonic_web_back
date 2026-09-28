@@ -34,11 +34,10 @@ The first private read parity PASS and its exact image are recorded in
 
 ## Disposable stateful delegation gate
 
-The Wiki release canary additionally builds the default `Dockerfile` from the
-same exact archive as the Python `Dockerfile.legacy` image. It starts that TS
-image only on the canary Docker network, without a published port, and gives it
-a newly written minimal environment: its only upstream is the disposable
-Python canary. Mongo, Neo4j, Redis, and platform PostgreSQL configuration are
+The dedicated stateful helper consumes prebuilt exact-commit `Dockerfile` and
+Python `Dockerfile.legacy` images. It starts the TS image only on the canary
+Docker network, without a published port, and gives it a newly written minimal
+environment: its only upstream is the disposable Python canary. Mongo, Neo4j, Redis, and platform PostgreSQL configuration are
 empty or disabled in the TS gateway. The Python canary environment also clears
 Mongo and Neo4j and rewrites Redis and Wiki PostgreSQL to its disposable
 instances.
@@ -47,9 +46,10 @@ The gateway issues a browser session, checks CSRF rejection and acceptance,
 then issues an agent session and checks idempotent create replay, conflict, and
 stale-head CAS through the TS proxy. Direct reads from the disposable Python
 owner must observe the delegated writes. Container labels bind the gateway to
-the exact commit and canary nonce; cleanup removes it before the existing
-runtime helper removes the network, Redis, and work directory. The TS image is
-label-checked against the archive commit and removed after a successful gate.
+the exact commit and canary nonce; cleanup removes only that gateway container
+before the existing runtime helper removes the network, Redis, and work directory.
+The prebuilt TS image is label-checked and deliberately retained because the
+standalone controller did not create or own it.
 No production Wiki database, session, Redis, MongoDB, Neo4j, public ingress,
 or runtime container is used.
 
@@ -80,3 +80,21 @@ MHB_WIKI_STATEFUL_GATEWAY_IMAGE='metahumotonic-web-back-ts:<version>-x86' \
 MHB_WIKI_STATEFUL_DATABASE='metahumotonic_wiki_canary_<commit12>_<nonce12>' \
   ops/run-ts-wiki-stateful-canary-vm100.sh dry-run
 ```
+
+Before `run`, the standalone controller calls the data-01 helper's read-only
+`verify-restored` mode. It requires the exact canary receipt to be `RESTORED`
+and verifies the actual database owner and comment marker. `cleanup` does not
+require that state: it first removes only a gateway container whose commit and
+nonce labels match, then invokes the existing runtime cleanup helper so an
+interrupted run remains recoverable. Controller helper staging uses unique
+user-owned `mktemp -d` directories and removes only its known regular helper
+files before `rmdir`; it never recursively removes a privileged shared path.
+
+Before `run`, the standalone controller calls the data-01 helper's read-only
+`verify-restored` mode. It requires the exact canary receipt to be `RESTORED`
+and verifies the actual database owner and comment marker. `cleanup` does not
+require that state: it first removes only a gateway container whose commit and
+nonce labels match, then invokes the existing runtime cleanup helper so an
+interrupted run remains recoverable. Controller helper staging uses unique
+user-owned `mktemp -d` directories and removes only its known regular helper
+files before `rmdir`; it never recursively removes a privileged shared path.

@@ -47,7 +47,7 @@ fi
 container="${2:-postgresql}"; database="${3:-}"; role="${4:-mhb_wiki}"
 encrypted_dump="${5:-}"; key_file="${6:-}"; commit="${7:-}"; nonce="${8:-}"
 expected_key_sha="${9:-}"; receipt_root="${10:-/var/lib/metahumotonic-wiki/canaries}"
-[[ "$mode" == create || "$mode" == drop || "$mode" == status ]]
+[[ "$mode" == create || "$mode" == drop || "$mode" == status || "$mode" == verify-restored ]]
 [[ "$container" =~ ^[A-Za-z0-9._-]+$ ]]; [[ "$role" =~ ^[a-z][a-z0-9_]{2,30}$ ]]
 [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; [[ "$nonce" =~ ^[0-9a-f]{32}$ ]]
 [[ "$database" == "metahumotonic_wiki_canary_${commit:0:12}_${nonce:0:12}" ]]
@@ -90,6 +90,12 @@ drop_owned() {
 }
 
 if [[ "$mode" == status ]]; then validate_receipt; cat "$receipt"; exit 0; fi
+if [[ "$mode" == verify-restored ]]; then
+  validate_receipt
+  [[ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["status"])' "$receipt")" == RESTORED ]] || { printf 'FAIL disposable DB receipt is not RESTORED\n' >&2; exit 1; }
+  is_owned || { printf 'FAIL disposable DB owner/comment mismatch\n' >&2; exit 1; }
+  cat "$receipt"; exit 0
+fi
 if [[ "$mode" == drop ]]; then drop_owned; printf 'PASS exact owned canary removed: %s\n' "$database"; exit 0; fi
 [[ "$encrypted_dump" =~ ^/[A-Za-z0-9._/-]+$ ]]; [[ "$key_file" =~ ^/[A-Za-z0-9._/-]+$ ]]
 [[ "$expected_key_sha" =~ ^[0-9a-f]{64}$ ]]

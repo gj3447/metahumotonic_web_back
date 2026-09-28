@@ -639,6 +639,10 @@ def test_canary_db_cleanup_is_exact_receipt_and_owner_bound():
     assert "pg_get_userbyid" in helper and "shobj_description" in helper
     assert "refusing drop" in helper
     assert "atomic_receipt DROPPED" in helper
+    assert "verify-restored" in helper
+    assert "disposable DB owner/comment mismatch" in helper
+    assert "verify-restored" in helper
+    assert "disposable DB owner/comment mismatch" in helper
     assert "DROP DATABASE" not in canary
     assert '127.0.0.1::8000' in canary
     assert 'stat -c \'%U:%G:%a\' "$work_dir"' in canary

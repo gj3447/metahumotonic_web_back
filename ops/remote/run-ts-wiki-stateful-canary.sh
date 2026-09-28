@@ -63,10 +63,6 @@ cleanup_gateway() {
     test "$(docker inspect "$gateway_name" --format '{{index .Config.Labels "com.metahumotonic.wiki-canary.nonce"}}')" = "$rollout_nonce"
     docker rm -f "$gateway_name" >/dev/null
   fi
-  if docker image inspect "$gateway_image" >/dev/null 2>&1; then
-    test "$(docker image inspect "$gateway_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$commit"
-    docker image rm "$gateway_image" >/dev/null
-  fi
 }
 
 cleanup() {

@@ -19,6 +19,9 @@ def test_stateful_delegation_is_exact_image_bound_and_disposable_only():
     ]:
         assert expected in source
     assert '"production_database_mutated":False' in source
+    assert 'docker image rm "$gateway_image"' not in source
+    assert "gateway_image_id" in source
+    assert "PASS existing commit/image-bound synthetic canary receipt" in source
 
 def test_standalone_controller_never_calls_public_release_or_builds_images():
     source = CONTROLLER.read_text()
@@ -31,4 +34,14 @@ def test_standalone_controller_never_calls_public_release_or_builds_images():
     assert "private-wiki-stateful-receipts" in source
     assert "metahumotonic_wiki_canary_${commit:0:12}_${nonce:0:12}" in source
     assert "bash '$runtime' cleanup" in source
+    assert "mktemp -d /var/tmp/mhb-wiki-stateful.XXXXXX" in source
+    assert "verify-restored" in source
+    assert "cleanup_gateway" in source
+    assert "sudo -n docker rm -f '$gateway_name'" in source
+    assert "sudo -n rm -rf" not in source
+    assert "mktemp -d /var/tmp/mhb-wiki-stateful.XXXXXX" in source
+    assert "verify-restored" in source
+    assert "cleanup_gateway" in source
+    assert "sudo -n docker rm -f '$gateway_name'" in source
+    assert "sudo -n rm -rf" not in source
     assert "Dockerfile.legacy" not in RELEASE.read_text().split('run-wiki-release-canary.sh')[0]
