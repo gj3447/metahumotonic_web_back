@@ -16,21 +16,19 @@ for command in ssh scp openssl python3; do command -v "$command" >/dev/null || {
 token="$(openssl rand -hex 16)"; remote_dir="/var/tmp/mhb-platform-backup-workflow-$token"; helper="$remote_dir/helper"; stage="stage_helpers"; data_locked=false; vm_locked=false
 cleanup_staging() {
   local host="$1"
-  ssh -o BatchMode=yes "$host" "test ! -L '$remote_dir' -a ! -L '$helper'; test \"\$(stat -c '%u:%a' '$remote_dir')\" = \"\$(id -u):700\"; test \"\$(stat -c '%u:%a' '$helper')\" = \"\$(id -u):700\"; rm -f -- '$helper'; rmdir -- '$remote_dir'"
+  ssh -o BatchMode=yes "$host" "set -e; test ! -L '$remote_dir' -a ! -L '$helper'; test \"\$(stat -c '%u:%a' '$remote_dir')\" = \"\$(id -u):700\"; test \"\$(stat -c '%u:%a' '$helper')\" = \"\$(id -u):700\"; rm -f -- '$helper'; rmdir -- '$remote_dir'"
 }
 release() {
-  status=$?; trap - EXIT
+  status=$?; failure_stage="$stage"; trap - EXIT
   local release_failed=false
   if [[ "$vm_locked" == true ]]; then
-    stage="lock_release_vm"
-    if ! ssh -o BatchMode=yes "$vm_host" "sudo -n bash '$helper' release '$token'" >/dev/null 2>&1; then release_failed=true; fi
+    if ! ssh -o BatchMode=yes "$vm_host" "sudo -n bash '$helper' release '$token'" >/dev/null 2>&1; then release_failed=true; failure_stage="lock_release_vm"; fi
   fi
   if [[ "$data_locked" == true ]]; then
-    stage="lock_release_data"
-    if ! ssh -o BatchMode=yes "$data_host" "sudo -n bash '$helper' release '$token'" >/dev/null 2>&1; then release_failed=true; fi
+    if ! ssh -o BatchMode=yes "$data_host" "sudo -n bash '$helper' release '$token'" >/dev/null 2>&1; then release_failed=true; failure_stage="lock_release_data"; fi
   fi
   if [[ "$release_failed" == true ]]; then status=1; fi
-  if [[ "$status" != 0 ]]; then ssh -o BatchMode=yes "$vm_host" "sudo -n bash '$helper' failure '$token' '$stage'" >/dev/null 2>&1 || true; fi
+  if [[ "$status" != 0 ]]; then ssh -o BatchMode=yes "$vm_host" "sudo -n bash '$helper' failure '$token' '$failure_stage'" >/dev/null 2>&1 || true; fi
   # Retain the exact helper and staging directory if a lock could not be
   # released; an operator needs that helper to inspect/recover the owned lock.
   if [[ "$release_failed" == false ]]; then
@@ -43,14 +41,14 @@ release() {
   exit "$status"
 }
 trap release EXIT
-ssh -o BatchMode=yes "$data_host" "umask 077; mkdir '$remote_dir'; test ! -L '$remote_dir'; test \"\$(stat -c '%u:%a' '$remote_dir')\" = \"\$(id -u):700\""
-ssh -o BatchMode=yes "$vm_host" "umask 077; mkdir '$remote_dir'; test ! -L '$remote_dir'; test \"\$(stat -c '%u:%a' '$remote_dir')\" = \"\$(id -u):700\""
+ssh -o BatchMode=yes "$data_host" "set -e; umask 077; mkdir '$remote_dir'; test ! -L '$remote_dir'; test \"\$(stat -c '%u:%a' '$remote_dir')\" = \"\$(id -u):700\""
+ssh -o BatchMode=yes "$vm_host" "set -e; umask 077; mkdir '$remote_dir'; test ! -L '$remote_dir'; test \"\$(stat -c '%u:%a' '$remote_dir')\" = \"\$(id -u):700\""
 scp -q -o BatchMode=yes "$root/ops/remote/manage-platform-backup-workflow.sh" "$data_host:$helper"; scp -q -o BatchMode=yes "$root/ops/remote/manage-platform-backup-workflow.sh" "$vm_host:$helper"
-ssh -o BatchMode=yes "$data_host" "test ! -L '$helper'; chmod 700 '$helper'; test \"\$(stat -c '%u:%a' '$helper')\" = \"\$(id -u):700\""
-ssh -o BatchMode=yes "$vm_host" "test ! -L '$helper'; chmod 700 '$helper'; test \"\$(stat -c '%u:%a' '$helper')\" = \"\$(id -u):700\""
+ssh -o BatchMode=yes "$data_host" "set -e; test ! -L '$helper'; chmod 700 '$helper'; test \"\$(stat -c '%u:%a' '$helper')\" = \"\$(id -u):700\""
+ssh -o BatchMode=yes "$vm_host" "set -e; test ! -L '$helper'; chmod 700 '$helper'; test \"\$(stat -c '%u:%a' '$helper')\" = \"\$(id -u):700\""
 stage="lock_data"
-ssh -o BatchMode=yes "$data_host" "sudo -n bash '$helper' acquire '$token'"; data_locked=true
-stage="lock_vm"; ssh -o BatchMode=yes "$vm_host" "sudo -n bash '$helper' acquire '$token'"; vm_locked=true
+data_locked=true; ssh -o BatchMode=yes "$data_host" "sudo -n bash '$helper' acquire '$token'"
+stage="lock_vm"; vm_locked=true; ssh -o BatchMode=yes "$vm_host" "sudo -n bash '$helper' acquire '$token'"
 stage="capture"; capture="$("$root/ops/backup-platform-post-import.sh" capture)"
 receipt="$(printf '%s' "$capture" | python3 -c 'import json,sys; b=json.load(sys.stdin); p=b.get("receiptPath",""); assert p.startswith("/var/lib/metahumotonic-platform/post-import-backups/") and p.endswith("/receipt.json"); print(p)')"
 stage="mirror"; MHB_PLATFORM_BACKUP_RECEIPT="$receipt" "$root/ops/mirror-platform-post-import-backup.sh" mirror >/dev/null

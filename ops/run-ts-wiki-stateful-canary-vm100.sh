@@ -35,5 +35,6 @@ receipt="/var/lib/metahumotonic-web-back/private-wiki-stateful-receipts/${commit
 if [[ "$mode" == cleanup ]]; then cleanup_gateway; remote "sudo -n bash '$runtime' cleanup '$commit' '$nonce'"; exit 0; fi
 # This is read-only: the helper validates receipt status plus DB owner/comment before runtime starts.
 data_remote "sudo -n bash '$data_helper' verify-restored postgresql '$database' mhb_wiki unused unused '$commit' '$nonce' unused" >/dev/null
+remote "test \"\$(sudo -n stat -c '%U:%G:%a' '/var/lib/metahumotonic-web-back/releases/$commit')\" = 'root:root:700'"
 remote "sudo -n install -d -m 700 -o root -g root /var/lib/metahumotonic-web-back/private-wiki-stateful-receipts"
 remote "sudo -n bash '$canary' '$python_image' '$commit' '$env_file' '$database' '$receipt' '$nonce' '$redis_image' '$runtime' '$gateway_image'"

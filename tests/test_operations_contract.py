@@ -641,8 +641,6 @@ def test_canary_db_cleanup_is_exact_receipt_and_owner_bound():
     assert "atomic_receipt DROPPED" in helper
     assert "verify-restored" in helper
     assert "disposable DB owner/comment mismatch" in helper
-    assert "verify-restored" in helper
-    assert "disposable DB owner/comment mismatch" in helper
     assert "DROP DATABASE" not in canary
     assert '127.0.0.1::8000' in canary
     assert 'stat -c \'%U:%G:%a\' "$work_dir"' in canary
@@ -1393,4 +1391,3 @@ def test_operations_doc_states_that_rollback_expires():
     doc = (ROOT / "docs" / "OPERATIONS_VM100.md").read_text(encoding="utf-8")
     assert "--rollback-to" in doc
     assert "expires" in doc.lower()
-

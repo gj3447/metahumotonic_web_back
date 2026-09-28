@@ -50,7 +50,7 @@ network="mhb-wiki-canary-$short"
 redis_name="mhb-wiki-canary-redis-$short"
 app_name="mhb-wiki-canary-app-$short"
 gateway_name="mhb-wiki-canary-gateway-$short"
-work_dir="$(dirname "$receipt")/.canary-$short"
+work_dir="/var/lib/metahumotonic-web-back/releases/$commit/.canary-$short"
 canary_env="$work_dir/canary.env"
 gateway_env="$work_dir/gateway.env"
 created_network=false
@@ -84,30 +84,34 @@ test "$(stat -c '%U:%G:%a' "$work_dir")" = root:root:700
 test "$(stat -c '%U:%G:%a' "$(dirname "$receipt")")" = root:root:700
 
 python3 - "$env_file" "$canary_env" "$database" <<'PY'
-import os, pathlib, re, sys
+import os, pathlib, re, secrets, sys
 source=pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
 target=pathlib.Path(sys.argv[2]); database=sys.argv[3]
-out=[]
-for line in source:
-    if line.startswith("MHB_WIKI_DATABASE_URL="):
-        line=re.sub(r"/metahumotonic_wiki(?=\?|$)", f"/{database}", line)
-    elif line.startswith("MHB_REDIS_URL="):
-        line="MHB_REDIS_URL=redis://wiki-canary-redis:6379/0"
-    elif line.startswith("MHB_MONGO_URI="):
-        line="MHB_MONGO_URI="
-    elif line.startswith("MHB_NEO4J_LIVE="):
-        line="MHB_NEO4J_LIVE=false"
-    elif line.startswith("MHB_NEO4J_URI=") or line.startswith("MHB_NEO4J_PASSWORD=") or line.startswith("MHB_PLATFORM_DATABASE_URL="):
-        line=line.split("=",1)[0]+"="
-    elif line.startswith("MHB_WIKI_SESSION_COOKIE_SECURE="):
-        line="MHB_WIKI_SESSION_COOKIE_SECURE=false"
-    out.append(line)
-target.write_text("\n".join(out)+"\n", encoding="utf-8")
-os.chmod(target, 0o600)
+urls=[line.split('=',1)[1] for line in source if line.startswith('MHB_WIKI_DATABASE_URL=')]
+assert len(urls)==1
+url,count=re.subn(r'/metahumotonic_wiki(?=\?|$)',f'/{database}',urls[0])
+assert count==1
+out=[
+    f'MHB_WIKI_DATABASE_URL={url}',
+    'MHB_REDIS_URL=redis://wiki-canary-redis:6379/0',
+    'MHB_WIKI_PUBLIC_WRITES=true',
+    'MHB_WIKI_REQUIRE_REDIS=true',
+    f'MHB_WIKI_SESSION_SECRET={secrets.token_hex(32)}',
+    f'MHB_WIKI_MODERATION_ADMIN_KEY={secrets.token_hex(32)}',
+    'MHB_WIKI_SESSION_COOKIE_SECURE=false',
+    'MHB_CORS_ORIGINS=https://metahumotonic.com',
+    'MHB_NEO4J_LIVE=false',
+    'MHB_MONGO_URI=',
+    'MHB_ONTOLOGY_ENABLED=false',
+    'MHB_LOG_JSON=false',
+]
+target.write_text('\n'.join(out)+'\n',encoding='utf-8')
+os.chown(target,0,0); os.chmod(target,0o600)
 PY
 test "$(stat -c '%U:%G:%a' "$canary_env")" = root:root:600
 grep -q "^MHB_WIKI_DATABASE_URL=.*@192.168.0.25:5432/${database}?sslmode=require$" "$canary_env"
 grep -q '^MHB_REDIS_URL=redis://wiki-canary-redis:6379/0$' "$canary_env"
+grep -q '^MHB_WIKI_PUBLIC_WRITES=true$' "$canary_env"
 grep -q '^MHB_MONGO_URI=$' "$canary_env"
 grep -q '^MHB_NEO4J_LIVE=false$' "$canary_env"
 cat >"$gateway_env" <<ENV
