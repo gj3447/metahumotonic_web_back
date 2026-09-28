@@ -203,3 +203,26 @@ def test_verified_platform_backup_offhost_mirror_is_secret_free_and_no_overwrite
     assert 'source-stream' in controller and 'destination-receive' in controller
     assert '| ssh -o BatchMode=yes "$vm_host"' in controller
     assert 'MHB_PLATFORM_BACKUP_RECEIPT' in controller
+
+
+def test_offhost_platform_restore_drill_is_isolated_and_receipt_bound() -> None:
+    helper = (ROOT / "ops/remote/restore-platform-offhost-mirror.sh").read_text()
+    controller = (ROOT / "ops/restore-platform-offhost-mirror.sh").read_text()
+    assert 'mirror_root="/var/lib/metahumotonic-platform/offhost-backups"' in helper
+    assert 'destination_root' not in helper and 'metahumotonic_wiki' not in helper
+    assert 'mode="${1:-status}"' in helper and '^(status|drill)$' in helper
+    assert "mirror.get('status')=='VERIFIED'" in helper
+    assert "source.get('status')=='VERIFIED'" in helper and "source.get('restoreDrill')=='PASS'" in helper
+    assert 'openssl enc -d -aes-256-cbc -pbkdf2' in helper and '-pass file:"$key_file"' in helper
+    assert 'chown root:root "$plain"; chmod 600 "$plain"' in helper
+    assert 'rm -f -- "$plain"' in helper
+    assert '--network none --read-only' in helper
+    assert '--tmpfs /var/lib/postgresql:rw,size=768m' in helper
+    assert 'com.metahumotonic.platform-offhost-restore-nonce=$nonce' in helper
+    assert 'restore container nonce ownership mismatch' in helper
+    assert 'pg_restore -U postgres --no-owner --no-privileges -d postgres' in helper
+    assert '[[ "$restored_counts" == "$source_counts" ]]' in helper
+    assert helper.index("remove_restore_container || fail 'isolated restore container cleanup failed'") < helper.index('python3 - "$drill_receipt"')
+    assert '"status":"VERIFIED"' in helper and '"restoreDrill":"PASS"' in helper
+    assert 'mode="${1:-status}"' in controller and '^(status|drill)$' in controller
+    assert 'MHB_PLATFORM_OFFHOST_BACKUP_ID' in controller and 'sudo -n bash' in controller

@@ -133,6 +133,18 @@ own `VERIFIED` receipt, and stores only root-owned `0700` directories and
 The first verified production mirror is recorded in
 [`docs/evidence/company-platform-offhost-mirror-2026-09-28.json`](evidence/company-platform-offhost-mirror-2026-09-28.json).
 
+### VM100 off-host restore drill
+
+`ops/restore-platform-offhost-mirror.sh` takes an already mirrored backup ID in
+`MHB_PLATFORM_OFFHOST_BACKUP_ID`. Its default `status` only revalidates the
+root-only mirror receipt, source receipt, hashes, and expected row counts.
+Explicit `drill` decrypts to a temporary `0600` file, verifies its digest, then
+restores into a nonce-labelled disposable PostgreSQL container with no network.
+It uses the exact image ID recorded by the verified source receipt, compares all
+five platform table counts, removes the plaintext and owned container before
+writing a root-only drill receipt. The image must already be staged on VM100;
+the drill never pulls an image, connects to data-01, or touches Wiki data.
+
 기본값은 기존 Git snapshot 모드다. `MHB_PLATFORM_DATABASE_URL`을 설정하면
 PostgreSQL이 필수 의존성이 된다. `MHB_PLATFORM_DATABASE_REQUIRED=true`는 URL을
 빠뜨린 경우에도 readiness와 내부 자산 조회를 실패시킨다. 운영 설정에 URL이 있는데
