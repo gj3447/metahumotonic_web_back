@@ -236,6 +236,7 @@ async def test_manifest_carries_jsonld_and_enriched_servers(client):
     # connection args reference <MONGO_PASSWORD> → vault auth with requires
     assert mongo["auth"] == {"type": "operator-managed"}
     assert "connection" not in mongo
+    assert mongo["capabilities_source"] == "category-inferred"
     memory = by_name["memory"]
     assert memory["auth"] == {"type": "none"}
     assert memory["capabilities"] == ["tools"]  # utility default
@@ -246,6 +247,20 @@ async def test_servers_endpoint_is_enriched_too(client):
     by_name = {s["name"]: s for s in resp.json()["servers"]}
     assert by_name["mongodb"]["auth"]["type"] == "operator-managed"
     assert by_name["memory"]["capabilities"] == ["tools"]
+
+
+def test_public_server_projection_excludes_unknown_and_sensitive_fields():
+    server = {
+        "name": "fixture", "category": "document", "description": "safe summary",
+        "connection": {"url": "http://internal.example"}, "token": "secret",
+        "backend": "private-host", "notes": "private topology",
+        "auth": {"type": "bearer", "token": "secret"}, "unknown_sentinel": "must-not-leak",
+    }
+    public = mcp_registry.enrich_server(server)
+    assert public["auth"] == {"type": "operator-managed"}
+    assert public["capabilities_source"] == "category-inferred"
+    for forbidden in ("connection", "token", "backend", "notes", "unknown_sentinel"):
+        assert forbidden not in public
 
 
 async def test_well_known_redirects_to_manifest(client):

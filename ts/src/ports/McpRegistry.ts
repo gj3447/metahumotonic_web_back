@@ -16,14 +16,18 @@ const categoryCapabilities: Readonly<Record<string, ReadonlyArray<string>>> = {
   document: ["document.crud", "query", "aggregation", "index.admin"],
   storage: ["bucket.admin", "object.read", "object.write", "presigned-url"], utility: ["tools"]
 }
+const publicServerFields = ["name", "description", "category", "transport", "status", "verified_at", "last_probe_at"] as const
 export const enrichServer = (server: Document) => {
   const connection = server["connection"] as Record<string, unknown> | undefined
-  const { connection: _connection, ...publicServer } = server
+  const publicServer = Object.fromEntries(publicServerFields.flatMap((field) => server[field] === undefined ? [] : [[field, server[field]]]))
   const hasOperatorCredential = /<[A-Z][A-Z0-9_]*>/.test(JSON.stringify(connection ?? {}))
+  const explicitAuth = server["auth"] as Record<string, unknown> | undefined
+  const explicitCapabilities = server["capabilities"]
   return {
     "@type": ["schema:SoftwareApplication", "mhb:McpServer"], "@id": `${SITE}/api/mcp/servers/${server["name"] ?? ""}`, ...publicServer,
-    capabilities: Array.isArray(server["capabilities"]) && server["capabilities"].length ? server["capabilities"] : categoryCapabilities[String(server["category"])] ?? ["tools"],
-    auth: server["auth"] && Object.keys(server["auth"]).length ? server["auth"] : hasOperatorCredential
+    capabilities: Array.isArray(explicitCapabilities) && explicitCapabilities.length ? explicitCapabilities : categoryCapabilities[String(server["category"])] ?? ["tools"],
+    capabilities_source: Array.isArray(explicitCapabilities) && explicitCapabilities.length ? "declared" : "category-inferred",
+    auth: explicitAuth && explicitAuth["type"] === "none" ? { type: "none" } : explicitAuth || hasOperatorCredential
       ? { type: "operator-managed" }
       : { type: "none" }
   }

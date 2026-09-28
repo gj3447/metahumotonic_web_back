@@ -38,6 +38,10 @@ CATEGORY_CAPABILITIES: dict[str, list[str]] = {
     "utility": ["tools"],
 }
 DEFAULT_CAPABILITIES = ["tools"]
+PUBLIC_SERVER_FIELDS = (
+    "name", "description", "category", "transport", "status",
+    "verified_at", "last_probe_at",
+)
 
 # Public registry responses never contain credential material or an unlock recipe.
 VAULT_SPEC: dict[str, Any] = {"status": "disabled", "access": "operator-cli-only"}
@@ -77,8 +81,10 @@ def auth_for(server: dict[str, Any]) -> dict[str, Any]:
       credentials;
     - otherwise the server needs no credentials."""
     explicit = server.get("auth")
+    if isinstance(explicit, dict) and explicit.get("type") == "none":
+        return {"type": "none"}
     if isinstance(explicit, dict) and explicit:
-        return explicit
+        return {"type": "operator-managed"}
     requires = _placeholder_names(server.get("connection") or {})
     if requires:
         return {"type": "operator-managed"}
@@ -88,12 +94,14 @@ def auth_for(server: dict[str, Any]) -> dict[str, Any]:
 def enrich_server(server: dict[str, Any]) -> dict[str, Any]:
     """One manifest entry + JSON-LD typing + capabilities/auth."""
     name = server.get("name", "")
-    public = {key: value for key, value in server.items() if key != "connection"}
+    public = {key: server[key] for key in PUBLIC_SERVER_FIELDS if key in server}
+    explicit_capabilities = server.get("capabilities")
     return {
         "@type": SERVER_TYPES,
         "@id": f"{SITE}/api/mcp/servers/{name}",
         **public,
         "capabilities": capabilities_for(server),
+        "capabilities_source": "declared" if isinstance(explicit_capabilities, list) and explicit_capabilities else "category-inferred",
         "auth": auth_for(server),
     }
 
