@@ -13,7 +13,7 @@ import pytest
 
 from app import mcp_vault
 
-PASSWORD = "312447"
+PASSWORD = "test-registry-passphrase"
 PAYLOAD = {
     "redis": {"urls": ["redis://default:redispassword@127.0.0.1:16379/0"]},
     "mongodb": {"urls": ["mongodb://mongo:mongopassword@127.0.0.1:37017/"]},

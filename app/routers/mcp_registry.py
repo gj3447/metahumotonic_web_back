@@ -13,12 +13,12 @@ Endpoints:
   + usage examples + agent docs); static, needs no Mongo.
 - ``GET /api/mcp/servers``         — all entries (name-sorted).
 - ``GET /api/mcp/servers/{name}``  — one entry.
-- ``GET /api/mcp/manifest``        — canonical manifest with JSON-LD,
-  per-server capabilities/auth, and the credential-vault spec.
+- ``GET /api/mcp/manifest``        — canonical manifest with JSON-LD and
+  per-server capabilities/auth.
 - ``GET /api/mcp/health``          — latest verify result per server.
 - ``GET /api/mcp/status``          — health + aggregate counts + stale flags;
   ``?format=text`` returns a one-line-per-server plain-text summary for agents.
-- ``GET /api/mcp/vault``           — the credential vault (ciphertext only).
+- ``GET /api/mcp/vault``           — retained compatibility route; always 404.
 """
 
 from __future__ import annotations
@@ -33,7 +33,6 @@ from ..cache import TTLCache
 from ..config import settings
 from ..mcp_manifest import SCHEMA, SITE, VAULT_SPEC, build_manifest, enrich_server
 from ..mcp_store import McpRegistryUnavailable, registry
-from ..mcp_vault import public_view
 
 router = APIRouter(prefix="/api/mcp")
 
@@ -104,12 +103,6 @@ def _discovery() -> dict[str, Any]:
                 "example": f"curl -s '{SITE}/api/mcp/status?format=text'",
             },
             {
-                "path": "/api/mcp/vault",
-                "method": "GET",
-                "description": "Credential vault — PBKDF2→Fernet ciphertext only, never plaintext. See credential_vault for the unlock recipe.",
-                "example": f"curl -s {SITE}/api/mcp/vault",
-            },
-            {
                 "path": "/.well-known/mcp-servers.json",
                 "method": "GET",
                 "description": "Well-known discovery alias — 302 redirect to /api/mcp/manifest.",
@@ -127,7 +120,7 @@ def _discovery() -> dict[str, Any]:
             "server": {
                 "fields": [
                     "name", "description", "category", "transport", "status",
-                    "backend", "connection", "capabilities", "auth",
+                    "backend", "capabilities", "auth",
                     "verified_at", "last_probe_at",
                 ],
                 "status": [
@@ -136,7 +129,6 @@ def _discovery() -> dict[str, Any]:
                     "unused (defined, not in active use)",
                     "unreachable (last probe failed)",
                 ],
-                "connection.recipe": ["local-npx", "local-command", "local-tunnel", "ssh-stdio", "http"],
             },
         },
         "agent_docs": {
@@ -374,34 +366,12 @@ async def get_status(request: Request) -> Any:
 
 
 # --------------------------------------------------------------------------- #
-# Credential vault — ciphertext only (H-04)                                   #
+# Retired credential vault compatibility route                                #
 # --------------------------------------------------------------------------- #
 
 
 @router.get("/vault")
 async def get_vault() -> dict[str, Any]:
-    """The credential vault: PBKDF2-SHA256 KDF params + Fernet blob. Never
-    plaintext — decrypt locally with the registry password (see manifest
-    ``credential_vault`` or ``mhb-mcp vault unlock``). 404 when the store is
-    live but the vault was never initialized."""
+    """Never expose credential material through the public registry."""
 
-    async def produce() -> dict[str, Any]:
-        doc = await registry.vault()
-        if doc is None:
-            raise HTTPException(
-                status_code=404,
-                detail="credential vault not initialized (run: mhb-mcp vault init)",
-            )
-        return {
-            "schema": SCHEMA,
-            "source": "live",
-            "hint": VAULT_SPEC["hint"],
-            "unlock": VAULT_SPEC["unlock"],
-            "vault": public_view(doc),
-        }
-
-    return await _cached(
-        "vault",
-        produce,
-        {"schema": SCHEMA, "source": "snapshot", "vault": None},
-    )
+    raise HTTPException(status_code=404, detail="credential vault is not publicly available")

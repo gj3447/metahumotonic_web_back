@@ -193,13 +193,13 @@ fail-soft (절대 500 없음), 정상이면 `source: "live"`. ~5분 캐시.
 - `GET /api/mcp/servers` — 등록 서버 목록 (capabilities/auth 인리치 포함)
 - `GET /api/mcp/servers/{name}` — 단일 엔트리
 - `GET /api/mcp/manifest` — `metahumotonic/mcp-registry@1` 라이브 매니페스트
-  (JSON-LD `@context` schema.org + 커스텀 vocab · 서버별 `capabilities`/`auth` · `credential_vault` 해금 레시피)
+  (JSON-LD `@context` schema.org + 커스텀 vocab · 서버별 `capabilities`/`auth` · 공개 자격증명 전달 비활성화 상태)
 - `GET /api/mcp/health` — 서버별 최근 verify 결과 (status/verified_at/last_probe_at)
 - `GET /api/mcp/status` — 집계 대시보드용: 서버별 배지(verified/stale/available/down/unused) +
   verified/available/down/unused/stale 카운트 + 마지막 verify 실행 시각.
   `?format=text` → 에이전트용 plain text 한 줄 요약.
   stale = 마지막 프로브가 24h 이상 지난 verified.
-- `GET /api/mcp/vault` — 크리덴셜 볼트 (PBKDF2-SHA256→Fernet **암호문만**; 미초기화 시 404)
+- `GET /api/mcp/vault` — 은퇴된 호환성 경로이며 항상 404. 공개 vault, 힌트, 해금 절차는 제공하지 않는다.
 - `GET /.well-known/mcp-servers.json` — 302 → `/api/mcp/manifest` (표준 디스커버리 경로)
 
 CLI (설치된 환경에서 `mhb-mcp`, 또는 `uv run mhb-mcp`):
@@ -245,28 +245,13 @@ npx/uvx→`local-npx`, 기타→`local-command`). 시크릿 값은 절대 저장
 mhb-mcp export --out ../metahumotonic-web/public/mcp/manifest.json
 ```
 
-### 크리덴셜 볼트 (마스터 비번 하나로 전부 해금)
+### 크리덴셜 관리 (운영자 전용)
 
-공개 표면에는 **암호문만** 존재한다. 서비스별 실제 자격증명 모음을
-PBKDF2-SHA256(60만 회)으로 유도한 키의 Fernet(AES-128-CBC+HMAC)으로 암호화한
-blob 하나를 Mongo에 저장하고 `GET /api/mcp/vault`가 그대로 공개한다.
-에이전트 해금 절차(manifest `credential_vault`와 `/mcp/llms.txt`에도 게시):
-
-1. 자격증명에 막히면 → 사용자에게 레지스트리 비번(6자리)을 물어본다.
-2. `GET /api/mcp/vault` → `{kdf: {iterations, salt(base64)}, blob}`.
-3. `key = base64url(PBKDF2-HMAC-SHA256(비번, b64decode(salt), iterations, dklen=32))`
-4. `creds = json.loads(Fernet(key).decrypt(blob))` → `{service: {...}}` 전부 획득.
-   CLI 검증: `mhb-mcp vault unlock --password <비번>`.
-
-비번은 `--password` 플래그 또는 `MHB_VAULT_PASSWORD` env. **시드 JSON/평문
-자격증명은 절대 커밋하지 않는다** (`--from-mcp-json`/`--mc-config`로 로컬 파일에서
-직접 수집).
-
-**로테이션 절차**:
-- 레지스트리 비번 변경 → 새 비번으로 `mhb-mcp vault init` 재실행 (seed 동일).
-  새 salt로 재암호화되어 blob이 원자적으로 교첐 — 구 비번은 즉시 무효.
-- 서비스 자격증명 변경 → seed 갱신 후 같은 비번으로 `vault init` 재실행.
-- 주기적 검증 → `mhb-mcp vault unlock`으로 전 서비스 복호화 확인.
+공개 레지스트리는 연결 레시피, 자격증명 힌트, vault 암호문과 해금 절차를
+반환하지 않는다. `credential_vault`는 `disabled` 상태를 표시하고, 비밀이 필요한
+서버의 인증은 `operator-managed`로만 나타난다. 로컬 운영자 CLI의 vault 명령은
+기존 비밀을 관리·복구하기 위한 용도이며, 시드 JSON·평문 자격증명·비밀번호를
+저장소나 배포 산출물에 커밋하지 않는다.
 
 verify 프로브: `local-tunnel` → TCP connect(127.0.0.1:port) · `http` → GET ·
 `ssh-stdio` → `ssh -o BatchMode=yes <alias> true` · 로컬 실행 레시피(`local-npx`

@@ -187,15 +187,16 @@ describe("evidence-backed program graph", () => {
 })
 
 describe("native registry contract", () => {
-  it("preserves public discovery, vault description, redirects and snapshot labels without Mongo", async () => {
+  it("keeps public discovery vault-disabled and registry connections private without Mongo", async () => {
     const web = app()
-    const discovery = await (await web.request("/api/mcp", null)).json() as { credential_vault: { kdf: string } }
-    expect(discovery.credential_vault.kdf).toBe("PBKDF2-SHA256")
-    for (const path of ["servers", "health", "status", "vault", "manifest", "servers/missing"]) {
+    const discovery = await (await web.request("/api/mcp", null)).json() as { credential_vault: { status: string } }
+    expect(discovery.credential_vault.status).toBe("disabled")
+    for (const path of ["servers", "health", "status", "manifest", "servers/missing"]) {
       const response = await web.request(`/api/mcp/${path}`, null)
       expect(response.status).toBe(200)
       expect((await response.json() as { source: string }).source).toBe("snapshot")
     }
+    expect((await web.request("/api/mcp/vault", null)).status).toBe(404)
     const redirect = await web.request("/.well-known/mcp-servers.json", null)
     expect(redirect.status).toBe(302)
     expect(redirect.headers.get("location")).toBe("/api/mcp/manifest")
@@ -204,7 +205,9 @@ describe("native registry contract", () => {
     expect(await text.text()).toContain("UNAVAILABLE")
   })
   it("preserves manifest enrichment and reports stale verification separately from outages", () => {
-    expect(enrichServer({ name: "mongo", category: "document", connection: { env: { URI: "<MONGO_PASSWORD>" } } })).toMatchObject({ capabilities: expect.arrayContaining(["query"]), auth: { type: "vault", requires: ["MONGO_PASSWORD"] } })
+    const server = enrichServer({ name: "mongo", category: "document", connection: { env: { URI: "<MONGO_PASSWORD>" } } })
+    expect(server).toMatchObject({ capabilities: expect.arrayContaining(["query"]), auth: { type: "operator-managed" } })
+    expect(server).not.toHaveProperty("connection")
     expect(manifest([], { updated: "2026-09-26", notes: ["example"] })).toMatchObject({ updated: "2026-09-26", notes: ["example"], servers: [] })
     const status = registryStatus([{ name: "old", status: "verified", verified_at: "2026-09-20" }, { name: "bad", status: "unreachable" }], Date.parse("2026-09-27"))
     expect(status.summary).toMatchObject({ verified: 1, stale: 1, down: 1, total: 2 })

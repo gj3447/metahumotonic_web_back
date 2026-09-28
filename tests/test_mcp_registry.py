@@ -47,7 +47,7 @@ META = {
     "updated": "2026-07-27",
 }
 
-VAULT_PASSWORD = "312447"
+VAULT_PASSWORD = "test-registry-passphrase"
 VAULT_PAYLOAD = {"redis": {"urls": ["redis://default:redispassword@127.0.0.1:16379/0"]}}
 
 
@@ -123,7 +123,8 @@ async def test_get_server_found(client):
     body = resp.json()
     assert body["source"] == "live"
     assert body["server"]["name"] == "mongodb"
-    assert body["server"]["connection"]["recipe"] == "local-tunnel"
+    assert body["server"]["auth"] == {"type": "operator-managed"}
+    assert "connection" not in body["server"]
 
 
 async def test_get_server_not_found(client):
@@ -207,12 +208,12 @@ async def test_discovery_document(client):
     paths = {e["path"] for e in body["endpoints"]}
     assert "/api/mcp/manifest" in paths
     assert "/api/mcp/status" in paths
-    assert "/api/mcp/vault" in paths
+    assert "/api/mcp/vault" not in paths
     assert "/.well-known/mcp-servers.json" in paths
     assert body["agent_docs"]["llms_txt"].endswith("/llms.txt")
     assert body["agent_docs"]["mcp_llms_txt"].endswith("/mcp/llms.txt")
-    assert body["credential_vault"]["kdf"] == "PBKDF2-SHA256"
-    assert "312447" not in json.dumps(body)  # the password is never published
+    assert body["credential_vault"] == {"status": "disabled", "access": "operator-cli-only"}
+    assert VAULT_PASSWORD not in json.dumps(body)  # the password is never published
 
 
 async def test_discovery_needs_no_mongo(client, _broken_registry):
@@ -226,17 +227,15 @@ async def test_manifest_carries_jsonld_and_enriched_servers(client):
     assert body["@context"]["schema"] == "https://schema.org/"
     assert "mhb" in body["@context"]
     assert "schema:ItemList" in body["@type"]
-    assert body["credential_vault"]["url"].endswith("/api/mcp/vault")
-    assert body["credential_vault"]["hint"]
+    assert body["credential_vault"]["status"] == "disabled"
     by_name = {s["name"]: s for s in body["servers"]}
     mongo = by_name["mongodb"]
     assert mongo["@type"] == ["schema:SoftwareApplication", "mhb:McpServer"]
     assert mongo["@id"].endswith("/api/mcp/servers/mongodb")
     assert "query" in mongo["capabilities"]  # document-category default
     # connection args reference <MONGO_PASSWORD> → vault auth with requires
-    assert mongo["auth"]["type"] == "vault"
-    assert mongo["auth"]["requires"] == ["MONGO_PASSWORD"]
-    assert mongo["auth"]["kdf"] == "PBKDF2-SHA256"
+    assert mongo["auth"] == {"type": "operator-managed"}
+    assert "connection" not in mongo
     memory = by_name["memory"]
     assert memory["auth"] == {"type": "none"}
     assert memory["capabilities"] == ["tools"]  # utility default
@@ -245,7 +244,7 @@ async def test_manifest_carries_jsonld_and_enriched_servers(client):
 async def test_servers_endpoint_is_enriched_too(client):
     resp = await client.get("/api/mcp/servers")
     by_name = {s["name"]: s for s in resp.json()["servers"]}
-    assert by_name["mongodb"]["auth"]["type"] == "vault"
+    assert by_name["mongodb"]["auth"]["type"] == "operator-managed"
     assert by_name["memory"]["capabilities"] == ["tools"]
 
 
@@ -351,24 +350,10 @@ def _live_vault(monkeypatch):
     monkeypatch.setattr(mcp_store.registry, "vault", vault)
 
 
-async def test_vault_returns_ciphertext_only(client, _live_vault):
+async def test_vault_is_not_public_even_when_legacy_ciphertext_exists(client, _live_vault):
     resp = await client.get("/api/mcp/vault")
-    assert resp.status_code == 200
-    raw = resp.text
-    assert "redispassword" not in raw
-    assert VAULT_PASSWORD not in raw
-    body = resp.json()
-    assert body["source"] == "live"
-    vault = body["vault"]
-    assert vault["kdf"]["name"] == "PBKDF2-SHA256"
-    assert vault["kdf"]["salt"]
-    assert vault["blob"]
-    assert vault["services"] == ["redis"]
-    assert body["unlock"]  # the recipe rides along
-    # the blob really decrypts with the registry password (end-to-end)
-    assert mcp_vault.decrypt_payload(vault, VAULT_PASSWORD) == VAULT_PAYLOAD
-    with pytest.raises(mcp_vault.VaultError):
-        mcp_vault.decrypt_payload(vault, "000000")
+    assert resp.status_code == 404
+    assert "redispassword" not in resp.text and VAULT_PASSWORD not in resp.text
 
 
 async def test_vault_404_when_uninitialized(client):
@@ -378,7 +363,4 @@ async def test_vault_404_when_uninitialized(client):
 
 async def test_vault_fail_soft_when_store_down(client, _broken_registry):
     resp = await client.get("/api/mcp/vault")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["source"] == "snapshot"
-    assert body["vault"] is None
+    assert resp.status_code == 404

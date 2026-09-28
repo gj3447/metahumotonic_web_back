@@ -8,13 +8,7 @@ import { MongoTag, mongoAttempt } from "./Mongo.js"
 export const REGISTRY_SCHEMA = "metahumotonic/mcp-registry@1"
 const SITE = "https://metahumotonic.com"
 export const VAULT_SPEC = {
-  url: `${SITE}/api/mcp/vault`, kdf: "PBKDF2-SHA256", cipher: "fernet",
-  hint: "Ask the user for the registry password (6 digits).",
-  unlock: ["GET /api/mcp/vault → {kdf: {iterations, salt (base64)}, blob}",
-    "key = base64url(PBKDF2-HMAC-SHA256(password, base64decode(kdf.salt), kdf.iterations, dklen=32))",
-    "credentials = JSON.parse(Fernet(key).decrypt(blob)) → {service: {...}}"],
-  cli: "mhb-mcp vault unlock --password <registry-password>",
-  rotate: "mhb-mcp vault init --password <new-password> --file seed.json — re-encrypts with a fresh salt and atomically replaces the blob; the old password stops working immediately."
+  status: "disabled", access: "operator-cli-only"
 }
 const categoryCapabilities: Readonly<Record<string, ReadonlyArray<string>>> = {
   graph: ["cypher.read", "cypher.write", "schema.inspect"],
@@ -24,12 +18,13 @@ const categoryCapabilities: Readonly<Record<string, ReadonlyArray<string>>> = {
 }
 export const enrichServer = (server: Document) => {
   const connection = server["connection"] as Record<string, unknown> | undefined
-  const required = [...new Set((JSON.stringify(connection ?? {}).match(/<[A-Z][A-Z0-9_]*>/g) ?? []).map((s) => s.slice(1, -1)))].sort()
+  const { connection: _connection, ...publicServer } = server
+  const hasOperatorCredential = /<[A-Z][A-Z0-9_]*>/.test(JSON.stringify(connection ?? {}))
   return {
-    "@type": ["schema:SoftwareApplication", "mhb:McpServer"], "@id": `${SITE}/api/mcp/servers/${server["name"] ?? ""}`, ...server,
+    "@type": ["schema:SoftwareApplication", "mhb:McpServer"], "@id": `${SITE}/api/mcp/servers/${server["name"] ?? ""}`, ...publicServer,
     capabilities: Array.isArray(server["capabilities"]) && server["capabilities"].length ? server["capabilities"] : categoryCapabilities[String(server["category"])] ?? ["tools"],
-    auth: server["auth"] && Object.keys(server["auth"]).length ? server["auth"] : required.length
-      ? { type: "vault", vault: VAULT_SPEC.url, kdf: VAULT_SPEC.kdf, cipher: VAULT_SPEC.cipher, hint: VAULT_SPEC.hint, requires: required }
+    auth: server["auth"] && Object.keys(server["auth"]).length ? server["auth"] : hasOperatorCredential
+      ? { type: "operator-managed" }
       : { type: "none" }
   }
 }
@@ -90,19 +85,7 @@ export const McpRegistryLive = Layer.effect(McpRegistryTag, Effect.gen(function*
         if (!item) return yield* Effect.fail(new NotFound({ reason: `mcp server not found: ${name}` }))
         return { ...envelope, server: enrichServer(item) }
       }
-      if (surface === "vault") {
-        const item = yield* query((col) => col.findOne({ _id: "credential_vault" }))
-        if (!item) return yield* Effect.fail(new NotFound({ reason: "credential vault not initialized" }))
-        const kdf = item["kdf"] as Document | undefined
-        if (!kdf || typeof item["blob"] !== "string" || typeof kdf["salt"] !== "string" || !Number.isSafeInteger(kdf["iterations"])) {
-          return yield* Effect.fail(new Unavailable({ reason: "invalid vault" }))
-        }
-        return { ...envelope, hint: VAULT_SPEC.hint, unlock: VAULT_SPEC.unlock, vault: {
-          version: item["version"] ?? 1, cipher: item["cipher"] ?? "fernet",
-          kdf: { name: kdf["name"] ?? "PBKDF2-SHA256", iterations: kdf["iterations"], salt: kdf["salt"] },
-          blob: item["blob"], services: [...(item["services"] ?? [])].sort(), updated_at: item["updated_at"] ?? null
-        } }
-      }
+      if (surface === "vault") return yield* Effect.fail(new NotFound({ reason: "credential vault is not publicly available" }))
       const items = yield* servers
       if (surface === "manifest") {
         const meta = yield* query((col) => col.findOne({ _id: "manifest_meta" }, { projection: { _id: 0, kind: 0 } }))

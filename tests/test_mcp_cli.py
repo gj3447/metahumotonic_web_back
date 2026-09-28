@@ -441,11 +441,11 @@ async def test_import_export_roundtrip_has_no_plaintext(col, mcp_json_file, tmp_
     exported = json.loads(text)
     # export is the enriched manifest (JSON-LD + capabilities + auth + vault spec)
     assert exported["@context"]["schema"] == "https://schema.org/"
-    assert exported["credential_vault"]["url"].endswith("/api/mcp/vault")
+    assert exported["credential_vault"] == {"status": "disabled", "access": "operator-cli-only"}
     by_name = {s["name"]: s for s in exported["servers"]}
-    assert by_name["neo4j-test"]["auth"]["type"] == "vault"
-    assert by_name["neo4j-test"]["auth"]["requires"] == ["NEO4J_PASSWORD"]
-    assert by_name["postgres-test"]["auth"]["requires"] == ["PG_PASSWORD"]
+    assert by_name["neo4j-test"]["auth"] == {"type": "operator-managed"}
+    assert by_name["postgres-test"]["auth"] == {"type": "operator-managed"}
+    assert "connection" not in by_name["neo4j-test"]
     assert by_name["plain"]["auth"] == {"type": "none"}
     assert by_name["neo4j-test"]["capabilities"]
 
@@ -471,7 +471,7 @@ def test_category_rules_documented_examples():
 # H-04 — mhb-mcp vault init / unlock / show                                   #
 # --------------------------------------------------------------------------- #
 
-VAULT_PW = "312447"
+VAULT_PW = "test-registry-passphrase"
 
 
 def _mc_config(tmp_path):

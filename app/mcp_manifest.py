@@ -3,7 +3,7 @@
 Used by BOTH the HTTP router (live ``/api/mcp/manifest``) and the CLI
 (``mhb-mcp export`` → the static-site fallback ``/mcp/manifest.json``) so the
 two never drift: JSON-LD context, per-server ``capabilities`` / ``auth``
-enrichment, and the credential-vault unlock spec all come from here.
+enrichment, and the public credential-delivery policy all come from here.
 
 Everything is rule-derived from the stored registry documents — no server name
 is hardcoded. A server with explicit ``capabilities`` / ``auth`` fields in
@@ -39,21 +39,8 @@ CATEGORY_CAPABILITIES: dict[str, list[str]] = {
 }
 DEFAULT_CAPABILITIES = ["tools"]
 
-# The public, static description of the credential vault (H-04). Ciphertext
-# lives at VAULT_SPEC["url"]; the password never leaves the user.
-VAULT_SPEC: dict[str, Any] = {
-    "url": f"{SITE}/api/mcp/vault",
-    "kdf": "PBKDF2-SHA256",
-    "cipher": "fernet",
-    "hint": "Ask the user for the registry password (6 digits).",
-    "unlock": [
-        "GET /api/mcp/vault → {kdf: {iterations, salt (base64)}, blob}",
-        "key = base64url(PBKDF2-HMAC-SHA256(password, base64decode(kdf.salt), kdf.iterations, dklen=32))",
-        "credentials = JSON.parse(Fernet(key).decrypt(blob)) → {service: {...}}",
-    ],
-    "cli": "mhb-mcp vault unlock --password <registry-password>",
-    "rotate": "mhb-mcp vault init --password <new-password> --file seed.json — re-encrypts with a fresh salt and atomically replaces the blob; the old password stops working immediately.",
-}
+# Public registry responses never contain credential material or an unlock recipe.
+VAULT_SPEC: dict[str, Any] = {"status": "disabled", "access": "operator-cli-only"}
 
 _PLACEHOLDER_RE = re.compile(r"<([A-Z][A-Z0-9_]*)>")
 
@@ -86,33 +73,26 @@ def auth_for(server: dict[str, Any]) -> dict[str, Any]:
     """Credential contract for one server.
 
     - explicit ``auth`` in Mongo wins;
-    - a connection recipe with ``<PLACEHOLDER>`` secrets → registry vault:
-      the agent asks the user for the registry password, fetches
-      ``/api/mcp/vault`` and decrypts locally (PBKDF2 → Fernet);
+    - a connection recipe with ``<PLACEHOLDER>`` secrets → operator-managed
+      credentials;
     - otherwise the server needs no credentials."""
     explicit = server.get("auth")
     if isinstance(explicit, dict) and explicit:
         return explicit
     requires = _placeholder_names(server.get("connection") or {})
     if requires:
-        return {
-            "type": "vault",
-            "vault": VAULT_SPEC["url"],
-            "kdf": VAULT_SPEC["kdf"],
-            "cipher": VAULT_SPEC["cipher"],
-            "hint": VAULT_SPEC["hint"],
-            "requires": requires,
-        }
+        return {"type": "operator-managed"}
     return {"type": "none"}
 
 
 def enrich_server(server: dict[str, Any]) -> dict[str, Any]:
     """One manifest entry + JSON-LD typing + capabilities/auth."""
     name = server.get("name", "")
+    public = {key: value for key, value in server.items() if key != "connection"}
     return {
         "@type": SERVER_TYPES,
         "@id": f"{SITE}/api/mcp/servers/{name}",
-        **server,
+        **public,
         "capabilities": capabilities_for(server),
         "auth": auth_for(server),
     }

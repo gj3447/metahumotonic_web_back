@@ -1,16 +1,9 @@
 """Credential vault for the MCP registry — PBKDF2-SHA256 → Fernet.
 
-Design (H-04): the registry publishes ONE encrypted blob. Every service's real
-credentials live inside it; the symmetric key is derived from a single registry
-password. Public surfaces (``GET /api/mcp/vault``, the manifest, llms.txt) only
-ever carry the ciphertext plus the KDF parameters needed to derive the key —
-never a plaintext secret.
-
-Decryption recipe (what llms.txt / the manifest tell agents to do)::
-
-    doc  = GET /api/mcp/vault            # {kdf: {iterations, salt(b64)}, blob}
-    key  = base64url(PBKDF2-HMAC-SHA256(password, b64decode(salt), iterations, 32))
-    data = json.loads(Fernet(key).decrypt(doc["blob"]))   # {service: {...creds}}
+Design: operator tooling stores one encrypted blob in the registry database.
+The public HTTP registry never returns the blob, KDF parameters, or an unlock
+recipe. Operators decrypt only through the local CLI or an equivalent approved
+secret-management workflow.
 
 Wrong password → ``cryptography.fernet.InvalidToken`` → :class:`VaultError`.
 """

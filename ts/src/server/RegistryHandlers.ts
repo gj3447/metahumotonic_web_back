@@ -7,7 +7,7 @@ export const RegistryHandlers = HttpApiBuilder.group(Api, "registry", (handlers)
   .handle("discovery", () => Effect.succeed({ schema: REGISTRY_SCHEMA, source: "live", name: "metahumotonic MCP registry",
     description: "Company MCP registry. Operator CLI owns registry writes; /mcp exposes the authenticated platform gateway.",
     dashboard: "https://metahumotonic.com/mcp/", credential_vault: VAULT_SPEC,
-    endpoints: ["manifest", "servers", "servers/{name}", "health", "status", "vault"].map((name) => ({ path: `/api/mcp/${name}`, method: "GET" })),
+    endpoints: ["manifest", "servers", "servers/{name}", "health", "status"].map((name) => ({ path: `/api/mcp/${name}`, method: "GET" })),
     mcp_endpoint: "/mcp"
   }))
   .handle("servers", () => Effect.flatMap(McpRegistryTag, (registry) => registry.read("servers")))
