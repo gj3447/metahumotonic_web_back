@@ -9,7 +9,7 @@ nonce="$(openssl rand -hex 12)"; remote_dir="/var/tmp/mhb-platform-reader-$nonce
 cleanup() { ssh -o BatchMode=yes "$data_host" "sudo -n rm -rf -- '$remote_dir'" >/dev/null 2>&1 || true; }; trap cleanup EXIT
 ssh -o BatchMode=yes "$data_host" "install -d -m 700 '$remote_dir'"
 scp -q -o BatchMode=yes "$repo_root/ops/remote/provision-platform-read-canary-role.sh" "$data_host:$helper"
-ssh -o BatchMode=yes "$data_host" "test \"\$(stat -c '%U:%G:%a' '$remote_dir')\" = '$(id -un):$(id -gn):700' && test -f '$helper'"
+ssh -o BatchMode=yes "$data_host" "test \"\$(stat -c %u '$remote_dir')\" = \"\$(id -u)\" && test \"\$(stat -c %a '$remote_dir')\" = 700 && test ! -L '$remote_dir' && test -f '$helper'"
 if [[ "$mode" == apply ]]; then
   password="$(openssl rand -hex 32)"
   printf '%s\n' "$password" | ssh -o BatchMode=yes "$data_host" "sudo -n bash '$helper' apply"

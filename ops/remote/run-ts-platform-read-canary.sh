@@ -15,6 +15,19 @@ if [[ "$mode" != cleanup ]]; then
   source_label="$(docker image inspect --format '{{ index .Config.Labels "com.metahumotonic.source-archive-sha256" }}' "$image")"; [[ "$source_label" == "$source_digest" ]] || fail 'image source archive digest does not match requested commit'
 fi
 [[ "$mode" == cleanup ]] || { [[ -f "$reader_receipt" && -f "$password_file" ]] || fail 'reader role receipt or root-only secret missing'; [[ "$(stat -c '%U:%G:%a' "$reader_receipt")" == root:root:600 && "$(stat -c '%U:%G:%a' "$password_file")" == root:root:600 ]] || fail 'reader artifacts must be root:root 0600'; }
+if [[ "$mode" == run ]]; then
+  python3 - "$reader_receipt" <<'PY' || fail 'reader receipt is not verified'
+import json, pathlib, sys
+receipt = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+assert receipt.get('schema') == 'metahumotonic/platform-read-canary-reader@1'
+assert receipt.get('status') == 'PROVISIONED' and receipt.get('privilegeDenialVerified') is True
+assert receipt.get('database') == 'metahumotonic_platform' and receipt.get('readerRole') == 'mhb_platform_shadow_reader'
+PY
+  role_flags="$(docker exec "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -Atqc "SELECT rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls,rolinherit FROM pg_roles WHERE rolname='mhb_platform_shadow_reader'")"
+  [[ "$role_flags" == 'f|f|f|f|f|f' ]] || fail 'reader role flags changed'
+  reader_grants="$(docker exec "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -d metahumotonic_platform -Atqc "SELECT has_database_privilege('mhb_platform_shadow_reader','metahumotonic_platform','CONNECT'),has_database_privilege('mhb_platform_shadow_reader','metahumotonic_platform','TEMPORARY'),has_database_privilege('mhb_platform_shadow_reader','metahumotonic_platform','CREATE'),has_schema_privilege('mhb_platform_shadow_reader','mhb_platform','USAGE'),has_schema_privilege('mhb_platform_shadow_reader','mhb_platform','CREATE'),bool_and(has_table_privilege('mhb_platform_shadow_reader',format('%I.%I',schemaname,tablename),'SELECT')),bool_or(has_table_privilege('mhb_platform_shadow_reader',format('%I.%I',schemaname,tablename),'INSERT') OR has_table_privilege('mhb_platform_shadow_reader',format('%I.%I',schemaname,tablename),'UPDATE') OR has_table_privilege('mhb_platform_shadow_reader',format('%I.%I',schemaname,tablename),'DELETE') OR has_table_privilege('mhb_platform_shadow_reader',format('%I.%I',schemaname,tablename),'TRUNCATE')) FROM pg_tables WHERE schemaname='mhb_platform'")"
+  [[ "$reader_grants" == 't|f|f|t|f|t|f' ]] || fail 'reader privileges changed'
+fi
 container_is_owned() {
   [[ "$(docker inspect --format '{{ index .Config.Labels "metahumotonic.owner" }}' "$name")" == platform-read-canary ]] || return 1
   [[ "$(docker inspect --format '{{ index .Config.Labels "metahumotonic.nonce" }}' "$name")" == "$nonce" ]]
@@ -22,7 +35,13 @@ container_is_owned() {
 remove_owned_container() {
   if docker inspect "$name" >/dev/null 2>&1; then container_is_owned || fail 'refusing to remove non-canary or nonce-mismatched container'; docker rm -f "$name" >/dev/null; fi
 }
-cleanup_owned() { remove_owned_container; [[ ! -e "$work" ]] || rm -rf -- "$work"; }
+cleanup_owned() {
+  remove_owned_container
+  if [[ -e "$work" ]]; then
+    [[ -d "$work" && ! -L "$work" && "$(stat -c '%U:%G:%a' "$work")" == root:root:700 ]] || fail 'refusing to remove foreign canary work path'
+    rm -rf -- "$work"
+  fi
+}
 if [[ "$mode" == status ]]; then printf '{"schema":"metahumotonic/platform-read-canary@1","mode":"status","image":"%s","commit":"%s","publishedPorts":false,"databaseWrites":false,"publicIngressChanged":false}\n' "$image" "$commit"; exit 0; fi
 if [[ "$mode" == cleanup ]]; then cleanup_owned; printf '{"schema":"metahumotonic/platform-read-canary@1","mode":"cleanup","containerRemoved":true,"imageRemoved":false}\n'; exit 0; fi
 [[ ! -e "$work" ]] || fail 'nonce work path exists'; install -d -m 700 -o root -g root "$work"

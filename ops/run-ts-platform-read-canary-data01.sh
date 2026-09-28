@@ -19,5 +19,5 @@ remote_dir="/var/tmp/mhb-platform-read-canary-$nonce"; helper="$remote_dir/helpe
 cleanup() { rm -f "$helper_local"; ssh -o BatchMode=yes "$data_host" "sudo -n rm -rf -- '$remote_dir'" >/dev/null 2>&1 || true; }; trap cleanup EXIT
 ssh -o BatchMode=yes "$data_host" "install -d -m 700 '$remote_dir'"
 scp -q -o BatchMode=yes "$helper_local" "$data_host:$helper"
-ssh -o BatchMode=yes "$data_host" "test \"\$(stat -c '%U:%G:%a' '$remote_dir')\" = '$(id -un):$(id -gn):700' && test -f '$helper' && test ! -L '$helper' && test \"\$(sha256sum '$helper' | awk '{print \$1}')\" = '$helper_sha'"
+ssh -o BatchMode=yes "$data_host" "test \"\$(stat -c %u '$remote_dir')\" = \"\$(id -u)\" && test \"\$(stat -c %a '$remote_dir')\" = 700 && test ! -L '$remote_dir' && test -f '$helper' && test ! -L '$helper' && test \"\$(sha256sum '$helper' | awk '{print \$1}')\" = '$helper_sha'"
 ssh -o BatchMode=yes "$data_host" "sudo -n bash '$helper' '$mode' '$image' '$commit' '$nonce' '$source_digest'"
