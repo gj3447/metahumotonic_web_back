@@ -11,10 +11,14 @@ fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
 q() { docker exec "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -Atqc "$1"; }
 qd() { docker exec "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$database" -Atqc "$1"; }
 [[ -f "$catalog" && "$(sha256sum "$catalog" | awk '{print $1}')" == "$catalog_sha" ]] || fail 'catalog artifact digest mismatch'; command -v openssl >/dev/null || fail 'openssl required'
-docker inspect "$container" >/dev/null 2>&1 || fail 'PostgreSQL container not found'
 if [[ "$mode" == stage-image ]]; then docker pull "$image" >/dev/null; fi
 image_id="$(docker image inspect "$image" --format '{{.Id}}' 2>/dev/null)" || fail 'pinned image unavailable locally; run stage-image first'
 [[ "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$commit" ]] || fail 'image revision does not match exact commit'
+if [[ "$mode" == stage-image ]]; then
+  printf '{"schema":"metahumotonic/platform-migration@1","mode":"stage-image","commit":"%s","image":"%s","databaseWrites":false,"secretMaterialPrinted":false,"wikiTouched":false}\n' "$commit" "$image_id"
+  exit 0
+fi
+docker inspect "$container" >/dev/null 2>&1 || fail 'PostgreSQL container not found'
 owned="$(q "SELECT count(*) FROM pg_database d JOIN pg_roles r ON r.oid=d.datdba WHERE d.datname='$database' AND r.rolname='$owner'")"
 [[ "$owned" == 1 ]] || fail 'dedicated platform DB ownership check failed'
 for table in schema_migrations catalog_versions asset_versions ingest_receipts observations; do qd "SELECT to_regclass('mhb_platform.$table') IS NOT NULL" | grep -qx t || { [[ "$mode" == apply ]] || fail 'migration has not created required tables'; break; }; done

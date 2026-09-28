@@ -60,6 +60,11 @@ the catalog digest and row counts. The temporary migrator role and its env file
 are removed before the command returns. It does not print a DSN, password, or
 catalog body, and it refuses any database other than `metahumotonic_platform`.
 
+**Current prerequisite is unmet:** no verified digest-pinned backend image is
+currently staged on data-01. `apply` must not be attempted until the exact
+commit image is published, its OCI revision label is verified, and the explicit
+`stage-image` command succeeds. The image string below is illustrative only.
+
 ```sh
 MHB_PLATFORM_IMAGE='registry.example/metahumotonic-web-back@sha256:<digest>' \
 MHB_PLATFORM_COMMIT='<40-char-commit>' ops/migrate-platform-storage.sh status

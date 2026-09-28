@@ -87,6 +87,9 @@ def test_platform_migration_controller_is_exact_commit_and_secret_free() -> None
     assert 'org.opencontainers.image.revision' in remote
     assert 'stage-image' in remote and 'catalog artifact digest mismatch' in remote
     assert 'expected == result' in remote
+    assert 'databaseWrites":false' in remote
+    assert 'remote_dir="/var/tmp/mhb-platform-migrate-$nonce"' in controller
+    assert 'test ! -L' in controller and 'stat -c %a' in controller
     assert 'VERIFIED_BEFORE_RUNTIME_GRANT' in remote
     assert '"$provision" grant-runtime' in remote
     assert 'MHB_PLATFORM_DATABASE_URL=' in remote
