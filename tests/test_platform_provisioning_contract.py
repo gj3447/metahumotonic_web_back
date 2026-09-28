@@ -227,3 +227,22 @@ def test_offhost_platform_restore_drill_is_isolated_and_receipt_bound() -> None:
     assert '"status":"VERIFIED"' in helper and '"restoreDrill":"PASS"' in helper
     assert 'mode="${1:-status}"' in controller and '^(status|drill)$' in controller
     assert 'MHB_PLATFORM_OFFHOST_BACKUP_ID' in controller and 'sudo -n bash' in controller
+
+
+def test_scheduled_platform_backup_workflow_is_serialized_and_explicit() -> None:
+    workflow = (ROOT / "ops/run-platform-backup-workflow.sh").read_text()
+    lock = (ROOT / "ops/remote/manage-platform-backup-workflow.sh").read_text()
+    service = (ROOT / "ops/systemd/mhb-platform-backup-workflow.service").read_text()
+    timer = (ROOT / "ops/systemd/mhb-platform-backup-workflow.timer").read_text()
+    assert 'mode="${1:-dry-run}"' in workflow and '^(dry-run|status|run)$' in workflow
+    assert '"capture","mirror","restore-drill"' in workflow
+    assert "'$helper' acquire '$token'" in workflow and "'$helper' release '$token'" in workflow
+    assert 'MHB_PLATFORM_BACKUP_RECEIPT="$receipt"' in workflow
+    assert 'MHB_PLATFORM_OFFHOST_BACKUP_ID="$backup_id"' in workflow
+    assert "'$helper' failure '$token' '$stage'" in workflow
+    assert 'mode="${1:-}"; token="${2:-}"; stage="${3:-}"' in lock
+    assert 'test ! -e "$lock" && test ! -L "$lock"' in lock
+    assert 'status\':\'FAILED\'' in lock and 'logger -p user.err' in lock
+    assert 'OnFailure=mhb-platform-backup-workflow-failure@%n.service' in service
+    assert 'OnCalendar=Sun *-*-* 03:17:00' in timer and 'RandomizedDelaySec=30m' in timer
+    assert 'postgres' not in workflow.lower() and 'metahumotonic_wiki' not in workflow

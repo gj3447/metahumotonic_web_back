@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly Metahumotonic platform backup recovery workflow
+
+[Timer]
+OnCalendar=Sun *-*-* 03:17:00
+Persistent=true
+RandomizedDelaySec=30m
+Unit=mhb-platform-backup-workflow.service
+
+[Install]
+WantedBy=timers.target

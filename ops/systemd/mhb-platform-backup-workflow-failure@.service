@@ -1,0 +1,6 @@
+[Unit]
+Description=Record platform backup workflow systemd failure
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/logger -p user.err -t mhb-platform-backup-workflow systemd-unit-failed %i

@@ -1,0 +1,11 @@
+[Unit]
+Description=Metahumotonic platform encrypted backup recovery workflow
+OnFailure=mhb-platform-backup-workflow-failure@%n.service
+
+[Service]
+Type=oneshot
+User=metahumotonic27
+WorkingDirectory=/opt/metahumotonic_web_back
+ExecStart=/opt/metahumotonic_web_back/ops/run-platform-backup-workflow.sh run
+NoNewPrivileges=true
+PrivateTmp=true

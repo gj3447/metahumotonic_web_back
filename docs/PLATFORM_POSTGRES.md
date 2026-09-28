@@ -150,6 +150,24 @@ VM100 now holds both this encrypted copy and its root-only key, so VM100 root
 access is part of the backup trust boundary. Scheduling and retention remain
 separate operational work.
 
+### scheduled recovery workflow template
+
+`ops/run-platform-backup-workflow.sh` has a non-mutating `dry-run` default.
+Its explicit `run` acquires a nonce-owned root lock on data-01 and VM100, then
+runs capture, binds the returned exact receipt path into the off-host mirror,
+and binds that backup ID into the VM100 restore drill. It releases only its own
+locks. A failed run writes root-only non-secret failure evidence on VM100 and
+also sends a syslog event; partial backups and mirrors are retained for review
+and never rotated by this workflow.
+
+`ops/systemd/mhb-platform-backup-workflow.service` and its weekly Sunday timer
+are templates only. They are **not installed by this repository change**. Before
+installation, stage the exact PostgreSQL restore image on VM100, deploy the
+reviewed repository at the configured `WorkingDirectory`, and verify both hosts'
+noninteractive SSH and `sudo -n` paths. The timer's `OnFailure` unit adds a
+systemd journal/syslog alert, while the controller provides the detailed
+root-only failure evidence.
+
 기본값은 기존 Git snapshot 모드다. `MHB_PLATFORM_DATABASE_URL`을 설정하면
 PostgreSQL이 필수 의존성이 된다. `MHB_PLATFORM_DATABASE_REQUIRED=true`는 URL을
 빠뜨린 경우에도 readiness와 내부 자산 조회를 실패시킨다. 운영 설정에 URL이 있는데

@@ -89,4 +89,4 @@ b={"schema":"metahumotonic/platform-post-import-backup@1","status":"VERIFIED","r
 t.write_text(json.dumps(b,sort_keys=True)+'\n',encoding='utf-8'); os.chmod(t,0o600); os.chown(t,0,0); t.replace(p)
 PY
 trap - EXIT
-printf '{"schema":"metahumotonic/platform-post-import-backup@1","status":"VERIFIED","database":"metahumotonic_platform","migrationCommit":"%s","encryptedBackupSha256":"%s","plaintextBackupSha256":"%s","restoreDrill":"PASS","wikiTouched":false,"secretMaterialPrinted":false}\n' "$migration_commit" "$encrypted_sha" "$plain_sha"
+printf '{"schema":"metahumotonic/platform-post-import-backup@1","status":"VERIFIED","database":"metahumotonic_platform","migrationCommit":"%s","receiptPath":"%s","encryptedBackupSha256":"%s","plaintextBackupSha256":"%s","restoreDrill":"PASS","wikiTouched":false,"secretMaterialPrinted":false}\n' "$migration_commit" "$receipt" "$encrypted_sha" "$plain_sha"
