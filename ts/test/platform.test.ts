@@ -24,7 +24,7 @@ const clean = Effect.withConfigProvider(ConfigProvider.fromMap(new Map()))
 const config = Effect.runSync(configFromEnv.pipe(clean))
 const platform: PlatformConfig = {
   readKey: Redacted.make(READ), writeKey: Redacted.make(WRITE), legacyOrigin: null, legacyRequired: false, ontologyRequired: false,
-  catalog, catalogDigest: "test-digest", bindings: [], maxBodyBytes: 524288, timeoutMs: 1000
+  catalog, catalogDigest: "test-digest", bindings: [], maxBodyBytes: 524288, timeoutMs: 1000, shadowReadOnly: false
 }
 const disposers: Array<() => Promise<unknown>> = []
 afterEach(async () => { for (const dispose of disposers.splice(0).reverse()) await dispose() })
@@ -212,6 +212,16 @@ describe("native registry contract", () => {
 })
 
 describe("stateful domain boundary", () => {
+  it("shadow mode refuses mutations before platform or legacy ownership", async () => {
+    const { request } = app({ shadowReadOnly: true })
+    const response = await request("/api/platform/v1/observations", WRITE, {
+      method: "POST", body: JSON.stringify({ receiptId: "obs:test", observations: [] }),
+      headers: { "content-type": "application/json" }
+    })
+    expect(response.status).toBe(405)
+    expect(response.headers.get("allow")).toBe("GET, HEAD, OPTIONS")
+    expect(await response.json()).toMatchObject({ reason: "shadow_read_only" })
+  })
   it("preserves body, status, idempotency, cookies, CSRF and sanitized client IP", async () => {
     let received: Record<string, unknown> = {}
     const origin = await listen(createServer(async (req, res) => {

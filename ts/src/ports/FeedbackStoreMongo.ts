@@ -1,4 +1,4 @@
-import { Effect, Layer, Schema } from "effect"
+import { Config, Effect, Layer, Schema } from "effect"
 import type { Document } from "mongodb"
 import { AppConfigTag } from "../Config.js"
 import { FeedbackRecord } from "../domain/Contracts.js"
@@ -15,7 +15,19 @@ const decodeRecord = (row: Document): Effect.Effect<FeedbackRecord, Unavailable>
 
 export const FeedbackStoreLive = Layer.unwrapEffect(Effect.gen(function* () {
   const cfg = yield* AppConfigTag
+  const shadowReadOnly = yield* Config.boolean("MHB_SHADOW_READ_ONLY").pipe(Config.withDefault(false))
   const { db } = yield* MongoTag
+  if (shadowReadOnly) {
+    // Defence in depth: initialization cannot create a TTL index, and a future
+    // route cannot make a feedback write even if it bypasses the HTTP boundary.
+    const denied = () => Effect.fail(new Unavailable({ reason: "shadow_read_only" }))
+    return Layer.succeed(FeedbackStoreTag, {
+      durable: false,
+      ensureIndexes: Effect.void,
+      save: () => denied(), list: () => denied(), triage: () => denied(), erase: () => denied(),
+      close: Effect.void
+    } satisfies FeedbackStore)
+  }
   if (!db) return FeedbackStoreMemory
   const collection = db.collection<Document & { _id: string }>(cfg.mongoFeedbackCollection)
   const ensureIndexes = mongoAttempt(async () => {

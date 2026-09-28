@@ -31,6 +31,8 @@ export interface PlatformConfig {
   readonly bindings: ReadonlyArray<McpBinding>
   readonly maxBodyBytes: number
   readonly timeoutMs: number
+  /** Temporary diagnostic process: reject every HTTP mutation. */
+  readonly shadowReadOnly: boolean
 }
 export class PlatformConfigTag extends Context.Tag("PlatformConfig")<PlatformConfigTag, PlatformConfig>() {}
 
@@ -80,6 +82,7 @@ export const PlatformConfigLive = Layer.effect(PlatformConfigTag, Effect.gen(fun
     legacyRequired: yield* Config.boolean("MHB_LEGACY_REQUIRED").pipe(Config.withDefault(false)),
     ontologyRequired: yield* Config.boolean("MHB_ONTOLOGY_ENABLED").pipe(Config.withDefault(false)),
     catalog, catalogDigest: contentDigest(catalog),
-    bindings, maxBodyBytes: 524_288, timeoutMs: 10_000
+    bindings, maxBodyBytes: 524_288, timeoutMs: 10_000,
+    shadowReadOnly: yield* Config.boolean("MHB_SHADOW_READ_ONLY").pipe(Config.withDefault(false))
   }
 }).pipe(Effect.orDie))

@@ -15,6 +15,13 @@ export const PlatformBoundary = HttpApiBuilder.middleware(Effect.gen(function* (
   return (app) => Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest
     const path = new URL(request.url, "http://localhost").pathname
+    // A shadow canary may use production read credentials. Refuse mutations
+    // before a handler, storage adapter, or legacy owner can interpret them.
+    if (cfg.shadowReadOnly && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+      return HttpServerResponse.unsafeJson({ reason: "shadow_read_only" }, {
+        status: 405, headers: { Allow: "GET, HEAD, OPTIONS" }
+      })
+    }
     if (path === "/metrics") {
       if (!appConfig.metricsEnabled) return HttpServerResponse.empty({ status: 404 })
       const counts = yield* Ref.get(requests)
