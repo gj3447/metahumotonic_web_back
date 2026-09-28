@@ -126,9 +126,30 @@ const get = async (path, headers = {}) => {
 }
 await get('/health')
 await get('/ready')
-const directWiki = await get('http://127.0.0.1:8000/api/wiki/v1')
-const proxiedWiki = await get('/api/wiki/v1')
-if (directWiki.status !== proxiedWiki.status || proxiedWiki.headers.get('x-mhb-service') !== 'legacy-domain') throw new Error('wiki delegation mismatch')
+const legacyOrigin = 'http://127.0.0.1:8000'
+const parityHeaders = ['content-type', 'cache-control', 'etag', 'location', 'www-authenticate']
+const digest = async (response) => {
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  if (bytes.byteLength > 1_048_576) throw new Error('delegated response exceeds parity bound')
+  return (await import('node:crypto')).createHash('sha256').update(bytes).digest('hex')
+}
+const delegated = async (origin, path, method) => fetch(origin + path, {
+  method, redirect: 'manual', signal: AbortSignal.timeout(3000)
+})
+const readOnlyParity = async (path, method) => {
+  const [direct, proxied] = await Promise.all([delegated(legacyOrigin, path, method), delegated(base, path, method)])
+  if (direct.status !== proxied.status) throw new Error(`delegation status mismatch for ${method} ${path}`)
+  if (proxied.headers.get('x-mhb-service') !== 'legacy-domain') throw new Error(`delegation marker missing for ${method} ${path}`)
+  for (const header of parityHeaders) if (direct.headers.get(header) !== proxied.headers.get(header)) {
+    throw new Error(`delegation header mismatch for ${method} ${path}`)
+  }
+  if (method === 'GET' && await digest(direct) !== await digest(proxied)) throw new Error(`delegation body mismatch for ${path}`)
+}
+// Fixed public reads only: no session, CSRF, idempotency, moderation or data mutation.
+for (const path of ['/api/wiki/v1', '/api/wiki/v1/pages?limit=1', '/api/wiki/v1/pages/mhb-read-parity-missing', '/api/v1/ontology/schema']) {
+  await readOnlyParity(path, 'GET')
+  await readOnlyParity(path, 'HEAD')
+}
 await get('/api/public/v1/hub')
 const key = process.env.CANARY_READ_KEY
 const anonymous = await fetch(base + '/api/platform/v1/programs')
@@ -139,5 +160,5 @@ if (!mcp.ok || (await mcp.json()).result?.serverInfo?.name !== 'metahumotonic-pl
 NODE
 
 image_id="$(docker image inspect --format '{{.Id}}' "$tag")"
-printf '{"schema":"metahumotonic/ts-canary@1","status":"PASS","commit":"%s","image":"%s","legacyContainer":"%s","checks":["ready","wiki-delegation","public-hub","platform-auth","mcp-initialize"],"publishedPorts":false,"databaseWrites":false,"publicIngressChanged":false}\n' \
+printf '{"schema":"metahumotonic/ts-canary@1","status":"PASS","commit":"%s","image":"%s","legacyContainer":"%s","checks":["ready","wiki-ontology-read-parity","public-hub","platform-auth","mcp-initialize"],"publishedPorts":false,"databaseWrites":false,"publicIngressChanged":false}\n' \
   "$commit" "$image_id" "$legacy"

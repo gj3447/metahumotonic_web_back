@@ -1,0 +1,29 @@
+# Private Wiki·ontology delegation parity gate
+
+`ops/run-ts-backend-canary-vm100.sh` starts an unpublished, resource-limited
+TS/Effect candidate in the network namespace of one existing Python replica.
+It does not load an operation environment file, publish a port, change ingress,
+or call a write-capable datastore. Its read-only delegation gate compares the
+Python domain owner at loopback with the TS proxy for these fixed paths:
+
+- `GET` and `HEAD /api/wiki/v1`
+- `GET` and `HEAD /api/wiki/v1/pages?limit=1`
+- `GET` and `HEAD` for the fixed missing Wiki slug
+- `GET` and `HEAD /api/v1/ontology/schema`
+
+For each pair it requires equal status and `content-type`, `cache-control`,
+`etag`, `location`, and `www-authenticate` headers. GET bodies are bounded to
+1 MiB and compared only by in-process SHA-256; no response body, URL with
+credentials, cookie, token, or header values are written to the receipt. The
+proxy must add its `x-mhb-service=legacy-domain` boundary marker. Ontology may
+be disabled; equal 401/404/503 behavior is still meaningful parity.
+
+The canary receipt records only the check name
+`wiki-ontology-read-parity`, exact commit, image ID, and isolation facts. A
+PASS is evidence for fixed anonymous reads only. It does **not** validate
+session issuance, cookies, CSRF, bearer-agent mutation, idempotency replay,
+ETag conflict, page/revision write semantics, moderation authorization,
+private-route ingress exclusion, Redis outage handling, or data durability.
+Those tests require a disposable Wiki database/runtime canary before any
+public route cutover. Python remains the Wiki and ontology owner throughout
+this gate.

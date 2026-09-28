@@ -104,7 +104,7 @@ uv run --locked --script scripts/verify-backend-reality.py /tmp/backend-reality.
 읽을 수 있지만 기존 컨테이너·Docker network·공개 EndpointSlice는 수정하지 않는다.
 
 canary에는 env file이나 운영 DB/Mongo/Redis/KG/MCP 설정을 전달하지 않는다. 임시 read key로
-`/ready`, Python Wiki 위임, 공개 학습 hub, platform API의 401/읽기 키, MCP initialize만 확인한다.
+`/ready`, 고정 Wiki·ontology GET/HEAD 위임 parity, 공개 학습 hub, platform API의 401/읽기 키, MCP initialize만 확인한다.
 피드백·관측·registry·상위 MCP 쓰기 호출은 하지 않는다. 컨테이너와 이미지는 nonce 소유 label,
 512 MiB/1 CPU/128 PID, read-only filesystem, no-new-privileges로 만들며 성공·실패와 관계없이
 정리한다. 정리가 남았을 때만 출력된 commit·nonce로 상태 확인 또는 정리를 재실행한다.
