@@ -52,3 +52,31 @@ runtime helper removes the network, Redis, and work directory. The TS image is
 label-checked against the archive commit and removed after a successful gate.
 No production Wiki database, session, Redis, MongoDB, Neo4j, public ingress,
 or runtime container is used.
+
+## Standalone private run
+
+The stateful gate is intentionally separate from `release-web-back-vm100.sh`.
+That release controller continues to build and roll out only the Python owner.
+Use `ops/run-ts-wiki-stateful-canary-vm100.sh` only after a data-01 operator has
+created the exact receipt-owned disposable database named
+`metahumotonic_wiki_canary_<commit12>_<nonce12>` through the existing Wiki
+backup/restore and canary-database helpers. The controller never creates,
+backs up, restores, or drops a database; the existing data helper remains the
+only database cleanup authority.
+
+The caller supplies two already-built VM100 images whose OCI revision labels
+match the full commit: the Python `Dockerfile.legacy` image and the TS
+`Dockerfile` image. It defaults to `dry-run`; `run` stages only root-owned
+remote helper copies and starts the disposable network resources. `cleanup`
+uses the same commit and nonce and invokes the existing label-bound runtime
+cleanup helper. The controller does not build an image, so a successful build
+followed by a failed canary invocation cannot leave a controller-created image.
+
+```sh
+MHB_WIKI_STATEFUL_COMMIT='<40-hex>' \
+MHB_WIKI_STATEFUL_NONCE='<32-hex>' \
+MHB_WIKI_STATEFUL_PYTHON_IMAGE='metahumotonic-web-back:<version>-x86' \
+MHB_WIKI_STATEFUL_GATEWAY_IMAGE='metahumotonic-web-back-ts:<version>-x86' \
+MHB_WIKI_STATEFUL_DATABASE='metahumotonic_wiki_canary_<commit12>_<nonce12>' \
+  ops/run-ts-wiki-stateful-canary-vm100.sh dry-run
+```

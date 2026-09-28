@@ -381,7 +381,6 @@ release_root="/var/lib/metahumotonic-web-back/releases"
 release_dir="$release_root/$commit"
 state_file="$release_root/active-rollout.env"
 image="metahumotonic-web-back:${version}-x86"
-gateway_image="metahumotonic-web-back-ts:${version}-x86"
 
 test -f "$archive"
 test -f "$env_file"
@@ -420,13 +419,10 @@ label_sha="$(docker image inspect "$image" --format '{{index .Config.Labels "com
 test "$label_commit" = "$commit"
 test "$label_sha" = "$expected_sha"
 test "$(docker image inspect "$image" --format '{{index .Config.Labels "com.metahumotonic.wiki-migrations-sha256"}}')" = "$migration_hash"
-docker build --file "$release_dir/Dockerfile" --label "org.opencontainers.image.revision=$commit" --label "com.metahumotonic.source-archive-sha256=$expected_sha" -t "$gateway_image" "$release_dir"
-test "$(docker image inspect "$gateway_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$commit"
-test "$(docker image inspect "$gateway_image" --format '{{index .Config.Labels "com.metahumotonic.source-archive-sha256"}}')" = "$expected_sha"
 
 canary_receipt="$release_dir/wiki-release-canary-${rollout_nonce}.json"
 test ! -e "$canary_receipt"
-bash "$canary_helper" "$image" "$commit" "$env_file" "$canary_database" "$canary_receipt" "$rollout_nonce" "$redis_image" "$runtime_canary_helper" "$gateway_image"
+bash "$canary_helper" "$image" "$commit" "$env_file" "$canary_database" "$canary_receipt" "$rollout_nonce" "$redis_image" "$runtime_canary_helper"
 test "$(stat -c '%U:%G:%a' "$canary_receipt")" = root:root:600
 canary_sha="$(sha256sum "$canary_receipt" | awk '{print $1}')"
 
