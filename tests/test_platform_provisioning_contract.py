@@ -96,9 +96,10 @@ def test_local_image_stage_is_exact_and_db_free() -> None:
     stage = (ROOT / "ops/stage-platform-image-local.sh").read_text()
     remote = (ROOT / "ops/remote/migrate-platform-catalog.sh").read_text()
     assert 'mode="${1:-dry-run}"' in stage
-    assert 'worktree add --detach' in stage
+    assert 'git -C "$root" archive --format=tar' in stage and 'source.tar' in stage
     assert 'docker save' in stage and 'docker load' in stage
     assert 'source-archive-sha256' in stage and 'databaseWrites":false' in stage
+    assert 'source.tar' in stage and 'sudo -n docker load' in stage
     assert '--read-only' in remote and '--cap-drop ALL' in remote
     assert 'no-new-privileges' in remote and '--pids-limit 128' in remote
     assert 'VERIFIED_BEFORE_RUNTIME_GRANT' in remote

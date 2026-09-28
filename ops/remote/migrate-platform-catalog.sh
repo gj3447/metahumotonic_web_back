@@ -30,7 +30,18 @@ fi
 install -d -m 700 -o root -g root "$root" "$secret_dir"
 manager="mhb_platform_migrator_$(openssl rand -hex 6)"; manager_password="$(openssl rand -hex 32)"; env_file="$(mktemp "$secret_dir/.migration-env.XXXXXX")"
 chmod 600 "$env_file"; printf 'MHB_PLATFORM_DATABASE_URL=postgresql://%s:%s@127.0.0.1:5432/%s\n' "$manager" "$manager_password" "$database" >"$env_file"
-cleanup() { trap - EXIT; set +e; rm -f "$env_file"; docker exec "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -c "DROP ROLE IF EXISTS $manager" >/dev/null 2>&1; unset manager_password; }
+cleanup() {
+  local status=$? failed=false
+  trap - EXIT; set +e
+  docker exec "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -c "REASSIGN OWNED BY $manager TO $owner; DROP OWNED BY $manager; DROP ROLE $manager" >/dev/null 2>&1 || failed=true
+  [[ "$(q "SELECT count(*) FROM pg_roles WHERE rolname='$manager'" 2>/dev/null)" == 0 ]] || failed=true
+  rm -f "$env_file"; unset manager_password
+  if [[ "$failed" == true ]]; then
+    printf '%s\n' '{"schema":"metahumotonic/platform-migration@1","status":"FAILED_MIGRATOR_CLEANUP_REQUIRES_OPERATOR","database":"metahumotonic_platform","secretMaterialPrinted":false,"wikiTouched":false}' >"$receipt"
+    chmod 600 "$receipt"; exit 1
+  fi
+  exit "$status"
+}
 trap cleanup EXIT
 docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U postgres >/dev/null <<SQL
 CREATE ROLE $manager LOGIN PASSWORD '$manager_password' NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT;
