@@ -98,6 +98,23 @@ the same exact image, commit, and catalog to retry only that grant. A migrator
 cleanup failure is recorded as `FAILED_MIGRATOR_CLEANUP_REQUIRES_OPERATOR` and
 is never reported as a successful migration.
 
+### post-import encrypted backup
+
+`ops/backup-platform-post-import.sh` defaults to the read-only `status` check.
+Its explicit `capture` mode accepts no database name: it verifies the dedicated
+database owner and the completed migration receipt, creates an AES-256 encrypted
+`pg_dump` with a root-only key and receipt, then decrypts and restores it into a
+temporary PostgreSQL container using the exact image ID of the running database
+container. The restore container has no network and is removed before success.
+The receipt becomes `VERIFIED` only after restored table counts equal the source
+counts. It does not contact or back up the Wiki database.
+
+```sh
+ops/backup-platform-post-import.sh status
+# Explicit operator action; does not change ingress or application runtime:
+ops/backup-platform-post-import.sh capture
+```
+
 기본값은 기존 Git snapshot 모드다. `MHB_PLATFORM_DATABASE_URL`을 설정하면
 PostgreSQL이 필수 의존성이 된다. `MHB_PLATFORM_DATABASE_REQUIRED=true`는 URL을
 빠뜨린 경우에도 readiness와 내부 자산 조회를 실패시킨다. 운영 설정에 URL이 있는데

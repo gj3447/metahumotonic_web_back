@@ -155,3 +155,24 @@ CREATE DATABASE metahumotonic_platform OWNER mhb_platform_owner;
         assert result.stdout.splitlines() == ["mhb_platform_owner", "0"]
     finally:
         subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+
+
+def test_post_import_backup_is_dedicated_encrypted_and_restore_verified() -> None:
+    helper = (ROOT / "ops/remote/backup-platform-post-import.sh").read_text()
+    controller = (ROOT / "ops/backup-platform-post-import.sh").read_text()
+    assert 'database="metahumotonic_platform"' in helper
+    assert 'metahumotonic_wiki' not in helper and 'mhb_wiki' not in helper
+    assert 'mode="${1:-status}"' in helper and '^(status|capture)$' in helper
+    assert 'migration_receipt="/var/lib/metahumotonic-platform/migration/receipt.json"' in helper
+    assert "b.get('status') == 'PASS' and b.get('database') == 'metahumotonic_platform'" in helper
+    assert "d.datname='$database' AND r.rolname='$owner'" in helper
+    assert 'pg_dump -U postgres -Fc "$database"' in helper
+    assert 'openssl enc -aes-256-cbc -pbkdf2 -salt' in helper
+    assert 'chmod 600 "$encrypted" "$key_file"' in helper
+    assert '--network none --read-only' in helper
+    assert 'docker inspect "$container" --format \'{{.Image}}\'' in helper
+    assert 'pg_restore -U postgres --no-owner --no-privileges -d postgres' in helper
+    assert '[[ "$restored_counts" == "$source_counts" ]]' in helper
+    assert '"status":"VERIFIED"' in helper and '"restoreDrill":"PASS"' in helper
+    assert 'rm -f -- "$plain" "$restored_plain"' in helper
+    assert 'sudo -n bash' in controller and 'printf \'%s\\n\' "$backup_key"' in controller
