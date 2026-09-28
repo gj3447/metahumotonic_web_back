@@ -88,13 +88,15 @@ cleanup_on_exit() {
   exit "$status"
 }
 trap cleanup_on_exit EXIT
-manager_may_exist=true
 docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U postgres >/dev/null <<SQL
+BEGIN;
 CREATE ROLE $manager LOGIN PASSWORD '$manager_password' NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT;
 GRANT $owner TO $manager;
 REVOKE ALL ON DATABASE $database FROM $manager;
 GRANT CONNECT,TEMPORARY ON DATABASE $database TO $manager;
+COMMIT;
 SQL
+manager_may_exist=true
 run() { timeout 120 docker run --rm --read-only --tmpfs /tmp:size=64m --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m --cpus 1 --network "container:$container" --env-file "$env_file" -v "$catalog:/run/platform-catalog.json:ro" "$image" node scripts/platform-db.mjs "$1" /run/platform-catalog.json; }
 expected="$(run inspect)"; run migrate >/dev/null; run import >/dev/null
 readback="$(run readback)"
