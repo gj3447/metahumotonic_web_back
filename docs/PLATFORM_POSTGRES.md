@@ -172,6 +172,9 @@ reviewed repository at the configured `WorkingDirectory`, and verify both hosts'
 noninteractive SSH and `sudo -n` paths. The timer's `OnFailure` unit adds a
 systemd journal/syslog alert, while the controller provides the detailed
 root-only failure evidence.
+The first manual capture→mirror→restore run and independent readback are
+recorded in
+[`docs/evidence/company-platform-backup-workflow-manual-run-2026-09-28.json`](evidence/company-platform-backup-workflow-manual-run-2026-09-28.json).
 
 기본값은 기존 Git snapshot 모드다. `MHB_PLATFORM_DATABASE_URL`을 설정하면
 PostgreSQL이 필수 의존성이 된다. `MHB_PLATFORM_DATABASE_REQUIRED=true`는 URL을

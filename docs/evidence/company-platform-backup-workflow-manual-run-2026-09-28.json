@@ -1,0 +1,38 @@
+{
+  "schema": "metahumotonic/platform-backup-workflow-evidence@1",
+  "observedAt": "2026-09-28T08:59:46Z",
+  "mode": "manual-run",
+  "workflowCodeCommit": "4f0a7a409e438c5bc3e70bc1729cd238bf1d1ea4",
+  "backupId": "aaa533cf75b602d4d7a7382dc03e6ad0efb74ad3-8dd5c017608473f8d882e5dd0d12bf07",
+  "offhostDrillNonce": "3347943dcd36895c72823d9dab3999da",
+  "sourceCreatedAt": "2026-09-28T08:58:57.948659+00:00",
+  "sourceReceiptSha256": "c456f54225a8d7e8e1a31e7595a464bb58a9e9f124216cddaf7f091026ba223d",
+  "encryptedArtifactSha256": "2bc8f73081ddf118be112d8e78fe946ca814227cb16347d7854ae002de56ca6f",
+  "sourcePlaintextDumpSha256": "11ef9c42dd67b63d6969ed456e17ef873e6c47b3e995725f686ecbee246a3621",
+  "data01": {
+    "encryptedBackupReceipt": "VERIFIED",
+    "isolatedSourceRestore": "PASS",
+    "encryptedAndKeyHashesMatch": true,
+    "rootOnlyFiles0600": true,
+    "plaintextRemaining": false
+  },
+  "vm100": {
+    "offhostMirrorReceipt": "VERIFIED",
+    "independentIsolatedRestore": "PASS",
+    "encryptedKeyAndSourceReceiptHashesMatch": true,
+    "rootOnlyDrillReceipt0600": true,
+    "plaintextRemaining": false,
+    "temporaryContainerRemaining": false
+  },
+  "sourceAndRestoredCounts": {
+    "schemaMigrations": 1,
+    "catalogVersions": 1,
+    "assets": 197,
+    "ingestReceipts": 1,
+    "historicalObservations": 109
+  },
+  "data01WorkflowLockRemaining": false,
+  "vm100WorkflowLockRemaining": false,
+  "publicSiteHttpStatus": 200,
+  "scope": "One manual end-to-end workflow run. The weekly systemd timer is a template only and is not installed; no recurrence, retention, rotation, Wiki backup, or public TS cutover is established."
+}
