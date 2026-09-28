@@ -50,6 +50,30 @@ ops/provision-platform-storage.sh apply
 ops/provision-platform-storage.sh grant-runtime
 ```
 
+### exact-commit migration/import (reviewed operator step)
+
+`ops/migrate-platform-storage.sh` defaults to read-only `status`. It accepts a
+digest-pinned backend image and a full Git commit only; `apply` requires a clean
+checkout, verifies the image revision label, runs migration/import/readback in
+an ephemeral container on data-01, and writes a root-only receipt containing
+the catalog digest and row counts. The temporary migrator role and its env file
+are removed before the command returns. It does not print a DSN, password, or
+catalog body, and it refuses any database other than `metahumotonic_platform`.
+
+```sh
+MHB_PLATFORM_IMAGE='registry.example/metahumotonic-web-back@sha256:<digest>' \
+MHB_PLATFORM_COMMIT='<40-char-commit>' ops/migrate-platform-storage.sh status
+# After CI/review only:
+MHB_PLATFORM_IMAGE='registry.example/metahumotonic-web-back@sha256:<digest>' \
+MHB_PLATFORM_COMMIT='<40-char-commit>' ops/migrate-platform-storage.sh apply
+```
+
+`apply` is idempotent at the schema/catalog level. It never rolls back an
+imported catalog or observations: after migration/import, the receipt records
+the logical catalog digest and readback counts, then and only then grants the
+limited runtime role. Any failure before that grant removes only the temporary
+migrator credentials; existing platform history remains for operator review.
+
 기본값은 기존 Git snapshot 모드다. `MHB_PLATFORM_DATABASE_URL`을 설정하면
 PostgreSQL이 필수 의존성이 된다. `MHB_PLATFORM_DATABASE_REQUIRED=true`는 URL을
 빠뜨린 경우에도 readiness와 내부 자산 조회를 실패시킨다. 운영 설정에 URL이 있는데
