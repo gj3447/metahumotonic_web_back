@@ -2,14 +2,16 @@
 """Build and verify an isolated company backend stack; never use production env.
 
 Requires a working Docker engine on an integration worker. Own containers have
-random names, exact owner labels, resource limits and an internal network. Only
-temporary loopback ports are published. A receipt is PASS only after cleanup.
+random names, exact owner labels, resource limits and an internal network. The
+host probes private container IPs; no ports are published. A receipt is PASS
+only after cleanup.
 """
 from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -131,6 +133,7 @@ def verify_stack(docker, work, receipt):
         docker.run("pull", image, timeout=300)
         receipt["images"][image] = docker.inspect("image", image, ".Id")
     docker.network = docker.run("network", "create", "--internal", "--label", f"{OWNER}={nonce}", f"mhb-check-{nonce}")
+    require(docker.inspect("network", docker.network, ".Internal") is True, "integration network is not internal")
     mongo = docker.container("mongo", "mongo:7.0.24")
     redis = docker.container("redis", "redis:8.0.2")
     for _ in range(60):
@@ -164,15 +167,15 @@ def verify_stack(docker, work, receipt):
     env_file.chmod(0o600)
     origins, replicas = [], []
     for index in range(2):
-        identity = docker.container(f"platform-{index}", docker.images[0], "--env-file", str(env_file), "--publish", "127.0.0.1::8000")
+        identity = docker.container(f"platform-{index}", docker.images[0], "--env-file", str(env_file))
         replicas.append(identity)
-        ports = docker.inspect("container", identity, '.NetworkSettings.Ports') or {}
-        if "8000/tcp" not in ports:
-            state = docker.inspect("container", identity, ".State")
-            raise RuntimeError(f"platform port missing (state={state.get('Status', 'unknown')}, exit={state.get('ExitCode', 'unknown')})")
-        bindings = ports["8000/tcp"]
-        require(len(bindings) == 1 and bindings[0]["HostIp"] == "127.0.0.1", "non-loopback published port")
-        origin = "http://127.0.0.1:" + bindings[0]["HostPort"]
+        require(not docker.inspect("container", identity, ".HostConfig.PortBindings"), "platform published a host port")
+        networks = docker.inspect("container", identity, ".NetworkSettings.Networks") or {}
+        address = (networks.get(f"mhb-check-{nonce}") or {}).get("IPAddress", "")
+        require(address and ipaddress.ip_address(address).is_private, "platform lacks a private container address")
+        # Docker hosts can read internal-bridge container IPs directly. No
+        # published port or container egress is needed for this integration gate.
+        origin = f"http://{address}:8000"
         origins.append(origin)
         await_ready(origin, nonce)
         require(docker.inspect("container", identity, ".Image") == receipt["images"]["platform"], "wrong running image")
@@ -185,7 +188,7 @@ def verify_stack(docker, work, receipt):
         require(catalog["sourceDigest"] == linked["mh:sourceDigest"], "different public graph identities")
         usl = http(origin, "/api/public/v1/hub/usl.json")[1]
         require(len(usl["nodes"]) == len(catalog["nodes"]) and len(usl["relations"]) == len(catalog["edges"]), "missing graph projection")
-    receipt["checks"].extend(["two-exact-image-replicas", "non-root-entrypoint", "required-domain-ready", "private-legacy-port", "platform-auth", "public-graph-parity"])
+    receipt["checks"].extend(["two-exact-image-replicas", "non-root-entrypoint", "required-domain-ready", "private-legacy-port", "private-platform-ports", "platform-auth", "public-graph-parity"])
     # Read the Python owner from inside its container, independently of the TS proxy.
     for path in ["/api/wiki/v1", "/api/wiki/v1/pages"]:
         direct = json.loads(docker.run("exec", legacy, "python", "-c", "import json,urllib.request; print(json.dumps(json.load(urllib.request.urlopen('http://127.0.0.1:8000" + path + "'))))"))
