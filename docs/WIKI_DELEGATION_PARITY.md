@@ -53,6 +53,12 @@ The prebuilt TS image is label-checked and deliberately retained because the
 standalone controller did not create or own it.
 No production Wiki database, session, Redis, MongoDB, Neo4j, public ingress,
 or runtime container is used.
+The [private stateful drill](evidence/company-private-wiki-stateful-drill-redis-recovery-2026-09-28.json)
+also stops only its nonce-labelled Redis container, compares selected direct
+Python and TS-delegated 503 responses, restarts Redis, waits for readiness
+recovery, and verifies that the rejected write did not persist. This is a
+connection-refusal test; a blackholed Redis connection still needs a bounded
+timeout check.
 
 ## Standalone private run
 
@@ -74,10 +80,11 @@ remote helper copies and starts the disposable database and network resources.
 On success or failure its EXIT cleanup removes only exact label-bound runtime
 resources and tells the data helper to drop the exact receipt-owned database.
 A drop failure stays durable in the data receipt and fails the controller.
-`cleanup` retries that exact cleanup with the same commit and nonce. The controller does not build an image, so a successful build
-followed by a failed canary invocation cannot leave a controller-created image.
-The existing release workspace at `releases/<commit>` must be root-owned
-`0700`; the runtime helper reserves its nonce-owned work directory there.
+`cleanup` retries that exact cleanup with the same commit and nonce. The
+controller does not build an image, so a successful build followed by a failed
+canary invocation cannot leave a controller-created image. It creates the
+root-owned `0700` release workspace at `releases/<commit>` only when absent and
+removes it after its nonce-owned runtime has been cleaned.
 
 ```sh
 MHB_WIKI_STATEFUL_COMMIT='<40-hex>' \

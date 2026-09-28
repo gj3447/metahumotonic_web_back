@@ -1,0 +1,35 @@
+{
+  "schema": "metahumotonic/private-wiki-stateful-drill-evidence@1",
+  "observedAt": "2026-09-28T09:27:38Z",
+  "environment": "Unpublished TS/Effect gateway and Python Wiki owner on VM100 with an isolated Redis container and a disposable data-01 PostgreSQL database",
+  "exactCommit": "35c02b21ad9ea7e7e2a94e5ca6ffde89bc797fd0",
+  "sourceArchiveSha256": "d3d235c4794e34bc0663aef4cf3e599709a8118df36ab2c711ccba56cbafeeb6",
+  "pythonImageId": "sha256:365518d3277addabc723f1d5c2d9aa03a580c88a00444a54d82355c45c032c11",
+  "gatewayImageId": "sha256:004f2a40b6aa0cdabb66dd60db912e7d3bff90a1c99f520b5ef822a0fbf19ece",
+  "wikiMigrationsSha256": "2a25d01abbd26ab17b0ad95528f094f122018d7bdd01759c8159b2e74abe2452",
+  "backupInput": "root-only VERIFIED encrypted current-production Wiki receipt and artifacts; dump and key hashes validated before restore",
+  "disposableDatabase": "metahumotonic_wiki_canary_35c02b21ad9e_d83846ef06e6",
+  "canaryReceiptStatus": "PASS",
+  "runtimeReceiptStatus": "CLEANED",
+  "databaseReceiptStatus": "DROPPED",
+  "checks": [
+    "TS-delegated browser session, CSRF, agent bearer, idempotency replay/conflict and revision CAS with direct Python readback",
+    "Direct Python moderation, CLI and MCP baseline",
+    "Exact nonce-owned Redis stopped; direct Python and TS-delegated session, read and bearer write failed closed with matching rate_limit_unavailable 503 body",
+    "Python and TS health stayed live while readiness failed; Redis restarted and both readiness checks recovered within the bounded poll",
+    "Rejected synthetic write remained absent after recovery"
+  ],
+  "failureControlChecks": [
+    "Nonexistent root-only backup receipt was rejected before DB creation; no lock, receipt, release directory or staged helper remained",
+    "Same commit and nonce replay was rejected because its receipt already existed; DROPPED and CLEANED receipts stayed intact"
+  ],
+  "databaseExistsAfterCleanup": false,
+  "ownedContainersNetworkOrWorkdirRemaining": false,
+  "temporaryReleaseOrStagingDirectoryRemaining": false,
+  "dataAndRuntimeOperationLocksRemaining": false,
+  "publicIngressChanged": false,
+  "productionWikiDatabaseMutated": false,
+  "publicSiteHttpStatus": 200,
+  "ci": "https://github.com/gj3447/metahumotonic_web_back/actions/runs/36403390794",
+  "scope": "Selected positive stateful requests and Redis stop/refusal/recovery were verified privately. This does not measure blackholed Redis timeout bounds, prove production ACLs or all-route response parity, or authorize a TS public rollout."
+}

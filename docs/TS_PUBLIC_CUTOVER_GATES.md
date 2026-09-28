@@ -14,8 +14,10 @@ Wiki의 긍정 경로 상태 변경도 [별도 private canary](evidence/company-
 통과했다. TS를 거친 브라우저 세션·쿠키·CSRF 쓰기와 agent bearer·멱등 재전송·
 충돌·stale revision CAS를 복원한 일회용 DB에 실행하고 Python 직접 읽기로 확인했다.
 Python의 moderation·CLI·MCP 기준 경로도 같은 일회용 런타임에서 통과했고 DB는
-삭제했다. 이 결과는 모든 응답의 TS/Python 동등성이나 Redis 장애·운영 권한 검증을
-대신하지 않는다.
+삭제했다. 이어서 [반복 가능한 private drill](evidence/company-private-wiki-stateful-drill-redis-recovery-2026-09-28.json)에서
+검증된 백업 영수증부터 일회용 DB 생성·삭제까지 자동화하고, 격리 Redis 중단 시
+세션·조회·쓰기의 Python/TS 503 응답과 재시작 후 복구를 확인했다. Redis 블랙홀의
+시간 제한, 전체 경로 응답 동등성, 운영 저장소 권한은 여전히 별도 검증 대상이다.
 
 | 순서 | 전환 조건 | 완료 판정 |
 |---|---|---|
