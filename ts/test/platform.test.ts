@@ -265,9 +265,24 @@ describe("stateful domain boundary", () => {
     expect(response.status).toBe(307)
     expect(response.headers.get("location")).toBe("http://localhost/api/wiki/v1/pages/")
   })
-  it("reports required domain outage as not ready", async () => {
+  it("propagates a required legacy Wiki Redis outage into readiness", async () => {
+    const origin = await listen(createServer((req, res) => {
+      if (req.url !== "/ready") { res.writeHead(404); res.end(); return }
+      res.writeHead(503, { "content-type": "application/json" })
+      res.end(JSON.stringify({ status: "not_ready", wiki_required: true, wiki_live: false, wiki_store_live: true, wiki_rate_limit_live: false, ontology_live: false }))
+    }))
+    const response = await app({ legacyOrigin: origin, legacyRequired: true }).request("/ready", null)
+    expect(response.status).toBe(503)
+    await expect(response.json()).resolves.toMatchObject({
+      status: "not_ready", wiki_required: true, wiki_live: false,
+      wiki_store_live: true, wiki_rate_limit_live: false
+    })
+  })
+  it("reports a missing required legacy owner as not ready", async () => {
     const web = app({ legacyRequired: true })
-    expect((await web.request("/ready", null)).status).toBe(503)
+    const ready = await web.request("/ready", null)
+    expect(ready.status).toBe(503)
+    await expect(ready.json()).resolves.toMatchObject({ status: "not_ready", wiki_live: false, wiki_store_live: false })
     expect((await web.request("/health", null)).status).toBe(200)
     expect((await web.request("/api/wiki/v1/pages", null)).status).toBe(503)
   })

@@ -75,10 +75,12 @@ export const MetaLive = HttpApiBuilder.group(Api, "meta", (handlers) =>
 
         const kgLive = cfg.neo4jLive ? yield* kg.ping : false
 
-        const wikiRequired = cfg.wikiPublicWrites
         const platform = yield* PlatformConfigTag
         const legacy = yield* LegacyServiceTag
         const legacyReady = yield* legacy.readiness
+        // A required legacy owner remains the authority for its Wiki contract.
+        // Native TS configuration still makes a future native Wiki owner required.
+        const wikiRequired = cfg.wikiPublicWrites || (platform.legacyRequired && legacyReady?.wiki_required === true)
         const wikiStoreLive = legacyReady?.wiki_store_live ?? false
         const wikiRateLimitLive = legacyReady?.wiki_rate_limit_live ?? !(wikiRequired && cfg.wikiRequireRedis)
         const wikiLive = wikiStoreLive && wikiRateLimitLive

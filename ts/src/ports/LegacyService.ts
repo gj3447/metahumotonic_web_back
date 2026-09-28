@@ -8,7 +8,7 @@ export const legacyPath = (path: string): boolean => ["/api/wiki/v1", "/internal
   .some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
 const Ready = Schema.Struct({
   status: Schema.Literal("ready", "not_ready"),
-  wiki_live: Schema.Boolean, wiki_store_live: Schema.Boolean, wiki_rate_limit_live: Schema.Boolean,
+  wiki_required: Schema.Boolean, wiki_live: Schema.Boolean, wiki_store_live: Schema.Boolean, wiki_rate_limit_live: Schema.Boolean,
   ontology_live: Schema.optionalWith(Schema.Boolean, { default: () => false })
 })
 export interface LegacyService {
