@@ -15,7 +15,10 @@ def test_stateful_delegation_is_exact_image_bound_and_disposable_only():
         'MHB_NEO4J_LIVE=false', 'MHB_REDIS_URL=', '--read-only', '--cap-drop ALL',
         'cleanup_gateway', 'ts_delegated_browser_session_csrf',
         'ts_delegated_agent_idempotency_cas_direct_readback', 'MHB_GATEWAY_URL',
-        'org.opencontainers.image.revision',
+        'org.opencontainers.image.revision', 'assert_owned_redis',
+        'stop_owned_redis_for_outage', 'restore_outage_redis',
+        'redis_outage_fail_closed_direct_and_delegated_recovery',
+        'MHB_OUTAGE_SLUG', 'rate_limit_unavailable', 'range(40)',
     ]:
         assert expected in source
     assert '"production_database_mutated":False' in source

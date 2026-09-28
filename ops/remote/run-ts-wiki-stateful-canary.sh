@@ -39,7 +39,7 @@ assert body.get("commit") == sys.argv[2]
 assert body.get("image_id") == sys.argv[3]
 assert body.get("migrations_sha256") == sys.argv[4]
 assert body.get("gateway_image_id") == sys.argv[5]
-assert {"ts_delegated_browser_session_csrf","ts_delegated_agent_idempotency_cas_direct_readback"}.issubset(body.get("tests", []))
+assert {"ts_delegated_browser_session_csrf","ts_delegated_agent_idempotency_cas_direct_readback","redis_outage_fail_closed_direct_and_delegated_recovery"}.issubset(body.get("tests", []))
 PY
   printf 'PASS existing commit/image-bound synthetic canary receipt %s\n' "$receipt"
   exit 0
@@ -56,7 +56,36 @@ gateway_env="$work_dir/gateway.env"
 created_network=false
 created_redis=false
 created_app=false
+redis_outage_active=false
 cleanup_ok=true
+assert_owned_redis() {
+  docker container inspect "$redis_name" >/dev/null
+  test "$(docker inspect "$redis_name" --format '{{.Name}}')" = "/$redis_name"
+  test "$(docker inspect "$redis_name" --format '{{index .Config.Labels "com.metahumotonic.wiki-canary.commit"}}')" = "$commit"
+  test "$(docker inspect "$redis_name" --format '{{index .Config.Labels "com.metahumotonic.wiki-canary.nonce"}}')" = "$rollout_nonce"
+}
+
+restore_outage_redis() {
+  [[ "$redis_outage_active" == true ]] || return 0
+  assert_owned_redis
+  if [[ "$(docker inspect "$redis_name" --format '{{.State.Running}}')" != true ]]; then
+    docker start "$redis_name" >/dev/null
+  fi
+  for _attempt in $(seq 1 10); do
+    docker exec "$redis_name" redis-cli ping 2>/dev/null | grep -qx PONG && break
+    sleep 1
+  done
+  docker exec "$redis_name" redis-cli ping 2>/dev/null | grep -qx PONG
+  redis_outage_active=false
+}
+
+stop_owned_redis_for_outage() {
+  assert_owned_redis
+  redis_outage_active=true
+  docker stop --time 5 "$redis_name" >/dev/null
+  [[ "$(docker inspect "$redis_name" --format '{{.State.Running}}')" == false ]]
+}
+
 cleanup_gateway() {
   if docker container inspect "$gateway_name" >/dev/null 2>&1; then
     test "$(docker inspect "$gateway_name" --format '{{index .Config.Labels "com.metahumotonic.wiki-canary.commit"}}')" = "$commit"
@@ -68,6 +97,7 @@ cleanup_gateway() {
 cleanup() {
   trap - EXIT ERR
   set +e
+  restore_outage_redis || cleanup_ok=false
   cleanup_gateway || cleanup_ok=false
   bash "$runtime_helper" cleanup "$commit" "$rollout_nonce" || cleanup_ok=false
   [[ "$cleanup_ok" == true ]]
@@ -301,6 +331,94 @@ asyncio.run(mcp_check())
 config.unlink(missing_ok=True); pathlib.Path("/tmp/wiki-canary.md").unlink(missing_ok=True)
 PY
 
+# Stop only the exact nonce-labelled disposable Redis container. The EXIT trap
+# restarts it before any cleanup if this gate fails part-way through.
+outage_slug="canary-redis-outage-${rollout_nonce:0:12}"
+stop_owned_redis_for_outage
+docker exec -i -e "MHB_GATEWAY_URL=http://$gateway_name:8000" -e "MHB_OUTAGE_SLUG=$outage_slug" "$app_name" python - <<'PY'
+import os
+from datetime import UTC, datetime, timedelta
+
+import httpx
+from app.wiki.security import SessionSigner
+
+base="http://127.0.0.1:8000"
+api=base+"/api/wiki/v1"
+gateway=os.environ["MHB_GATEWAY_URL"]
+slug=os.environ["MHB_OUTAGE_SLUG"]
+expected={"detail":{"code":"rate_limit_unavailable","message":"wiki rate limiter is unavailable"}}
+
+# Sessions are signed capabilities, so this makes a valid bearer without
+# touching a session store or emitting a credential outside the container.
+token, _ = SessionSigner(os.environ["MHB_WIKI_SESSION_SECRET"].encode(), ttl=timedelta(hours=1)).issue(
+    actor_id="redis-outage-canary", display_name="Redis Outage Canary", actor_kind="agent",
+    agent_url="https://metahumotonic.com/agents/canary", now=datetime.now(UTC),
+)
+
+def unavailable(response, *, delegated: bool) -> None:
+    assert response.status_code == 503
+    assert response.json() == expected
+    assert response.headers.get("content-type", "").startswith("application/json")
+    if delegated:
+        assert response.headers.get("x-mhb-service") == "legacy-domain"
+        assert response.headers.get("cache-control") == "private, no-store"
+    else:
+        assert response.headers.get("x-mhb-service") is None
+
+for root, delegated in ((api, False), (gateway+"/api/wiki/v1", True)):
+    with httpx.Client(base_url=root, timeout=10) as client:
+        # Session, read, and mutation limiters must each fail closed after the
+        # isolated Redis outage. The valid write must not reach the canary DB.
+        unavailable(client.post("/sessions", json={"display_name":"Redis Outage","actor_kind":"agent"}), delegated=delegated)
+        unavailable(client.get("/pages"), delegated=delegated)
+        unavailable(client.post("/pages", headers={"Authorization":f"Bearer {token}","Idempotency-Key":"redis-outage-write"}, json={"slug":slug,"title":"Redis Outage","content":"must not persist","edit_summary":"outage gate"}), delegated=delegated)
+
+for root in (base, gateway):
+    response=httpx.get(root+"/health", timeout=10)
+    assert response.status_code == 200 and response.json().get("status") == "ok"
+
+direct=httpx.get(base+"/ready", timeout=10)
+assert direct.status_code == 503
+assert direct.json() == {"status":"not_ready","kg_live":False,"wiki_required":True,"wiki_live":False,"wiki_store_live":True,"wiki_rate_limit_live":False,"ontology_required":False,"ontology_live":False,"degraded":True}
+delegated=httpx.get(gateway+"/ready", timeout=10)
+assert delegated.status_code == 503
+assert delegated.json().get("status") == "not_ready"
+assert delegated.json().get("wiki_store_live") is True
+assert delegated.json().get("wiki_rate_limit_live") is False
+assert delegated.json().get("wiki_live") is False
+PY
+
+# A successful restart is required even after an assertion failure. Python's
+# limiter has a 30-second breaker cooldown, so recovery is bounded and polled.
+restore_outage_redis
+docker exec -i -e "MHB_GATEWAY_URL=http://$gateway_name:8000" -e "MHB_OUTAGE_SLUG=$outage_slug" "$app_name" python - <<'PY'
+import os, time
+import httpx
+
+base="http://127.0.0.1:8000"
+gateway=os.environ["MHB_GATEWAY_URL"]
+slug=os.environ["MHB_OUTAGE_SLUG"]
+for _attempt in range(40):
+    try:
+        direct=httpx.get(base+"/ready", timeout=2)
+        delegated=httpx.get(gateway+"/ready", timeout=2)
+        if direct.status_code == 200 and delegated.status_code == 200:
+            break
+    except httpx.HTTPError:
+        pass
+    time.sleep(1)
+else:
+    raise AssertionError("Redis limiter did not recover within bounded cooldown")
+for root, is_delegated in ((base+"/api/wiki/v1", False), (gateway+"/api/wiki/v1", True)):
+    response=httpx.get(root+f"/pages/{slug}", timeout=10)
+    assert response.status_code == 404
+    if is_delegated:
+        assert response.headers.get("x-mhb-service") == "legacy-domain"
+        assert response.headers.get("cache-control") == "private, no-store"
+    else:
+        assert response.headers.get("x-mhb-service") is None
+PY
+
 # The application container must no longer hold a connection before the exact
 # disposable database can be dropped.  The application role owns only this
 # transaction-bound canary database; the validated name prevents broad drops.
@@ -309,7 +427,7 @@ trap - EXIT
 created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 python3 - "$receipt" "$commit" "$image_id" "$gateway_image_id" "$redis_image_id" "$database" "$created_at" "$migrations_sha" <<'PY'
 import json, os, pathlib, sys
-payload={"schema":"metahumotonic/wiki-stateful-delegation-canary@1","commit":sys.argv[2],"image_id":sys.argv[3],"gateway_image_id":sys.argv[4],"redis_image_id":sys.argv[5],"database":sys.argv[6],"created_at":sys.argv[7],"migrations_sha256":sys.argv[8],"tests":["ts_delegated_browser_session_csrf","ts_delegated_agent_idempotency_cas_direct_readback","browser_session_csrf","agent_bearer","idempotency_replay_conflict","create_edit_stale_cas","history_diff_recent","submit_report","moderation_quarantine_public_exclusion_release_resolve","cli_live","mcp_initialize_list_live_call"],"production_database_mutated":False,"database_cleanup":"DATA_HELPER_REQUIRED","cleanup":"PASS","status":"PASS"}
+payload={"schema":"metahumotonic/wiki-stateful-delegation-canary@1","commit":sys.argv[2],"image_id":sys.argv[3],"gateway_image_id":sys.argv[4],"redis_image_id":sys.argv[5],"database":sys.argv[6],"created_at":sys.argv[7],"migrations_sha256":sys.argv[8],"tests":["ts_delegated_browser_session_csrf","ts_delegated_agent_idempotency_cas_direct_readback","redis_outage_fail_closed_direct_and_delegated_recovery","browser_session_csrf","agent_bearer","idempotency_replay_conflict","create_edit_stale_cas","history_diff_recent","submit_report","moderation_quarantine_public_exclusion_release_resolve","cli_live","mcp_initialize_list_live_call"],"production_database_mutated":False,"database_cleanup":"DATA_HELPER_REQUIRED","cleanup":"PASS","status":"PASS"}
 path=pathlib.Path(sys.argv[1]); tmp=path.with_suffix(".tmp")
 tmp.write_text(json.dumps(payload,sort_keys=True)+"\n",encoding="utf-8"); os.chmod(tmp,0o600); tmp.replace(path)
 PY
