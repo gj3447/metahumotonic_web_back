@@ -1,0 +1,36 @@
+{
+  "schema": "metahumotonic/mcp-registry@1",
+  "site": "https://metahumotonic.com",
+  "updated": "2026-09-28",
+  "notes": [],
+  "servers": [
+    {
+      "name": "ontology",
+      "description": "Read-only ontology discovery through the company platform; access is operator-managed.",
+      "category": "utility",
+      "transport": "http",
+      "status": "verified",
+      "verified_at": "2026-09-28",
+      "last_probe_at": "2026-09-28T07:08:39.340Z",
+      "auth": { "type": "operator-managed" }
+    },
+    {
+      "name": "hspine",
+      "description": "Read-only HSPINE capability discovery through the company platform; access is operator-managed.",
+      "category": "utility",
+      "transport": "http",
+      "status": "verified",
+      "verified_at": "2026-09-28",
+      "last_probe_at": "2026-09-28T07:08:39.340Z",
+      "auth": { "type": "operator-managed" }
+    },
+    {
+      "name": "maplelineage",
+      "description": "Maple Lineage development corpus is catalogued; its live read tools have not been verified for this directory.",
+      "category": "utility",
+      "transport": "http",
+      "status": "available",
+      "auth": { "type": "operator-managed" }
+    }
+  ]
+}
