@@ -63,6 +63,9 @@ catalog body, and it refuses any database other than `metahumotonic_platform`.
 ```sh
 MHB_PLATFORM_IMAGE='registry.example/metahumotonic-web-back@sha256:<digest>' \
 MHB_PLATFORM_COMMIT='<40-char-commit>' ops/migrate-platform-storage.sh status
+# Stage the exact digest image on data-01; this does not contact PostgreSQL:
+MHB_PLATFORM_IMAGE='registry.example/metahumotonic-web-back@sha256:<digest>' \
+MHB_PLATFORM_COMMIT='<40-char-commit>' ops/migrate-platform-storage.sh stage-image
 # After CI/review only:
 MHB_PLATFORM_IMAGE='registry.example/metahumotonic-web-back@sha256:<digest>' \
 MHB_PLATFORM_COMMIT='<40-char-commit>' ops/migrate-platform-storage.sh apply
