@@ -21,8 +21,8 @@ remote() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$runtime_host" "$@"; }; da
 runtime_stage=""; data_stage=""
 release_created=false
 valid_stage() { [[ "$1" =~ ^/var/tmp/mhb-wiki-stateful\.[A-Za-z0-9]{6}$ ]]; }
-remove_stage() { local host="$1" stage="$2"; [[ -z "$stage" ]] && return 0; valid_stage "$stage" || return 1; ssh -o BatchMode=yes -o ConnectTimeout=10 "$host" "test ! -L '$stage' && test \"\$(stat -c '%u:%g:%a' '$stage')\" = \"\$(id -u):\$(id -g):700\" && rm -f -- '$stage'/'canary.sh' '$stage'/'runtime.sh' '$stage'/'data.sh' && rmdir -- '$stage'" >/dev/null 2>&1; }
-cleanup_local() { remove_stage "$runtime_host" "$runtime_stage" || true; remove_stage "$data_host" "$data_stage" || true; }
+remove_stage() { local host="$1" stage="$2"; [[ -z "$stage" ]] && return 0; valid_stage "$stage" || return 1; ssh -o BatchMode=yes -o ConnectTimeout=10 "$host" "test ! -L '$stage' && test \"\$(stat -c '%u:%g:%a' '$stage')\" = \"\$(id -u):\$(id -g):700\" && rm -f -- '$stage'/'canary.sh' '$stage'/'runtime.sh' '$stage'/'data.sh' '$stage'/'lock.sh' && rmdir -- '$stage'" >/dev/null 2>&1; }
+cleanup_local() { local failed=false; remove_stage "$runtime_host" "$runtime_stage" || failed=true; remove_stage "$data_host" "$data_stage" || failed=true; [[ "$failed" == false ]]; }
 runtime_stage="$(remote 'umask 077; mktemp -d /var/tmp/mhb-wiki-stateful.XXXXXX')"; valid_stage "$runtime_stage" || fail 'unsafe runtime staging path'
 trap cleanup_local EXIT
 data_stage="$(data_remote 'umask 077; mktemp -d /var/tmp/mhb-wiki-stateful.XXXXXX')"; valid_stage "$data_stage" || fail 'unsafe data staging path'
@@ -38,10 +38,11 @@ data_remote "test -f '$data_helper' && test -f '$data_lock' && test ! -L '$data_
 gateway_name="mhb-wiki-canary-gateway-${commit:0:12}-${nonce:0:12}"
 cleanup_gateway() { remote "if sudo -n docker container inspect '$gateway_name' >/dev/null 2>&1; then test \"\$(sudo -n docker inspect '$gateway_name' --format '{{index .Config.Labels \"com.metahumotonic.wiki-canary.commit\"}}')\" = '$commit' && test \"\$(sudo -n docker inspect '$gateway_name' --format '{{index .Config.Labels \"com.metahumotonic.wiki-canary.nonce\"}}')\" = '$nonce' && sudo -n docker rm -f '$gateway_name' >/dev/null; fi"; }
 receipt="/var/lib/metahumotonic-web-back/private-wiki-stateful-receipts/${commit}-${nonce}.json"
-database_owned=false; runtime_attempted=false; data_locked=false; runtime_locked=false
+database_owned=false; database_create_started=false; runtime_attempted=false; data_locked=false; runtime_locked=false
+gateway_needs_cleanup() { remote "sudo -n docker container inspect '$gateway_name' >/dev/null 2>&1"; }
 runtime_needs_cleanup() {
   local short="${commit:0:12}-${nonce:0:12}"
-  remote "test -e '/var/lib/metahumotonic-web-back/runtime-canaries/${commit}-${nonce}.json' || sudo -n docker container inspect 'mhb-wiki-canary-app-$short' >/dev/null 2>&1 || sudo -n docker container inspect 'mhb-wiki-canary-redis-$short' >/dev/null 2>&1 || sudo -n docker network inspect 'mhb-wiki-canary-$short' >/dev/null 2>&1 || sudo -n test -e '/var/lib/metahumotonic-web-back/releases/$commit/.canary-$short'"
+  remote "sudo -n test -e '/var/lib/metahumotonic-web-back/runtime-canaries/${commit}-${nonce}.json' || sudo -n docker container inspect 'mhb-wiki-canary-app-$short' >/dev/null 2>&1 || sudo -n docker container inspect 'mhb-wiki-canary-redis-$short' >/dev/null 2>&1 || sudo -n docker network inspect 'mhb-wiki-canary-$short' >/dev/null 2>&1 || sudo -n test -e '/var/lib/metahumotonic-web-back/releases/$commit/.canary-$short'"
 }
 cleanup_release_dir() {
   [[ "$release_created" == true ]] || return 0
@@ -52,24 +53,25 @@ test ! -L \"\$directory\" && test \"\$(stat -c '%U:%G:%a' \"\$directory\")\" = r
 REMOTE"
 }
 cleanup_all() {
-  status=$?; trap - EXIT; local runtime_failed=false database_failed=false release_failed=false locks_failed=false
-  if [[ "$runtime_attempted" == true ]] || runtime_needs_cleanup; then cleanup_gateway || runtime_failed=true; remote "sudo -n bash '$runtime' cleanup '$commit' '$nonce'" || runtime_failed=true; fi
-  if [[ "$database_owned" == true ]]; then data_remote "sudo -n bash '$data_helper' drop postgresql '$database' mhb_wiki unused unused '$commit' '$nonce' unused" || database_failed=true; fi
+  status=$?; trap - EXIT; local runtime_failed=false database_failed=false release_failed=false locks_failed=false staging_failed=false
+  if gateway_needs_cleanup; then cleanup_gateway || runtime_failed=true; fi
+  if [[ "$runtime_attempted" == true ]] || runtime_needs_cleanup; then remote "sudo -n bash '$runtime' cleanup '$commit' '$nonce'" || runtime_failed=true; fi
+  if [[ "$database_owned" == true || "$database_create_started" == true ]]; then data_remote "sudo -n bash '$data_helper' drop postgresql '$database' mhb_wiki unused unused '$commit' '$nonce' unused" || database_failed=true; fi
   cleanup_release_dir || release_failed=true
   if [[ "$runtime_locked" == true ]]; then remote "sudo -n bash '$runtime_lock' release mhb-wiki-runtime-operation '$nonce'" || locks_failed=true; fi
   if [[ "$data_locked" == true ]]; then data_remote "sudo -n bash '$data_lock' release mhb-wiki-data-operation '$nonce'" || locks_failed=true; fi
-  cleanup_local
+  cleanup_local || staging_failed=true
   [[ "$runtime_failed" == false ]] || { printf 'FAIL stateful drill runtime cleanup failed; exact runtime receipt requires operator recovery\n' >&2; exit 1; }
   [[ "$database_failed" == false ]] || { printf 'FAIL stateful drill database cleanup failed; inspect the exact data receipt\n' >&2; exit 1; }
   [[ "$release_failed" == false ]] || { printf 'FAIL stateful drill created release directory was not empty or owned\n' >&2; exit 1; }
   [[ "$locks_failed" == false ]] || { printf 'FAIL stateful drill operation lock release failed; exact lock requires operator recovery\n' >&2; exit 1; }
+  [[ "$staging_failed" == false ]] || { printf 'FAIL stateful drill helper staging cleanup failed; exact user-owned staging paths retained\n' >&2; exit 1; }
   exit "$status"
 }
 trap cleanup_all EXIT
 data_remote "sudo -n bash '$data_lock' acquire mhb-wiki-data-operation '$nonce'"; data_locked=true
 remote "sudo -n bash '$runtime_lock' acquire mhb-wiki-runtime-operation '$nonce'"; runtime_locked=true
 if [[ "$mode" == cleanup ]]; then
-  runtime_attempted=true
   if data_remote "sudo -n bash '$data_helper' status postgresql '$database' mhb_wiki unused unused '$commit' '$nonce' unused" >/dev/null; then database_owned=true; else data_remote "test \"\$(sudo -n docker exec postgresql psql -U postgres -Atqc \"SELECT count(*) FROM pg_database WHERE datname='$database'\")\" = 0" || fail 'foreign exact-name database has no owned receipt'; fi
   exit 0
 fi
@@ -90,7 +92,8 @@ for a, field in ((e,'backup_sha256'),(k,'key_sha256')):
 print(e,k,b['key_sha256'])
 PY") || fail 'data-01 backup receipt or artifact validation failed'
 [[ "$encrypted_dump" =~ ^/[A-Za-z0-9._/-]+$ && "$key_file" =~ ^/[A-Za-z0-9._/-]+$ && "$key_sha" =~ ^[0-9a-f]{64}$ ]] || fail 'invalid verified backup manifest'
-data_remote "test ! -e '/var/lib/metahumotonic-wiki/canaries/${commit}-${nonce}.json' && test \"\$(sudo -n docker exec postgresql psql -U postgres -Atqc \"SELECT count(*) FROM pg_database WHERE datname='$database'\")\" = 0" || fail 'exact canary database or receipt already exists'
+data_remote "sudo -n test ! -e '/var/lib/metahumotonic-wiki/canaries/${commit}-${nonce}.json' && test \"\$(sudo -n docker exec postgresql psql -U postgres -Atqc \"SELECT count(*) FROM pg_database WHERE datname='$database'\")\" = 0" || fail 'exact canary database or receipt already exists'
+database_create_started=true
 data_remote "sudo -n bash '$data_helper' create postgresql '$database' mhb_wiki '$encrypted_dump' '$key_file' '$commit' '$nonce' '$key_sha'" >/dev/null
 database_owned=true
 release_state="$(remote "sudo -n bash -s -- '$commit' <<'REMOTE'
