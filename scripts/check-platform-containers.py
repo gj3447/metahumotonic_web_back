@@ -249,6 +249,13 @@ def main():
             code = 0
     except (RuntimeError, OSError, ValueError, KeyError, subprocess.TimeoutExpired) as error:
         receipt.update(status="FAIL", failureType=type(error).__name__)
+        # Report only our source location, not exception values: Docker and HTTP
+        # exceptions may carry credentials or response bodies.
+        frame = error.__traceback__
+        while frame and frame.tb_next:
+            frame = frame.tb_next
+        if frame and frame.tb_frame.f_code.co_filename == __file__:
+            receipt["failureLocation"] = {"function": frame.tb_frame.f_code.co_name, "line": frame.tb_lineno}
         if isinstance(error, RuntimeError):
             receipt["reason"] = str(error)
     finally:
