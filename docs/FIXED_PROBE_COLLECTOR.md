@@ -47,4 +47,8 @@ The collector makes one `POST /api/platform/v1/observations` attempt and never
 retries it automatically. If the response is uncertain, rerun the exact same
 `--write --input` command. The stored bytes, receipt ID, and observation IDs
 remain unchanged for the existing append-only receipt replay contract. Neither
-the origin nor key is printed.
+the origin nor key is printed. The saved file must contain exactly the two
+fixed target observations, their collector IDs, shared observation time and
+bounded TTL, and the fixed evidence source; a generic platform batch is
+rejected. The write origin must be HTTPS, except for a loopback HTTP operator
+or test endpoint.

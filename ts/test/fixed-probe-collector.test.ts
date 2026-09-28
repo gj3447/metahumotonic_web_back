@@ -1,7 +1,7 @@
 import { createServer } from "node:http"
 import { Effect, Either, Layer, Schema } from "effect"
 import { describe, expect, it } from "vitest"
-import { FixedProbeRequest, ProbeFetchTag, collectFixedProbeBatch, fixedProbeBatchBytes, fixedProbeTargets, parseFixedProbeBatchBytes } from "../src/platform/FixedProbeCollector.js"
+import { FixedProbeRequest, ProbeFetchTag, collectFixedProbeBatch, fixedProbeBatchBytes, fixedProbeTargets, isSafeFixedProbeIngestOrigin, parseFixedProbeBatchBytes } from "../src/platform/FixedProbeCollector.js"
 
 const request = { runId: "probe-test-001", observedAt: "2026-09-28T08:00:00.000Z", ttlSeconds: 900 }
 const run = (fetch: (input: string, init: RequestInit) => Promise<Response>) => Effect.runPromise(
@@ -49,6 +49,25 @@ describe("fixed operator probe collector", () => {
       expect(received).toHaveLength(2)
       expect(received.every((body) => body.equals(Buffer.from(bytes)))).toBe(true)
     } finally { await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())) }
+  })
+  it("rejects generic or tampered batches before a platform write key can be used", async () => {
+    const planned = await run(async () => new Response("body-not-collected", { status: 200 }))
+    type MutableBatch = { observations: Array<{ id: string; subjectId: string; evidence: Array<{ source: string }> }> }
+    const tamper = (change: (value: MutableBatch) => void) => {
+      const value = JSON.parse(Buffer.from(fixedProbeBatchBytes(planned.batch)).toString("utf8")) as MutableBatch
+      change(value)
+      expect(() => parseFixedProbeBatchBytes(Buffer.from(JSON.stringify(value)))).toThrow()
+    }
+    tamper((batch) => { batch.observations[0]!.subjectId = "program:hswm" })
+    tamper((batch) => { batch.observations[0]!.id = "observation:other:target" })
+    tamper((batch) => { batch.observations[0]!.evidence[0]!.source = "collector:other" })
+    tamper((batch) => { batch.observations.push({ ...batch.observations[0]!, evidence: [{ ...batch.observations[0]!.evidence[0]! }] }) })
+  })
+  it("allows HTTPS or loopback HTTP ingest origins only", () => {
+    for (const origin of ["https://operator.example/", "http://127.0.0.1:8080/", "http://localhost/"])
+      expect(isSafeFixedProbeIngestOrigin(origin)).toBe(true)
+    for (const origin of ["http://operator.example/", "http://192.168.0.24/", "https://user:token@operator.example/", "https://operator.example/api"])
+      expect(isSafeFixedProbeIngestOrigin(origin)).toBe(false)
   })
   it("records status, timeout, and network failures without error bodies", async () => {
     const status = await run(async () => new Response("unexpected-body", { status: 503 }))

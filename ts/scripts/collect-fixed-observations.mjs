@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto"
 import { readFile, writeFile } from "node:fs/promises"
 import { Effect, Either, Schema } from "effect"
-import { FixedProbeFetchLive, FixedProbeRequest, collectFixedProbeBatch, fixedProbeBatchBytes, parseFixedProbeBatchBytes } from "../dist/src/platform/FixedProbeCollector.js"
+import { FixedProbeFetchLive, FixedProbeRequest, collectFixedProbeBatch, fixedProbeBatchBytes, isSafeFixedProbeIngestOrigin, parseFixedProbeBatchBytes } from "../dist/src/platform/FixedProbeCollector.js"
 
 const args = process.argv.slice(2)
 const value = (flag) => {
@@ -38,8 +38,8 @@ const batch = parseFixedProbeBatchBytes(bytes)
 const origin = process.env.MHB_PLATFORM_INGEST_ORIGIN
 const key = process.env.MHB_PLATFORM_WRITE_KEY
 if (!origin || !key) throw new Error("--write requires MHB_PLATFORM_INGEST_ORIGIN and MHB_PLATFORM_WRITE_KEY; neither value is printed")
+if (!isSafeFixedProbeIngestOrigin(origin)) throw new Error("ingest origin must be HTTPS or loopback HTTP without credentials or path")
 const url = new URL(origin)
-if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.pathname !== "/" || url.search || url.hash) throw new Error("invalid operator-managed ingest origin")
 // There is intentionally one POST attempt. If its response is uncertain, run
 // this same --write --input command again: `bytes` are never regenerated.
 const response = await fetch(new URL("/api/platform/v1/observations", url), { method: "POST", headers: { "content-type": "application/json", "x-api-key": key }, body: bytes, signal: AbortSignal.timeout(10_000) })

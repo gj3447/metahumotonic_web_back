@@ -103,13 +103,46 @@ export const collectFixedProbeBatch = (request: FixedProbeRequest) => Effect.gen
  */
 export const fixedProbeBatchBytes = (batch: typeof ObservationBatch.Type): Uint8Array => new TextEncoder().encode(JSON.stringify(batch))
 
+const fixedBatchProblem = (batch: typeof ObservationBatch.Type): string | null => {
+  const match = /^collector:fixed-probe:([a-z0-9][a-z0-9-]{2,55})$/.exec(batch.receiptId)
+  if (!match) return "fixed probe receipt identity required"
+  const runId = match[1]!
+  if (batch.observations.length !== fixedProbeTargets.length) return "fixed probe target count required"
+  const observedAt = batch.observations[0]?.observedAt
+  if (!observedAt) return "fixed probe observation time required"
+  const ttl = Date.parse(batch.observations[0]!.expiresAt) - Date.parse(observedAt)
+  if (ttl < 60_000 || ttl > 3_600_000 || ttl % 1000 !== 0) return "fixed probe TTL range required"
+  for (const target of fixedProbeTargets) {
+    const observation = batch.observations.find((item) => item.id === observationId(runId, target.id))
+    if (!observation || observation.subjectId !== target.subjectId || observation.check !== target.check) return `fixed probe target mismatch: ${target.id}`
+    if (observation.observedAt !== observedAt || Date.parse(observation.expiresAt) - Date.parse(observation.observedAt) !== ttl) return `fixed probe time mismatch: ${target.id}`
+    if (observation.evidence.length !== 1) return `fixed probe evidence count mismatch: ${target.id}`
+    const evidence = observation.evidence[0]!
+    const note = new RegExp(`^Fixed GET allowlist target=${target.id}; status=(?:none|[0-9]{3})(?: result=(?:timeout|network|unexpected-status))?; response body was not collected\\.$`)
+    if (evidence.source !== "collector:fixed-probe/v1" || evidence.authority !== "SYSTEM_DERIVED" || evidence.observedAt !== observedAt || !note.test(evidence.note)) return `fixed probe evidence mismatch: ${target.id}`
+  }
+  return null
+}
+
 export const parseFixedProbeBatchBytes = (bytes: Uint8Array): typeof ObservationBatch.Type => {
   if (bytes.byteLength === 0 || bytes.byteLength > 524_288) throw new Error("invalid fixed probe batch file size")
   let value: unknown
   try { value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) } catch { throw new Error("invalid fixed probe batch JSON") }
   const decoded = Schema.decodeUnknownEither(ObservationBatch, { onExcessProperty: "error" })(value)
   if (Either.isLeft(decoded)) throw new Error("invalid fixed probe batch contract")
+  const problem = fixedBatchProblem(decoded.right)
+  if (problem) throw new Error(problem)
   return decoded.right
+}
+
+/** API keys may travel over HTTPS, or a local loopback test/operator endpoint only. */
+export const isSafeFixedProbeIngestOrigin = (value: string): boolean => {
+  try {
+    const url = new URL(value)
+    if (url.username || url.password || url.pathname !== "/" || url.search || url.hash) return false
+    if (url.protocol === "https:") return true
+    return url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+  } catch { return false }
 }
 
 export const FixedProbeFetchLive = Layer.succeed(ProbeFetchTag, { fetch: globalThis.fetch })
