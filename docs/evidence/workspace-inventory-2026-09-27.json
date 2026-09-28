@@ -1,0 +1,1356 @@
+{
+  "observedAt": "2026-09-27T06:10:15.392632+00:00",
+  "roots": [
+    "/home/lagyeongjun/CD",
+    "/home/lagyeongjun/Development",
+    "/home/lagyeongjun/SKILLS_MCP",
+    "/home/lagyeongjun/orca",
+    "/home/lagyeongjun/galtab"
+  ],
+  "maxDepth": 4,
+  "excludedDirectoryNames": [
+    ".cache",
+    ".git",
+    ".venv",
+    "GAME-ARCHIVE",
+    "GAME-worktrees",
+    "__pycache__",
+    "_hspine-wt",
+    "_mac_wip_snapshot_2026-08-10",
+    "_repair_workspaces",
+    "archive",
+    "build",
+    "delltower-jgbpc-worktrees-20260815",
+    "dist",
+    "node_modules",
+    "snapshots",
+    "target",
+    "venv"
+  ],
+  "networkFetchPerformed": false,
+  "repositories": [
+    {
+      "path": "/home/lagyeongjun/CD/19",
+      "head": [
+        "412f953bd31f31c04b19e7d983b4e4f6b8faf89b",
+        "2026-09-04T06:05:48Z",
+        "Track generated_prompts in dev-01 SSOT"
+      ],
+      "branch": "main",
+      "statusLineCount": 168,
+      "statusTimedOut": false,
+      "upstream": null,
+      "aheadBehindLocalTracking": null,
+      "commonGitDir": "/home/lagyeongjun/CD/19/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "e43031c82e16ab7112ffbc5c3a42ed8a9a577ca3d8af3f2e811ea755496f4cc5"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/333",
+      "head": [
+        "1095d93bae0d3f36b6bb7fa5e690f90bd618f1c2",
+        "2026-08-15T08:35:40Z",
+        "refactor: retire external governance gates"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/333/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "d008823d81a760fa8b8a5a949e275884c28734cad9759ba794f50d88a0a47026"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/BITCOIN/ttest-coin",
+      "head": [
+        "9922982d87655a848129d2a5f0cd51672ded9e01",
+        "2026-08-15T14:48:12Z",
+        "feat: build durable CometBFT TTEST testnet"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/BITCOIN/ttest-coin/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "6e5f666d5c6d6dd8cad5c4c524e52edcbb10c4a409f309d100a922a343eea56f"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "package.json",
+          "name": "ttest-coin",
+          "version": "0.4.0",
+          "engines": {
+            "node": ">=24"
+          },
+          "workspaces": null,
+          "scriptNames": [
+            "demo",
+            "node",
+            "follower",
+            "abci",
+            "fault-proxy",
+            "test:cometbft:4v",
+            "generate:cometbft",
+            "verify:cometbft",
+            "wallet",
+            "typecheck",
+            "test",
+            "test:watch",
+            "check"
+          ],
+          "effect": {
+            "effect": "3.22.1",
+            "@effect/vitest": "0.30.0"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/BITCOIN/ttest-evm",
+      "head": [
+        "4d9ec2bd9f6b7c617558874c776c1859be22b06e",
+        "2026-08-21T06:54:36Z",
+        "feat(ttest): add EVM smart contract laboratory chain"
+      ],
+      "branch": "main",
+      "statusLineCount": 21,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/BITCOIN/ttest-evm/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "a71c880e885e54054016ff6bb86946e1d42f931907af01d174d107fe018d5e58"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/GAME",
+      "head": [
+        "08518e1428cc3d8117b92de6a1a9af75855231bf",
+        "2026-09-08T01:05:03Z",
+        "chore(game): consolidate completed workspaces into recoverable archive"
+      ],
+      "branch": "main",
+      "statusLineCount": 729,
+      "statusTimedOut": false,
+      "upstream": null,
+      "aheadBehindLocalTracking": null,
+      "commonGitDir": "/home/lagyeongjun/CD/GAME/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "75d25d15261e7e64414d8a552447e2d526e8816aa1b20d32ed1f59f7135e934a"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/HSPINE",
+      "head": [
+        "c96c8dcd599c7fe4d611805455bd8d88a0a65e72",
+        "2026-09-14T08:13:44Z",
+        "Polish thread workspace and fix hidden controls and graph hit targets"
+      ],
+      "branch": "main",
+      "statusLineCount": 2,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/HSPINE/.git",
+      "worktreeCount": 5,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "6262d171cbb1aecd05c2884d3a595af15fc48eb6bde5433719a7438719ca7dbb"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "package.json",
+          "name": "@metahumotonic/hspine",
+          "version": "0.2.0",
+          "engines": {
+            "node": ">=24.13.0"
+          },
+          "workspaces": null,
+          "scriptNames": [
+            "check",
+            "test",
+            "build",
+            "verify",
+            "security:check",
+            "security:deps",
+            "security:scan",
+            "dev",
+            "start",
+            "mcp"
+          ],
+          "effect": {
+            "@effect/platform": "0.97.1",
+            "@effect/platform-node": "0.108.1",
+            "@effect/sql": "0.52.1",
+            "@effect/sql-sqlite-node": "0.53.0",
+            "effect": "3.22.1",
+            "@effect/language-service": "0.87.2",
+            "@effect/vitest": "0.30.0"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/HSWM",
+      "head": [
+        "bd19ec87341dc8885920688bdd4a86317a018901",
+        "2026-09-27T05:54:22Z",
+        "Deepen hypergraph cost hypothesis with predictive theory and standard graph mapping"
+      ],
+      "branch": "main",
+      "statusLineCount": 15,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/HSWM/.git",
+      "worktreeCount": 12,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "3a0961c638786b82b3fcc82c1d839a57da2c24bce4007ed54c1081e5b8e3261f"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "d1a67c9af3a27b9de8f174d7948e3793b95335a231f5d2d3a7fe76d4f0b00e34"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/ICE_ORCA_DRAGON",
+      "head": [
+        "cbe6f7b09a02efb5ac484385b3e1105171d91c4c",
+        "2026-09-08T06:15:50Z",
+        "Dogfood native HSWM research with verified fixes and explicit stage reviews"
+      ],
+      "branch": "main",
+      "statusLineCount": 1,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/ICE_ORCA_DRAGON/.git",
+      "worktreeCount": 2,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "ed1116f526319bbbfe34a727789463ace7c70cb08dc1200c9a97680bfcab855d"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "package.json",
+          "name": "ice-orca-dragon-control-plane",
+          "version": "0.1.0",
+          "engines": {
+            "node": ">=24.0.0 <25.0.0"
+          },
+          "workspaces": null,
+          "scriptNames": [
+            "ice",
+            "mcp",
+            "graph:review",
+            "graph:export",
+            "graph:interop-check",
+            "graph:check",
+            "graph:release-check",
+            "sbom:check",
+            "agent:eval",
+            "typecheck",
+            "test",
+            "check"
+          ],
+          "effect": {
+            "@effect/cli": "0.77.0",
+            "@effect/platform": "0.97.1",
+            "@effect/platform-node": "0.108.1",
+            "@effect/printer": "0.51.0",
+            "@effect/printer-ansi": "0.51.0",
+            "effect": "3.22.1",
+            "@effect/vitest": "0.30.0"
+          }
+        },
+        {
+          "file": "pyproject.toml",
+          "sha256": "83668bc4beec8c6430de1f57e753f9dbf8c0f1a021fc2d096227bda7ae2f5e1d"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/MAPLELINEAGE",
+      "head": [
+        "4768d661718ae09a5b6f9d9d0a834c6738543794",
+        "2026-09-07T11:32:01Z",
+        "docs(maplelineage): publish verified KG development handoff"
+      ],
+      "branch": "main",
+      "statusLineCount": 157,
+      "statusTimedOut": false,
+      "upstream": null,
+      "aheadBehindLocalTracking": null,
+      "commonGitDir": "/home/lagyeongjun/CD/MAPLELINEAGE/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "56e34e3db39b4f1d357437271bce977732c27766915af9d6e6ae2da4f4040693"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/MIND",
+      "head": [
+        "f6cefc3d0b876a1c11502f81273326d30f55810b",
+        "2026-08-15T08:42:01Z",
+        "refactor: move game-only canon to GAME repository"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/MIND/.git",
+      "worktreeCount": 1,
+      "readmes": [],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/MIND/lean_formalization",
+      "head": [
+        "c03f397529c81a1e01b1e6a6a668790f3e48de4c",
+        "2026-07-12T14:19:18+09:00",
+        "chore(lean): bring untracked formalization under version control"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/MIND/lean_formalization/.git",
+      "worktreeCount": 1,
+      "readmes": [],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/ORCA_SETTING",
+      "head": [
+        "86c6016790bf8e8695fb77a8977a0f22c318e75f",
+        "2026-09-27T09:31:57+09:00",
+        "Record verified Tailnet recovery projection and current operating status"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/ORCA_SETTING/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "c04a7fa4aa0fdcdef8b8303ccd230037e972f8c7398a5f47c996db0254e98616"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SERVER",
+      "head": [
+        "18e32a74b251101478ce28e4ac138d03e33540d5",
+        "2026-08-15T08:45:52Z",
+        "refactor: move legacy game projects to GAME repository"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SERVER/.git",
+      "worktreeCount": 1,
+      "readmes": [],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM",
+      "head": [
+        "e1070f48a175e5db85cdd96bab4411256c5d285f",
+        "2026-09-20T11:00:11Z",
+        "refactor(chatgpt): transfer API and connector ownership to sibling repositories"
+      ],
+      "branch": "main",
+      "statusLineCount": 2,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/.git",
+      "worktreeCount": 1,
+      "readmes": [],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM",
+      "head": [
+        "5a31112d1c2813d8e28ff45b32fceca2e8629107",
+        "2026-07-30T18:22:46+09:00",
+        "docs: register PROM-17 position paper in INDEX.md"
+      ],
+      "branch": "main",
+      "statusLineCount": 6,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM/.git",
+      "worktreeCount": 5,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "e17dff4c9230dcbdf72b7305fe71bdcde68be5d1d481e19fe3fced3262ddbc6b"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "fd8ab5c77b0a66ac47671012f969d792b0cda0bfdc2c879ca83539d50430fa04"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/AriGraph",
+      "head": [
+        "e884b76d7fa5185a3a8a55e5a67393b5a43f5ef2",
+        "2024-09-10T15:41:24+03:00",
+        "thesises added"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/AriGraph/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "f728cef6c42cd384c341c9d46cea193553ab9fd9276f2ddb5f625613fe792ba4"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/HGRAG",
+      "head": [
+        "dfff451d6cbf72babae28b530179d21de72b8eb9",
+        "2026-03-27T18:24:47+08:00",
+        "Initial commit"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/HGRAG/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "23357ba78e6ac48e210214b719d720fbedbaea947446111338a40e783d36b68c"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/HippoRAG",
+      "head": [
+        "1e8f60981bf760b64003aa5bf5668126d0c106b3",
+        "2026-07-12T17:10:50-07:00",
+        "update hipporag base"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/HippoRAG/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "32def367ea61c762b8d82877bd6d317a429472cf2986eaefbec915b0593c1742"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/HyperGraphRAG",
+      "head": [
+        "d587cdf8c3fe2be7719557f845324cb3a321f5e2",
+        "2026-05-12T05:45:59+08:00",
+        "add"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/HyperGraphRAG/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "2ca14e627d57b6281e4efff4942c7e54d73ce85b1bea3eba86743daac1be82e1"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/ProveRAG",
+      "head": [
+        "18fe54ba20ff9564c2f2a47a2af86ec61eb8f14b",
+        "2026-06-03T15:18:07-07:00",
+        "Update"
+      ],
+      "branch": "master",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/master",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/ProveRAG/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "7fae208c2527761db8f8a1db5957137e001b303bf94ff44f37fed626520ba1e0"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/SiReRAG",
+      "head": [
+        "70c9434776ca0eaac17590285285c26313817365",
+        "2026-06-02T14:56:10-04:00",
+        "Upload required SECURITY.md file for compliance"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/SiReRAG/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "c15dda9cab86a9d0737fdcb4b2b68bb50de16009cb4705bbf832750493f5ae93"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/T-GRAG",
+      "head": [
+        "8c6d4ea19e4e4fafb4504f691cb7f3873c0ac595",
+        "2025-07-30T20:58:52+08:00",
+        "Add files via upload"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/T-GRAG/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "1643fa2476692fc076abe8e176bf7ca7ef57e41b3035eac6cfd4ee9e267bfa82"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/Tiermem",
+      "head": [
+        "5ceda3465c08e234c00549ac43abf7eb539323f9",
+        "2026-02-23T16:37:10+08:00",
+        "Update README.md"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/Tiermem/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "2c0adf1e120b4df5802309091eade1768741a55c50a502584b60c74a22683b7c"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/gfm-rag",
+      "head": [
+        "57e3e28045fffff5411e2454a4323fbe4dff9b91",
+        "2026-06-24T12:50:21+10:00",
+        "docs: add evaluation section for GraphRAG benchmarks with detailed steps"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/gfm-rag/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "3757faf2e063a047b7af0e4320ec99b50ebb958a085bb44e46cf9a67f360bcfb"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "33eb5be8542cd5a916a9edd30a44ae0f289852a25ef55b5ae519a3d67f68a878"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/graphiti",
+      "head": [
+        "4674e1ed834810f5d90e1abd627cff493b25f0ae",
+        "2026-07-22T20:24:48-04:00",
+        "fix(falkordb): route single group_id search to the matching graph (#1670)"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/graphiti/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "c40783b9a92edf0c6ee2fc425d990a959952cf11cd758d9e623fe4b0c012bea8"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "e8157e9b9c84a01b86e4e02e6cdc586b6e42e61d3c1612d1bb5aeef2f8309b44"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/zep",
+      "head": [
+        "0375d7be4a72cda6a43ecdc6fd9055846eb0fd0e",
+        "2026-07-17T18:52:09-05:00",
+        "docs(building-with-zep): restore key skill guidance + document placement rule (#567)"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/HSWM_COMPETITORS/zep/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "6dcd95536592c573efac8397a5c6f73721a33a347d0e4e3af50027d80016a3e8"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "0348d354a3bfabcbd7f6918ae0c8d35495a2fbb2131abdf311924217b4bdb52a"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/bhgman_tool-wt-pi-runtime-20260716",
+      "head": [
+        "7ffb2d46d4262486563f4ff9c18148358d5cca05",
+        "2026-07-29T18:08:24+09:00",
+        "feat(mcp): M2 expansion — 6 executable constitutional axes + axis census"
+      ],
+      "branch": "feat/longinus-field-id-indirection",
+      "statusLineCount": 51,
+      "statusTimedOut": false,
+      "upstream": null,
+      "aheadBehindLocalTracking": null,
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/bhgman_tool-wt-pi-runtime-20260716/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "1e40d35021b311cac1175b2a7bbc4a269f197398a928c9eb3785573e6ab9acee"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "a20162c304aed569749c29d691ec34454cdc5a57408fba41ed2040cb976ba00e"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/graphify",
+      "head": [
+        "5f9ea2b80e025e25682cd63b5f0164d9349cfc49",
+        "2026-05-12T14:53:22+01:00",
+        "document graphify --version in CLI reference"
+      ],
+      "branch": "v7",
+      "statusLineCount": 1,
+      "statusTimedOut": false,
+      "upstream": "origin/v7",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/graphify/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "ffe69bac2b75c8526a84400ab4836590a835fe2bba3c770af4b202fcf8c3aadf"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "e246ec62a0b341ee2926ab81afa4d8d66b8515b837ef7c1d8aafdb624496e3d6"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/hspine",
+      "head": [
+        "8480a5aa36adec4c3eb3315ca66393a49898821a",
+        "2026-07-15T22:49:28+09:00",
+        "feat(hspine): P0/P1 offline fail-closed will-lineage core (greenfield)"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": null,
+      "aheadBehindLocalTracking": null,
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/hspine/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "8a66a28d74676ae71d7c08d9f6a2b978da6d3c4c0c6730b7c990c0daa3d0d8e3"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "551f2d81bf62e9cef420db38542137e17b7d9ef43c38341c3d98dd460fca649c"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/hswm-r8-clone.bipuLG",
+      "head": [
+        "dfd859f68850265dd1e4dfc2848ba2123c2abc9a",
+        "2026-07-29T09:40:59+09:00",
+        "research: freeze HSWM F1 r8 source selection"
+      ],
+      "branch": "main",
+      "statusLineCount": 17,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/hswm-r8-clone.bipuLG/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "ff25dd252ebdddf897eab5917ebec3d924db00bfe74871eec9283db0f13b4714"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "ce8f9d69c8c91e1c55625a5686084bde7502d70dea4d9f5553b1933b28938ce8"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/mark-apt-engine",
+      "head": [
+        "534092bf605dc7a16991f8c4ba8f0fc41cfce989",
+        "2026-07-15T20:36:28+09:00",
+        "docs(apt-engine): add verified pytest receipt (233 passed @ 05fa737)"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t2",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/mark-apt-engine/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "09d73fa3631ea59df21e15717ce03c996db38b16fce4e60373d1bb4eb3607cf7"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "7f2d3140febc5cff8dc3cd7f49aa40dc1fca563c2d05a0a8b16e69f72efa25fc"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/p333-allgreen-20260716",
+      "head": [
+        "5ab78e837e9ce64eaaf7a53678a75c975774efe9",
+        "2026-07-21T10:50:42+09:00",
+        "docs: MOVED — absorbed into gj3447/333 substrate/ (2026-07-21), repo archived"
+      ],
+      "branch": "main",
+      "statusLineCount": 5,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/p333-allgreen-20260716/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "483c099723c88870ca16c2541eab8f50210b5e18105e4f31ded7fdad8d55b98a"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "Cargo.toml",
+          "sha256": "987c05f84ced0e9ecbaecc7270d926ff2e15bd1e15f050cda5c07b408291caf1"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/what-is-rgj",
+      "head": [
+        "2d25396e009be5e56f069a0ebe18cf2610ceb3e2",
+        "2026-07-21T12:39:05+09:00",
+        "Import 217 user writings with provenance"
+      ],
+      "branch": "agent/metahumotonic-translations",
+      "statusLineCount": 8,
+      "statusTimedOut": false,
+      "upstream": null,
+      "aheadBehindLocalTracking": null,
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/GIT/what-is-rgj/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "f48b180827b96b99d3e8911b17ac81e27db51b5b8d07f770cc41070bd6411989"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "cee8e395dad59adbfda0258eb7579d3ab4f019564ab167bc9d17ff6bad5e64a8"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/SYMPOSIUM/SKILLS",
+      "head": [
+        "f023b41c271ac5636ef4d01a3cec9c4a060e19bf",
+        "2026-09-01T06:42:35Z",
+        "fix(skills): add explicit routing boundaries"
+      ],
+      "branch": "main",
+      "statusLineCount": 4,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/SYMPOSIUM/.git/modules/SKILLS",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "e7e47ab523657049d6e64daaa866a3c0141b4d8481afeb0ae8b8aef7d81bf0cb"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/USL",
+      "head": [
+        "3c2c810d52bce9a4249c4e1ecf955d93337d233e",
+        "2026-09-22T09:53:11Z",
+        "feat: unify capability discovery across SDK CLI and MCP"
+      ],
+      "branch": "master",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/master",
+      "aheadBehindLocalTracking": "3\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/USL/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "fe805519e5f5d3c77cc686dc63e0fa76b6a3834e3f207906754ce505471f5837"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "package.json",
+          "name": "usl",
+          "version": "0.3.0",
+          "engines": {
+            "node": ">=22"
+          },
+          "workspaces": null,
+          "scriptNames": [
+            "build",
+            "example:code",
+            "example:engineering",
+            "example:adapter",
+            "example:lean",
+            "test:lean",
+            "test:standards",
+            "typecheck",
+            "test",
+            "usl",
+            "mcp",
+            "engineering:build",
+            "engineering:check",
+            "engineering:standards",
+            "example:capability"
+          ],
+          "effect": {
+            "effect": "^3.22.1"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/agent-coding-paradigm",
+      "head": [
+        "000d5fd0d40518a700713e55e9167ca07a514189",
+        "2026-08-14T11:03:02Z",
+        "fix(spec): preserve measured R authority boundary"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/agent-coding-paradigm/.git",
+      "worktreeCount": 2,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "d4a0b7d295b552507e376acd02db9831e1799d00ded47af354dc2d016118ed35"
+        }
+      ],
+      "manifests": []
+    },
+    {
+      "path": "/home/lagyeongjun/CD/bhgman_tool",
+      "head": [
+        "1363385084c5c24d06f910d0dcb9bb993ff77ba3",
+        "2026-08-15T08:45:14Z",
+        "refactor: retire corrupted governance adapters"
+      ],
+      "branch": "feat/pierce-step7-plain-arm-verdict-20260715",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/feat/pierce-step7-plain-arm-verdict-20260715",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/bhgman_tool/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "1e40d35021b311cac1175b2a7bbc4a269f197398a928c9eb3785573e6ab9acee"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "dbfc039c43c7227b4e8fdf0f035ae6694c640b4f6b725e34c457d438cb13ac5b"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/chatgpt-api",
+      "head": [
+        "b222c72aec952af8f4b781861dd491c0f5ee6409",
+        "2026-09-22T08:17:53Z",
+        "Detect duplicate connector registrations before install or mutation"
+      ],
+      "branch": "main",
+      "statusLineCount": 41,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "1\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/chatgpt-api/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "1d835d8a3d2d16a35bfcce25e0fd94966a5f6265642d31af730be9f8d660d0c4"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "package.json",
+          "name": "@gj3447/chatgpt-api",
+          "version": "0.2.0",
+          "engines": {
+            "node": ">=24"
+          },
+          "workspaces": [
+            "scripts/chatgpt_web_relay"
+          ],
+          "scriptNames": [
+            "check",
+            "test",
+            "build",
+            "start",
+            "research",
+            "provider-soak",
+            "toolloop-soak",
+            "plugin:install",
+            "plugin:check",
+            "plugin:test",
+            "plugin:build",
+            "graph:check",
+            "verify",
+            "deployment:test",
+            "graph:test"
+          ],
+          "effect": {}
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/chatgpt-connector",
+      "head": [
+        "a52e88890f7973bb31b705926f05f3bbbdd5ffa1",
+        "2026-09-22T11:02:05Z",
+        "Extend connector recovery coverage and verify isolated restores"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "3\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/chatgpt-connector/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "259af07513ebb438c72aab65f34bc442c43838a7d9f15874e1fcf2e11c063894"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "34946954692390825a68a08f548c324f1d7dcd3480868ea16f371950120d88de"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/metahumotonic-web",
+      "head": [
+        "b46fe868b9b3f16699a21bc8f958a190a1adb86c",
+        "2026-09-21T09:22:36Z",
+        "feat(web): connect research, systems and worlds in a new workbench home"
+      ],
+      "branch": "main",
+      "statusLineCount": 22,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/metahumotonic-web/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "2553cd6d0add40fa6910a1579571c765ef14dfd4a438f9dbfaafa00a64fed104"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "package.json",
+          "name": "metahumotonic-web",
+          "version": "0.0.1",
+          "engines": {
+            "node": ">=22.12.0"
+          },
+          "workspaces": null,
+          "scriptNames": [
+            "dev",
+            "build",
+            "preview",
+            "astro",
+            "prebuild:kg",
+            "test:compute-consent",
+            "test:site-surface",
+            "test:wiki-community",
+            "test:ontology-explorer",
+            "test:wiki-engine",
+            "typecheck:wiki-engine",
+            "verify:wiki-contracts",
+            "verify:wiki-diagram",
+            "verify:wiki-engine",
+            "test:release",
+            "verify:learning-publication",
+            "verify:build-trace",
+            "test:build-runtime",
+            "verify",
+            "verify:drift",
+            "preinstall",
+            "check:runtime",
+            "test:workbench",
+            "typecheck:workbench",
+            "test:workbench:browser"
+          ],
+          "effect": {}
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/metahumotonic_web_back",
+      "head": [
+        "19a85842be7fa357197a8465af1364d90e8adf40",
+        "2026-09-17T05:51:21Z",
+        "fix(ts): verify challenges and align scoped HTTP security tests"
+      ],
+      "branch": "main",
+      "statusLineCount": 62,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/metahumotonic_web_back/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "750718361ab1f6f2e575f90e093fc62d10773974f2a24e6603a116166cec1f0c"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "ts/package.json",
+          "name": "metahumotonic-web-back-ts",
+          "version": "0.1.0",
+          "engines": {
+            "node": ">=22.12.0"
+          },
+          "workspaces": null,
+          "scriptNames": [
+            "dev",
+            "start",
+            "build",
+            "typecheck",
+            "test",
+            "test:watch",
+            "prestart",
+            "start:tsx",
+            "smoke",
+            "preinstall",
+            "check:runtime",
+            "test:persistence"
+          ],
+          "effect": {
+            "@effect/platform": "^0.97.1",
+            "@effect/platform-node": "^0.108.1",
+            "effect": "^3.19.0"
+          }
+        },
+        {
+          "file": "pyproject.toml",
+          "sha256": "11f676607fb94b3c92296007ddec8c22dc141fb509b523aa2cae4407056f05cb"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/soopoolim",
+      "head": [
+        "a4c8dab1fa2bb623eee6080d4991a484a965d7f8",
+        "2026-09-08T03:27:27Z",
+        "docs: connect HSWM development feedback loop (hswm-dev supullim)"
+      ],
+      "branch": "main",
+      "statusLineCount": 206,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "1\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/soopoolim/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "3ba690d1148f363536054af4cd2dececa996ae70491d7f3346fb524a57b196b7"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "package.json",
+          "name": "@supullim/workspace",
+          "version": "0.5.0",
+          "engines": {
+            "node": ">=24.20.0 <25",
+            "npm": ">=11.19.0 <12"
+          },
+          "workspaces": [
+            "packages/community-platform"
+          ],
+          "scriptNames": [
+            "build",
+            "check",
+            "test",
+            "test:soop",
+            "smoke:soop",
+            "smoke:soop:strict",
+            "check:web",
+            "check:postgres",
+            "check:production-graph",
+            "check:registration-readiness",
+            "test:postgres:local",
+            "test:postgres:community",
+            "test:postgres:evidence",
+            "verify",
+            "start",
+            "serve",
+            "bootstrap-admin",
+            "supullim",
+            "check:creator-research",
+            "check:repair-graph",
+            "check:migration",
+            "verify:community-platform",
+            "check:environment",
+            "setup:local",
+            "test:postgres",
+            "smoke:web",
+            "browser:install",
+            "setup:postgres"
+          ],
+          "effect": {
+            "effect": "3.22.1"
+          }
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/spacegirl_tool",
+      "head": [
+        "39ff1b6ffefd83c68582ed0a57023453bb6ee41c",
+        "2026-08-10T13:35:28Z",
+        "Merge mac-backup-20260810: WE_FLYING_UP Phase 1 + LakatoTree anchor into relicensed main"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": "origin/main",
+      "aheadBehindLocalTracking": "0\t0",
+      "commonGitDir": "/home/lagyeongjun/CD/spacegirl_tool/.git",
+      "worktreeCount": 1,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "5b909f3dabb01395e77c2cf1c5740c6b6c2ce57e757cf2c29314de487c8059d7"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "pyproject.toml",
+          "sha256": "0c25cc4470727ad8b833785212d971a2fff410d896f719d98d596be15ed06b22"
+        }
+      ]
+    },
+    {
+      "path": "/home/lagyeongjun/CD/virtual-excel-simulator",
+      "head": [
+        "51d63150194ba6c0a79be6d421a78b82b94dd600",
+        "2026-09-27T05:57:52Z",
+        "Store Windows dance library and offline Blender physics references"
+      ],
+      "branch": "main",
+      "statusLineCount": 0,
+      "statusTimedOut": false,
+      "upstream": null,
+      "aheadBehindLocalTracking": null,
+      "commonGitDir": "/home/lagyeongjun/CD/virtual-excel-simulator/.git",
+      "worktreeCount": 2,
+      "readmes": [
+        {
+          "file": "README.md",
+          "sha256": "fee8f41ba21cd9f8fdbe379a342e89d4d2a2312e4f67701f9e55571f533c887e"
+        }
+      ],
+      "manifests": [
+        {
+          "file": "package.json",
+          "name": "@metahumotonic/virtual-excel-repository",
+          "version": null,
+          "engines": null,
+          "workspaces": null,
+          "scriptNames": [
+            "setup",
+            "check",
+            "check:formal",
+            "check:graph",
+            "research",
+            "test",
+            "build",
+            "content:check",
+            "content:fork",
+            "play",
+            "play:training",
+            "play:online",
+            "play:studio",
+            "balance"
+          ],
+          "effect": {}
+        }
+      ]
+    }
+  ],
+  "classification": "Read-only inventory snapshot; checkout count is not a program count, HEAD age is not activity or deployment status."
+}

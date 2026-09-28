@@ -1,0 +1,12 @@
+{
+  "schema": "metahumotonic/usl-interop-check@1",
+  "observedAt": "2026-09-27T07:39:51.289Z",
+  "status": "PASS",
+  "scope": "Native property-graph adaptation only. No resolver I/O, KG writes, authority admission or runtime conformance.",
+  "adapter": "property-graph/v2",
+  "sourceDigest": "sha256:758cd4c5c64ebd10b12b2e194890f2271026c005f8c5e8bf70fdcdb703b28caf",
+  "adapterFileSha256": "83363d28b47ed422c11aded4dd959acdf2c5d8ff1d97c058ef9b26c51af41ad5",
+  "nodes": 197,
+  "relationships": 197,
+  "graphSha256": "758cd4c5c64ebd10b12b2e194890f2271026c005f8c5e8bf70fdcdb703b28caf"
+}

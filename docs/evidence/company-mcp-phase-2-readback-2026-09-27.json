@@ -1,0 +1,57 @@
+{
+  "schema": "metahumotonic/mcp-readback@1",
+  "observedAt": "2026-09-27T05:31:01.355Z",
+  "scope": "Disposable compiled TS entrypoint; explicit read-only calls to owner MCP services; no deployment",
+  "status": "FAIL",
+  "checks": [
+    "own-process-health",
+    "anonymous-denied",
+    "configured-bindings",
+    "discovery-excludes-upstream-secrets"
+  ],
+  "servers": [
+    {
+      "id": "ontology",
+      "endpointEnv": "MHB_ONTOLOGY_MCP_URL",
+      "owner": {
+        "name": "Toolbox",
+        "version": "1.10.0+binary.linux.amd64.21f972f"
+      },
+      "allowedTools": [
+        "ontology_get",
+        "ontology_neighbors",
+        "ontology_search"
+      ],
+      "probeTool": "ontology_get",
+      "arguments": {
+        "uid": "sym:Concept:hswm",
+        "text_limit": 300,
+        "text_offset": 0
+      },
+      "ownerResultSha256": "f9ae0234f35cd1d00a8fffd070f690607d838f80e7eec8b7df5dd1a0d3adad29",
+      "restResultSha256": "f9ae0234f35cd1d00a8fffd070f690607d838f80e7eec8b7df5dd1a0d3adad29",
+      "mcpResultSha256": "f9ae0234f35cd1d00a8fffd070f690607d838f80e7eec8b7df5dd1a0d3adad29",
+      "checks": [
+        "owner-subject-present",
+        "tool-allowlist",
+        "direct-rest-mcp-parity",
+        "non-allowlisted-call-denied"
+      ]
+    }
+  ],
+  "sourceSha256": {
+    "scripts/check-mcp-readback.mjs": "594a6414dc1476af53e60313a364e028ebc712db27429c201bb2595f99a8713d",
+    "dist/src/main.js": "89c495cbf6efce82df933ab64cf47abb9139e5911ac0a424762c46d8590ee6e2",
+    "dist/src/ports/McpFederation.js": "a231372e410c75d114f9ff1253959a528ae24282ffdfe49e9608321328888e21",
+    "dist/src/platform/BoundedHttp.js": "df149fe555c8296c428e878f74af4620640ddd5dfcfebf4347ae95a3711dba2a",
+    "config/mcp-bindings.json": "ca1c0aefb9b43fba8b20e49f079e5c2b2ea9d2f02076b3e0ca63939c669f58b7"
+  },
+  "failure": {
+    "stage": "owner-readback:hspine",
+    "type": "AssertionError"
+  },
+  "cleanup": {
+    "childStopped": true,
+    "temporaryDirectoryRemoved": true
+  }
+}

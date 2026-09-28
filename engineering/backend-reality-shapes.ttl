@@ -1,0 +1,34 @@
+@prefix mh: <https://metahumotonic.com/vocab/backend-reality#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix schema: <https://schema.org/> .
+
+mh:ComponentShape a sh:NodeShape ; sh:targetClass mh:Component ;
+  sh:property [ sh:path schema:identifier ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path schema:name ; sh:datatype xsd:string ; sh:minCount 1 ] ;
+  sh:property [ sh:path mh:implementation ; sh:minCount 1 ; sh:maxCount 1 ;
+    sh:in ("native" "federated" "snapshot" "simulation" "missing" "retired") ] ;
+  sh:property [ sh:path mh:runtime ; sh:minCount 1 ; sh:maxCount 1 ;
+    sh:in ("production-observed" "production-unverified" "candidate-only" "not-configured" "development-only" "retired" "unknown") ] ;
+  sh:property [ sh:path mh:decision ; sh:minCount 1 ; sh:maxCount 1 ;
+    sh:in ("retain" "complete" "retire-after-gate" "archive") ] ;
+  sh:property [ sh:path mh:evidenceState ; sh:minCount 1 ; sh:maxCount 1 ;
+    sh:in ("healthy" "reachable" "degraded" "failed" "stale" "unverified") ] ;
+  sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ; sh:class prov:Entity ] .
+
+mh:RelationShape a sh:NodeShape ; sh:targetClass rdf:Statement ;
+  sh:property [ sh:path rdf:subject ; sh:nodeKind sh:IRI ; sh:class mh:Component ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path rdf:predicate ; sh:nodeKind sh:IRI ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path rdf:object ; sh:nodeKind sh:IRI ; sh:class mh:Component ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path mh:status ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("ACTIVE" "PROPOSED" "RETIRED") ] ;
+  sh:property [ sh:path schema:description ; sh:datatype xsd:string ; sh:minCount 1 ] ;
+  sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ; sh:class prov:Entity ] .
+
+mh:RuntimeEvidenceShape a sh:NodeShape ; sh:targetClass mh:RuntimeEvidence ;
+  sh:property [ sh:path mh:sourceLocator ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path mh:outcome ; sh:minCount 1 ; sh:maxCount 1 ;
+    sh:in ("healthy" "reachable" "degraded" "failed") ] ;
+  sh:property [ sh:path prov:generatedAtTime ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ; sh:lessThan mh:expiresAt ] ;
+  sh:property [ sh:path mh:expiresAt ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] .

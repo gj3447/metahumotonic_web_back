@@ -408,7 +408,7 @@ migration_hash="$(
 )"
 [[ "$migration_hash" =~ ^[0-9a-f]{64}$ ]]
 
-docker build \
+docker build --file "$release_dir/Dockerfile.legacy" \
   --label "org.opencontainers.image.revision=$commit" \
   --label "com.metahumotonic.source-archive-sha256=$expected_sha" \
   --label "com.metahumotonic.wiki-migrations-sha256=$migration_hash" \

@@ -1,16 +1,37 @@
-# metahumotonic_web_back — sits next to the static front-end behind Traefik/nginx.
-# Front-end proxies /api/* → this service (api.metahumotonic.com).
+# Company entrypoint is native TypeScript/Effect. Stateful legacy domains have
+# a private service boundary and retain their current databases and migrations.
 services:
   web-back:
     build: .
-    image: metahumotonic-web-back:latest
+    image: metahumotonic-platform:latest
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${MHB_BIND_HOST:-127.0.0.1}:${MHB_BIND_PORT:-8000}:8000"
+    env_file:
+      - path: .env
+        required: false
     environment:
-      MHB_NEO4J_URI: ${MHB_NEO4J_URI:-bolt://host.docker.internal:7687}
-      MHB_NEO4J_USER: ${MHB_NEO4J_USER:-neo4j}
-      MHB_NEO4J_PASSWORD: ${MHB_NEO4J_PASSWORD:-}
-      MHB_NEO4J_LIVE: ${MHB_NEO4J_LIVE:-false}
-      MHB_MONGO_URI: ${MHB_MONGO_URI:-}
-      MHB_CORS_ORIGINS: ${MHB_CORS_ORIGINS:-https://metahumotonic.com}
+      MHB_HOST: 0.0.0.0
+      MHB_PORT: 8000
+      MHB_LEGACY_ORIGIN: http://legacy-domains:8000
+      MHB_LEGACY_REQUIRED: "true"
+    depends_on:
+      legacy-domains:
+        condition: service_healthy
+    stop_grace_period: 30s
+  legacy-domains:
+    build:
+      context: .
+      dockerfile: Dockerfile.legacy
+    image: metahumotonic-domains:latest
+    restart: unless-stopped
+    expose:
+      - "8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Only web-back is published. It replaces caller IP headers with the
+      # client IP already resolved at the main entrypoint.
+      MHB_TRUST_PROXY: "true"
+    stop_grace_period: 30s

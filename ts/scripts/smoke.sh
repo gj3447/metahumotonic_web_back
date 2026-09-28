@@ -27,6 +27,7 @@ RUN_MARKER="smoke-$$-$(date +%s)"
 probe() { command curl --noproxy 127.0.0.1 "$@"; }
 # Never inherit production DB connections, credentials or feature opt-ins.
 env -i PATH="$PATH" MHB_HOST=127.0.0.1 MHB_PORT="$PORT" MHB_VERSION="$RUN_MARKER" \
+  MHB_PLATFORM_READ_KEY="smoke-platform-read-at-least-32-bytes" \
   MHB_LOG_JSON=false MHB_FEEDBACK_ADMIN_KEY="smoke-key-at-least-32-bytes-long!!!!" \
   node dist/src/main.js > "$LOG" 2>&1 &
 SRV=$!
@@ -69,6 +70,24 @@ check 200 /docs
 check 200 /api/stats
 check 200 /api/domains
 check 200 /api/skills
+check 200 /metrics
+check 200 /api/public/v1/hub
+check 200 /api/public/v1/hub/graph.jsonld
+check 200 /api/public/v1/hub/usl.json
+check 200 /api/mcp
+check 200 /api/mcp/manifest
+check 200 /api/mcp/status
+check 302 /.well-known/mcp-servers.json
+check 401 /api/platform/v1/programs
+for surface in programs graph graph/export graph/jsonld reality reality/export reality/jsonld services inventory summary 'inventory/program:usl'; do
+  check 401 "/api/platform/v1/$surface"
+  check 200 "/api/platform/v1/$surface" -H "X-API-Key: smoke-platform-read-at-least-32-bytes"
+done
+check 401 /mcp -X POST -H "Content-Type: application/json" -d '{}'
+check 401 /api/platform/v1/observations
+check 503 /api/platform/v1/observations -H "X-API-Key: smoke-platform-read-at-least-32-bytes"
+check 503 /api/platform/v1/receipts/test -H "X-API-Key: smoke-platform-read-at-least-32-bytes"
+check 503 /api/wiki/v1/pages
 for s in summary findings lessons papers consensus recent agent; do check 200 "/api/research/$s"; done
 check 200 "/api/research/neighbors?name=anything"
 check 200 "/api/agent/walk?seed=anything"

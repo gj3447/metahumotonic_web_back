@@ -1,0 +1,22 @@
+{
+  "schema": "metahumotonic/wiki-postgres-check@1",
+  "observedAt": "2026-09-27T05:56:49.546179+00:00",
+  "scope": "Disposable local PostgreSQL and owner Wiki store tests; no production DSN or service changes",
+  "status": "PASS",
+  "postgresVersion": "postgres (PostgreSQL) 18.6",
+  "tests": {
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "sourceSha256": {
+    "scripts/check-wiki-postgres-local.py": "b7e49fd81d3ac85352474d8c91b4fdf9934984c127660586aac8c1649f5d3c15",
+    "tests/test_wiki_postgres.py": "a6898becba311379916d78f3ab191ba2e1855ba7726fa9024370b01ab8bd2a87",
+    "app/wiki/postgres.py": "51a86c1b054f6e44b666b5ab003813be4770b5255e1ac274ac1d8c0b829bc245"
+  },
+  "cleanup": {
+    "clusterStopped": true,
+    "temporaryDirectoryRemoved": true
+  }
+}

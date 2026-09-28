@@ -378,8 +378,8 @@ export class HealthResponse extends Schema.Class<HealthResponse>("HealthResponse
  * failed that gate on the first deploy.
  *
  * Readiness is dependency-aware but degraded-tolerant (PROM16 C5): the service
- * serves snapshot and in-memory fallbacks when the KG or Mongo are down, so it
- * stays READY and reports `degraded` instead of failing.
+ * serves KG snapshots when the optional KG is down. Configured native stores,
+ * required durable feedback and required private domains must actually answer.
  */
 export class ReadyResponse extends Schema.Class<ReadyResponse>("ReadyResponse")({
   status: Schema.Literal("ready", "not_ready"),
@@ -388,6 +388,14 @@ export class ReadyResponse extends Schema.Class<ReadyResponse>("ReadyResponse")(
   wiki_live: Schema.Boolean,
   wiki_store_live: Schema.Boolean,
   wiki_rate_limit_live: Schema.Boolean,
+  ontology_required: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  ontology_live: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  mongo_required: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  mongo_live: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  redis_required: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  redis_live: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  platform_postgres_required: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  platform_postgres_live: Schema.optionalWith(Schema.Boolean, { default: () => false }),
   degraded: Schema.Boolean
 }) {}
 

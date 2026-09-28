@@ -31,6 +31,8 @@ from app.wiki.domain import (
 from app.wiki.postgres import PostgresWikiStore
 
 TEST_DSN_ENV = "MHB_WIKI_TEST_DATABASE_URL"
+if os.getenv("MHB_REQUIRE_WIKI_POSTGRES_TESTS") == "1" and not os.getenv(TEST_DSN_ENV):
+    raise RuntimeError("A disposable MHB_WIKI_TEST_DATABASE_URL is required; production DSN fallback is forbidden")
 
 
 @pytest_asyncio.fixture

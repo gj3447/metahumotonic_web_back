@@ -17,6 +17,9 @@
  */
 import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform"
 import { Schema } from "effect"
+import { PlatformGroup } from "./PlatformApi.js"
+import { RegistryGroup } from "./RegistryApi.js"
+import { LearningHubGroup } from "./LearningHubApi.js"
 import {
   ExploreResponse,
   PlanResponse,
@@ -316,6 +319,9 @@ export const AgentGroup = HttpApiGroup.make("agent")
 // --------------------------------------------------------------------------
 
 export const Api = HttpApi.make("metahumotonic-web-back")
+  .add(LearningHubGroup)
+  .add(PlatformGroup)
+  .add(RegistryGroup)
   .add(MetaGroup)
   .add(KgSurfaceGroup)
   .add(ResearchGroup)

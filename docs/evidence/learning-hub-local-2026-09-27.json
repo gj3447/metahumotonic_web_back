@@ -1,0 +1,98 @@
+{
+  "schema": "metahumotonic/learning-hub-local-check@1",
+  "observedAt": "2026-09-27T01:29:15.449545+00:00",
+  "scope": "Local source and browser verification, public-source reads; no production deployment, KG write, or USL resolver admission.",
+  "sourceDigest": "sha256:23fd8ad86329a5b8513a7455b122538a428ebe9b80f99ce81ba7e8224a03f495",
+  "usl": {
+    "adapter": "property-graph/v2",
+    "nodes": 19,
+    "relations": 23,
+    "sourceDigest": "sha256:c275a9a8b6de42c2969cdcafad07c1a177b0406724286ca645156cf469a93d88",
+    "adapterFileSha256": "83363d28b47ed422c11aded4dd959acdf2c5d8ff1d97c058ef9b26c51af41ad5"
+  },
+  "rdf": {
+    "parser": "RDFLib JSON-LD 1.1 Dataset",
+    "namedGraph": "https://metahumotonic.com/learn/graph.jsonld",
+    "triples": 442,
+    "statements": 23
+  },
+  "browser": {
+    "origin": "isolated-loopback-preview",
+    "checkedAt": "2026-09-27T01:28:09.759Z",
+    "sizes": [
+      {
+        "width": 1440,
+        "overflow": false,
+        "search": true,
+        "filters": true,
+        "emptyReset": true,
+        "focusMap": true,
+        "detail": true
+      },
+      {
+        "width": 768,
+        "overflow": false,
+        "search": true,
+        "filters": true,
+        "emptyReset": true,
+        "focusMap": true,
+        "detail": true
+      },
+      {
+        "width": 390,
+        "overflow": false,
+        "search": true,
+        "filters": true,
+        "emptyReset": true,
+        "focusMap": true,
+        "detail": true
+      },
+      {
+        "width": 320,
+        "overflow": false,
+        "search": true,
+        "filters": true,
+        "emptyReset": true,
+        "focusMap": true,
+        "detail": true
+      }
+    ],
+    "functionality": {
+      "noJs": true,
+      "localLinks": 39,
+      "learningNoJs": true,
+      "learningKeyboardAndFilters": true
+    },
+    "accessibility": [
+      {
+        "width": 1440,
+        "violations": []
+      },
+      {
+        "page": "learn",
+        "width": 1440,
+        "violations": []
+      },
+      {
+        "width": 390,
+        "violations": []
+      },
+      {
+        "page": "learn",
+        "width": 390,
+        "violations": []
+      }
+    ],
+    "consoleErrors": [],
+    "workers": 0,
+    "externalRequests": [],
+    "passed": true
+  },
+  "sourceFileHashes": {
+    "src/pages/index.astro": "32fcdd5bc08716807da63f37e64a9e7aaafc5da6e5f015f2deb6c0d9f6a5b0a8",
+    "src/pages/learn/index.astro": "c45b0db830ae4a37d7bebf3afdfab50f856410e5de2e4df4302bf9bdde85c739",
+    "src/styles/learning-hub.css": "89e07ac779cf54925c175b50a48cfc2c1335c72cef5c3494d05d8f58eaa0bfc3",
+    "src/scripts/learning-hub.ts": "18e905346e61b64df267fa6399c6e326b7f37d67bd2fb5380fa9697146dc5737",
+    "src/data/learning-hub.json": "66e2593bacc4b4881b77aa44126e5d7623ab9bd97cc6ee9acee7b16c08139428"
+  }
+}

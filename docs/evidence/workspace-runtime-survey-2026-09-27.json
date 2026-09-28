@@ -1,0 +1,986 @@
+{
+  "schema": "metahumotonic/workspace-runtime-survey@1",
+  "assembledAt": "2026-09-27T06:17:39.003760+00:00",
+  "classification": "Read-only observations; health, process status and HTTP availability do not prove all product functions or complete restore capability.",
+  "fleet": {
+    "observedAt": "2026-09-27T06:12:38.360005+00:00",
+    "scope": "read-only Proxmox inventory and guest process/container state; no restart, deployment, mutation or container exec",
+    "checks": {
+      "fleet": {
+        "exitCode": 0,
+        "result": [
+          {
+            "cpu": 0.054000411808953,
+            "disk": 0,
+            "diskread": 22622508330,
+            "diskwrite": 155634170880,
+            "id": "qemu/100",
+            "maxcpu": 12,
+            "maxdisk": 257698037760,
+            "maxmem": 8589934592,
+            "mem": 8504496128,
+            "memhost": 8504496128,
+            "name": "cpu-edge-01",
+            "netin": 8833331161,
+            "netout": 6990714835,
+            "node": "metahumo",
+            "status": "running",
+            "template": 0,
+            "type": "qemu",
+            "uptime": 489232,
+            "vmid": 100
+          },
+          {
+            "cpu": 0.105463359333197,
+            "disk": 0,
+            "diskread": 539509814232,
+            "diskwrite": 676161026048,
+            "id": "qemu/200",
+            "maxcpu": 6,
+            "maxdisk": 68719476736,
+            "maxmem": 25769803776,
+            "mem": 25736019968,
+            "memhost": 25736019968,
+            "name": "data-01",
+            "netin": 328882556474,
+            "netout": 129312171596,
+            "node": "metahumo",
+            "status": "running",
+            "template": 0,
+            "type": "qemu",
+            "uptime": 489201,
+            "vmid": 200
+          },
+          {
+            "cpu": 0.000956461476035748,
+            "disk": 15445368832,
+            "diskread": 3488538624,
+            "diskwrite": 59955396608,
+            "id": "lxc/300",
+            "maxcpu": 8,
+            "maxdisk": 50407821312,
+            "maxmem": 4294967296,
+            "mem": 1246674944,
+            "memhost": 0,
+            "name": "codekg-01",
+            "netin": 181537004,
+            "netout": 12043142,
+            "node": "metahumo",
+            "status": "running",
+            "template": 0,
+            "type": "lxc",
+            "uptime": 489128,
+            "vmid": 300
+          },
+          {
+            "cpu": 0.000637640984023832,
+            "disk": 16736985088,
+            "diskread": 8474755072,
+            "diskwrite": 112245129216,
+            "id": "lxc/301",
+            "maxcpu": 4,
+            "maxdisk": 84358758400,
+            "maxmem": 4294967296,
+            "mem": 2014179328,
+            "memhost": 0,
+            "name": "lakatotree-01",
+            "netin": 1402338234,
+            "netout": 48957335,
+            "node": "metahumo",
+            "status": "running",
+            "template": 0,
+            "type": "lxc",
+            "uptime": 483908,
+            "vmid": 301
+          },
+          {
+            "cpu": 0.000245246532316858,
+            "disk": 1677488128,
+            "diskread": 3072032768,
+            "diskwrite": 57019088896,
+            "id": "lxc/302",
+            "maxcpu": 2,
+            "maxdisk": 33501757440,
+            "maxmem": 4294967296,
+            "mem": 90542080,
+            "memhost": 0,
+            "name": "openobserve-01",
+            "netin": 180388525,
+            "netout": 485256,
+            "node": "metahumo",
+            "status": "running",
+            "template": 0,
+            "type": "lxc",
+            "uptime": 488899,
+            "vmid": 302
+          },
+          {
+            "cpu": 7.35739596950575e-05,
+            "disk": 3218644992,
+            "diskread": 3626598400,
+            "diskwrite": 1783422976,
+            "id": "lxc/303",
+            "maxcpu": 4,
+            "maxdisk": 16729894912,
+            "maxmem": 4294967296,
+            "mem": 97722368,
+            "memhost": 0,
+            "name": "ci-runner-01",
+            "netin": 227667909,
+            "netout": 84535008,
+            "node": "metahumo",
+            "status": "running",
+            "template": 0,
+            "type": "lxc",
+            "uptime": 488899,
+            "vmid": 303
+          },
+          {
+            "cpu": 0,
+            "disk": 796876800,
+            "diskread": 2876817408,
+            "diskwrite": 274546688,
+            "id": "lxc/304",
+            "maxcpu": 1,
+            "maxdisk": 8350298112,
+            "maxmem": 805306368,
+            "mem": 44363776,
+            "memhost": 0,
+            "name": "grafana-mcp-01",
+            "netin": 196510767,
+            "netout": 40893841,
+            "node": "metahumo",
+            "status": "running",
+            "tags": "ai;mcp;observability",
+            "template": 0,
+            "type": "lxc",
+            "uptime": 488899,
+            "vmid": 304
+          },
+          {
+            "cpu": 0,
+            "disk": 1572884480,
+            "diskread": 3185844224,
+            "diskwrite": 222224384,
+            "id": "lxc/305",
+            "maxcpu": 1,
+            "maxdisk": 8350298112,
+            "maxmem": 1073741824,
+            "mem": 27754496,
+            "memhost": 0,
+            "name": "linkedin-ops-01",
+            "netin": 133756274,
+            "netout": 756096,
+            "node": "metahumo",
+            "status": "running",
+            "template": 0,
+            "type": "lxc",
+            "uptime": 488991,
+            "vmid": 305
+          },
+          {
+            "cpu": 4.90493064633717e-05,
+            "disk": 808017920,
+            "diskread": 2877022208,
+            "diskwrite": 255762432,
+            "id": "lxc/306",
+            "maxcpu": 2,
+            "maxdisk": 16729894912,
+            "maxmem": 2147483648,
+            "mem": 48472064,
+            "memhost": 0,
+            "name": "graph-validator-01",
+            "netin": 132957194,
+            "netout": 12484,
+            "node": "metahumo",
+            "status": "running",
+            "template": 0,
+            "type": "lxc",
+            "uptime": 488945,
+            "vmid": 306
+          },
+          {
+            "cpu": 0.0575287053182271,
+            "disk": 144212791296,
+            "diskread": 417930465280,
+            "diskwrite": 586491047936,
+            "id": "lxc/307",
+            "maxcpu": 16,
+            "maxdisk": 210241560576,
+            "maxmem": 51539607552,
+            "mem": 9336913920,
+            "memhost": 0,
+            "name": "dev-01",
+            "netin": 646341453310,
+            "netout": 644921070136,
+            "node": "metahumo",
+            "status": "running",
+            "template": 0,
+            "type": "lxc",
+            "uptime": 483937,
+            "vmid": 307
+          },
+          {
+            "cpu": 0.00120170800835261,
+            "disk": 6137532416,
+            "diskread": 10737172480,
+            "diskwrite": 115586342912,
+            "id": "lxc/308",
+            "maxcpu": 4,
+            "maxdisk": 33501757440,
+            "maxmem": 4294967296,
+            "mem": 1304412160,
+            "memhost": 0,
+            "name": "runtime-01",
+            "netin": 180542297,
+            "netout": 348697,
+            "node": "metahumo",
+            "status": "running",
+            "template": 0,
+            "type": "lxc",
+            "uptime": 488944,
+            "vmid": 308
+          },
+          {
+            "cpu": 0.0030925345969885,
+            "disk": 0,
+            "diskread": 947622166,
+            "diskwrite": 7317638144,
+            "id": "qemu/309",
+            "maxcpu": 4,
+            "maxdisk": 103079215104,
+            "maxmem": 12884901888,
+            "mem": 1598230528,
+            "memhost": 1598230528,
+            "name": "inspect-eval-01",
+            "netin": 112910342,
+            "netout": 20067948,
+            "node": "metahumo",
+            "status": "running",
+            "tags": "inspect-eval",
+            "template": 0,
+            "type": "qemu",
+            "uptime": 489034,
+            "vmid": 309
+          },
+          {
+            "cpu": 0.358525905594015,
+            "disk": 6657056768,
+            "diskread": 15438086144,
+            "diskwrite": 453057822720,
+            "id": "lxc/310",
+            "maxcpu": 4,
+            "maxdisk": 33501757440,
+            "maxmem": 25769803776,
+            "mem": 2127941632,
+            "memhost": 0,
+            "name": "desk-01",
+            "netin": 3123789460,
+            "netout": 2364518476,
+            "node": "metahumo",
+            "status": "running",
+            "template": 0,
+            "type": "lxc",
+            "uptime": 488898,
+            "vmid": 310
+          }
+        ],
+        "error": ""
+      },
+      "storage": {
+        "exitCode": 0,
+        "result": "Name                   Type     Status     Total (KiB)      Used (KiB) Available (KiB)        %\ndata20tb-backup         nfs     active     19510071296       341383168     19168671744    1.75%\ndgx-backup              nfs     active      3845688320      2279650304      1370671104   59.28%\nlocal                   dir     active        98497780        43059732        50388500   43.72%\nlocal-lvm           lvmthin     active       376733696       313065701        63667994   83.10%\n",
+        "error": ""
+      },
+      "dataContainers": {
+        "exitCode": 0,
+        "result": {
+          "exitcode": 0,
+          "exited": 1,
+          "out-data": "typedb\t6494f28a2a83\tUp 50 minutes\nopenclaw-bridge\talpine/socat:1.8.0.0\tUp 24 hours\nopenclaw\tcbe469eca1f0\tUp 24 hours (healthy)\ncanonical-neo4j\tneo4j:2026.02\tUp 2 hours (healthy)\nredis\t832d7785830f\tUp 49 minutes (healthy)\npostgresql-lakatos\tpostgres:17\tUp 4 days (healthy)\npostgresql\t78481659c47e\tUp 2 days (healthy)\nkafka\t77e3df905404\tUp 49 minutes\nminio\t14cea493d9a3\tUp 50 minutes\nairo-kg\tneo4j:2026.02\tUp 49 minutes\nopenobserve\tpublic.ecr.aws/zinclabs/openobserve:latest\tUp 49 minutes\nqdrant\t94728574965d\tUp 50 minutes\nmongodb\t7abfba0d07c9\tUp 2 days (healthy)\nroundcube\troundcube/roundcubemail:latest\tUp 49 minutes\nmailserver\tghcr.io/docker-mailserver/docker-mailserver:latest\tUp 49 minutes (healthy)\n"
+        },
+        "error": ""
+      },
+      "edgePods": {
+        "exitCode": 0,
+        "result": {
+          "exitcode": 0,
+          "exited": 1,
+          "out-data": "NAMESPACE      NAME                                                     PHASE       READY            RESTARTS\nai             discord-bot-7b8c7bcd65-f8trb                             Running     true             146\nai             kg-research-worker-7db8d667b-wd7jk                       Running     true             3\napps           kafka-ui-8467476599-k82gs                                Running     true             3\napps           kg-discord-pusher-7cbd9459fc-46w2t                       Running     true             3\napps           mongo-express-85877db6fb-8vr95                           Running     true             833\napps           n8n-fc9868466-wgjq5                                      Running     true             1137\napps           pgadmin-555d6769f-bk9b9                                  Running     true             3\napps           redisinsight-564b7958bd-x7lmc                            Running     true             3\napps           signaling-333-65dd46499-mbftz                            Running     true             3\ncert-manager   cert-manager-7848484795-k6xtf                            Running     true             6\ncert-manager   cert-manager-cainjector-6ffc5b65d9-wp48d                 Running     true             5\ncert-manager   cert-manager-webhook-77699c794b-96qbd                    Running     true             4\ndata           postgres-exporter-f9dd65647-jdvgr                        Running     true             3\ninfra          cloudflared-9586d4b5c-682df                              Running     true             17\ninfra          cloudflared-9586d4b5c-xz4q8                              Running     true             18\ninfra          cloudflared-bhgman-ssh-564d5ff87c-8rfvs                  Running     true,true        23,1\ninfra          cloudflared-bhgman-ssh-564d5ff87c-phvjs                  Running     true,true        23,1\ninfra          coturn-75cfc97b49-nkwj5                                  Running     true             3\ninfra          ddns-headscale-29833370-g6hqd                            Failed      false            0\ninfra          ddns-headscale-29833370-gsxsp                            Failed      false            0\ninfra          ddns-headscale-29833370-kfp4f                            Failed      false            0\ninfra          ddns-headscale-29833370-mt7g6                            Failed      false            0\ninfra          ddns-headscale-29833370-rbrp4                            Failed      false            0\ninfra          ddns-headscale-29833370-vrz97                            Failed      false            0\ninfra          ddns-headscale-29833370-xhcjk                            Failed      false            0\ninfra          ddns-headscale-29833385-5f8x2                            Failed      false            0\ninfra          ddns-headscale-29833385-5p7nq                            Failed      false            0\ninfra          ddns-headscale-29833385-bgx7z                            Failed      false            0\ninfra          ddns-headscale-29833385-lkbzt                            Failed      false            0\ninfra          ddns-headscale-29833385-tbz5w                            Failed      false            0\ninfra          ddns-headscale-29833385-vkg6l                            Failed      false            0\ninfra          ddns-headscale-29833385-wwb87                            Failed      false            0\ninfra          ddns-headscale-29841490-6rwp6                            Succeeded   false            0\ninfra          dnsmasq-78cb7b847c-6skx6                                 Running     true             0\ninfra          headscale-759c7f9587-tsv6g                               Running     true             0\ninfra          homepage-8697fd58d5-qztld                                Running     false            2015\ninfra          hs8443-75bb67f7dc-glnzc                                  Running     true             3\ninfra          metahumotonic-memo-68b56d88d7-26xxc                      Running     true             191\ninfra          status-dashboard-788f67c9df-s7gsd                        Running     true             3\nkube-system    coredns-cb954d664-n8wgf                                  Running     true             0\nkube-system    helm-install-kyverno-thsb2                               Succeeded   false            0\nkube-system    helm-install-traefik-crd-h8m8c                           Succeeded   false            0\nkube-system    helm-install-traefik-f845c                               Succeeded   false            0\nkube-system    local-path-provisioner-58d557dc48-df8ms                  Running     true             6\nkube-system    metrics-server-7c86f97b8d-vvncw                          Running     true             7\nkube-system    svclb-traefik-91da671a-l5zjs                             Running     true,true        6,6\nkube-system    traefik-86cc8dcdf4-6shvd                                 Running     true             4\nkube-system    traefik-public-745459bbcb-26zmh                          Running     true             3\nkube-system    traefik-public-745459bbcb-gzl28                          Running     true             3\nkyverno        kyverno-admission-controller-6787558bc9-npjqn            Running     true             5\nkyverno        kyverno-background-controller-7f9d7d7f9d-tqxl9           Running     true             5\nkyverno        kyverno-cleanup-controller-9bdb5bf5-5njhz                Running     true             5\nkyverno        kyverno-reports-controller-f6997586f-j4sdk               Running     true             5\nmonitoring     alertmanager-prometheus-kube-prometheus-alertmanager-0   Running     true,true        3,3\nmonitoring     ntfy-alertmanager-6dc56974c5-vggcj                       Running     true             3\nmonitoring     prometheus-grafana-7d44c775cc-jbbjv                      Running     true,true,true   3,3,3\nmonitoring     prometheus-kube-prometheus-operator-7cd557f8d-8n6lb      Running     true             4\nmonitoring     prometheus-prometheus-kube-prometheus-prometheus-0       Running     true,true        3,3\nmonitoring     prometheus-prometheus-node-exporter-mvkg9                Running     true             4\nmonitoring     pve-exporter-6fcc7697d5-ggdvd                            Running     true             3\n"
+        },
+        "error": ""
+      },
+      "runtimeServices": {
+        "exitCode": 0,
+        "result": "UNIT                      LOAD   ACTIVE SUB     DESCRIPTION\nconsole-getty.service     loaded active running Console Getty\ncontainer-getty@1.service loaded active running Container Getty on /dev/tty1\ncontainer-getty@2.service loaded active running Container Getty on /dev/tty2\ncron.service              loaded active running Regular background program processing daemon\ndbus.service              loaded active running D-Bus System Message Bus\nmhb-ts.service            loaded active running metahumotonic-web-back (TypeScript/Effect port)\npostfix.service           loaded active running Postfix Mail Transport Agent (main/default instance)\nssh.service               loaded active running OpenBSD Secure Shell server\nsystemd-journald.service  loaded active running Journal Service\nsystemd-logind.service    loaded active running User Login Management\nsystemd-networkd.service  loaded active running Network Configuration\nttest-arena.service       loaded active running TTEST donation auction web\nttest-chain.service       loaded active running Arena persistent zero-value TTEST EVM chain\n\nLegend: LOAD   → Reflects whether the unit definition was properly loaded.\n        ACTIVE → The high-level unit activation state, i.e. generalization of SUB.\n        SUB    → The low-level unit activation state, values depend on unit type.\n\n13 loaded units listed.\n",
+        "error": ""
+      },
+      "edgeContainers": {
+        "exitCode": 0,
+        "result": {
+          "exitcode": 0,
+          "exited": 1,
+          "out-data": "web-back-pve-2\tmetahumotonic-web-back:1.0.0-x86\tUp 5 days (healthy)\nweb-back-pve-1\tmetahumotonic-web-back:1.0.0-x86\tUp 5 days (healthy)\nvirtual-excel\tvirtual-excel:b9deed1ec68e580aae78690803a2ef3069d2ba96\tUp 5 days (healthy)\nsupullim-proxy\tnginx:1.28.2-alpine\tUp 5 days (healthy)\nsupullim-app\tsupullim:143d09b-20260907\tUp 5 days (healthy)\ncloudflared-mcp\tcloudflare/cloudflared:latest\tUp 5 days\nsoopoolim\tb4dce03fd6bb\tUp 5 days (healthy)\nmaplelineage-dev-mcp\te50216892a99\tUp 5 days (healthy)\nmcp-fs-chatgpt-ro\t47ebacbf7812\tUp 5 days\nmcp-hub-chatgpt-ro\t801b54079828\tUp 5 days\nmcp-lakatotree-chatgpt-ro\t61391b5cf5a5\tUp 5 days\nmcp-neo4j-chatgpt-ro-sse\tae35d485957d\tUp 5 days\nmcp-neo4j-chatgpt-ro\tcf5bf6ac7457\tUp 5 days\nmcp-neo4j-chatgpt-auth\tnginx:alpine\tUp 5 days\nlanding-astro-subpages-canary\t65645c7bb6a0\tUp 5 days (healthy)\ngame-web-pve\t65645c7bb6a0\tUp 5 days (healthy)\nmetahumotonic-web\t65645c7bb6a0\tUp 5 days (healthy)\nwell-known-pve\te7257f1ef28b\tUp 5 days (healthy)\ngame-null-drift-pve\t65645c7bb6a0\tUp 5 days (healthy)\nlakatotree-pve\tlakatotree:internal-x86\tUp 5 days\nsearxng-pve\t969e3d79c400\tUp 5 days (healthy)\nskill-registry-pve\te7257f1ef28b\tUp 5 days (healthy)\ngame-orbit-foundry-pve\t65645c7bb6a0\tUp 5 days (healthy)\ngame-axis-shift-pve\t65645c7bb6a0\tUp 5 days (healthy)\n"
+        },
+        "error": ""
+      },
+      "edgeBackendIdentity": {
+        "exitCode": 0,
+        "result": {
+          "exitcode": 0,
+          "exited": 1,
+          "out-data": "/web-back-pve-1\tsha256:04012e6a5e41a212c874e6c2188ec8bc8d4d14c639d89d34768f7349a3864c7a\tb96487f3ba0c50d20fc9f7b30e12bc28b53423ec\thealthy\tuvicorn\n/web-back-pve-2\tsha256:04012e6a5e41a212c874e6c2188ec8bc8d4d14c639d89d34768f7349a3864c7a\tb96487f3ba0c50d20fc9f7b30e12bc28b53423ec\thealthy\tuvicorn\n"
+        },
+        "error": ""
+      },
+      "edgeBackendReadiness": {
+        "exitCode": 0,
+        "result": {
+          "exitcode": 0,
+          "exited": 1,
+          "out-data": "{\"port\": 18210, \"path\": \"/health\", \"status\": 200, \"fields\": {\"status\": \"ok\", \"service\": \"metahumotonic-web-back\", \"version\": \"1.0.0\"}}\n{\"port\": 18210, \"path\": \"/ready\", \"status\": 200, \"fields\": {\"status\": \"ready\", \"kg_live\": true, \"wiki_required\": true, \"wiki_live\": true, \"wiki_store_live\": true, \"wiki_rate_limit_live\": true, \"ontology_required\": false, \"ontology_live\": false, \"degraded\": false}}\n{\"port\": 18211, \"path\": \"/health\", \"status\": 200, \"fields\": {\"status\": \"ok\", \"service\": \"metahumotonic-web-back\", \"version\": \"1.0.0\"}}\n{\"port\": 18211, \"path\": \"/ready\", \"status\": 200, \"fields\": {\"status\": \"ready\", \"kg_live\": true, \"wiki_required\": true, \"wiki_live\": true, \"wiki_store_live\": true, \"wiki_rate_limit_live\": true, \"ontology_required\": false, \"ontology_live\": false, \"degraded\": false}}\n"
+        },
+        "error": ""
+      },
+      "homepagePod": {
+        "exitCode": 0,
+        "result": {
+          "exitcode": 0,
+          "exited": 1,
+          "out-data": "NAME                        WAIT               PREVIOUS   EXIT   FINISHED               READY\nhomepage-8697fd58d5-qztld   CrashLoopBackOff   Error      143    2026-09-27T06:10:01Z   false\n"
+        },
+        "error": ""
+      },
+      "runtimeUnit": {
+        "exitCode": 0,
+        "result": "WorkingDirectory=/srv/mhb/current\nActiveState=active\nFragmentPath=/etc/systemd/system/mhb-ts.service\n",
+        "error": ""
+      },
+      "runtimeIdentity": {
+        "exitCode": 0,
+        "result": {
+          "releasePath": "/srv/mhb/releases/004e37d-d8cb837ae459c233",
+          "ts/package.json": {
+            "name": "metahumotonic-web-back-ts",
+            "version": "0.1.0",
+            "engines": {
+              "node": ">=20"
+            }
+          },
+          "listeners": "State  Recv-Q Send-Q Local Address:Port  Peer Address:Port\nLISTEN 0      4096       127.0.0.1:26657      0.0.0.0:*   \nLISTEN 0      4096       127.0.0.1:26656      0.0.0.0:*   \nLISTEN 0      4096       127.0.0.1:6060       0.0.0.0:*   \nLISTEN 0      100        127.0.0.1:25         0.0.0.0:*   \nLISTEN 0      511          0.0.0.0:8000       0.0.0.0:*   \nLISTEN 0      511          0.0.0.0:3150       0.0.0.0:*   \nLISTEN 0      4096       127.0.0.1:9090       0.0.0.0:*   \nLISTEN 0      4096       127.0.0.1:8545       0.0.0.0:*   \nLISTEN 0      4096       127.0.0.1:8546       0.0.0.0:*   \nLISTEN 0      100            [::1]:25            [::]:*   \nLISTEN 0      4096               *:22               *:*   \n"
+        }
+      },
+      "runtimeReadiness": {
+        "exitCode": 0,
+        "rows": [
+          {
+            "port": 8000,
+            "path": "/health",
+            "status": 200,
+            "fields": {
+              "status": "ok",
+              "version": "1.0.0"
+            }
+          },
+          {
+            "port": 8000,
+            "path": "/ready",
+            "status": 200,
+            "fields": {
+              "status": "ready",
+              "kg_live": false,
+              "wiki_required": false,
+              "wiki_live": false,
+              "wiki_store_live": false,
+              "wiki_rate_limit_live": true,
+              "degraded": true
+            }
+          },
+          {
+            "port": 8000,
+            "path": "/api/public/v1/hub",
+            "error": "HTTPError",
+            "status": 404
+          },
+          {
+            "port": 8000,
+            "path": "/api/platform/v1/programs",
+            "error": "HTTPError",
+            "status": 404
+          }
+        ]
+      }
+    },
+    "followupObservedAt": "2026-09-27T06:13:56.315318+00:00"
+  },
+  "hosts": {
+    "observedAt": "2026-09-27T06:14:33.859709+00:00",
+    "scope": "existing SSH aliases, strict known-host checking, hostname only",
+    "hosts": [
+      {
+        "alias": "delltower",
+        "exitCode": 0,
+        "hostname": "airobotics-Precision-7960-Tower",
+        "reason": null
+      },
+      {
+        "alias": "macmini",
+        "exitCode": 0,
+        "hostname": "lagyeongjun-ui-Macmini.local",
+        "reason": null
+      },
+      {
+        "alias": "dgx",
+        "exitCode": 0,
+        "hostname": "edgexpert-e229",
+        "reason": null
+      },
+      {
+        "alias": "galtab",
+        "exitCode": 255,
+        "hostname": null,
+        "reason": "SSH unavailable; no fallback or credential change attempted"
+      },
+      {
+        "alias": "windows-metahumo",
+        "exitCode": 0,
+        "hostname": "metahumo",
+        "reason": null
+      },
+      {
+        "alias": "airo",
+        "exitCode": 0,
+        "hostname": "airobotics-edge",
+        "reason": null
+      }
+    ]
+  },
+  "http": {
+    "observedAt": "2026-09-27T06:11:58.403689+00:00",
+    "scope": "unauthenticated GET health and public surface only; no application or DB write",
+    "probes": [
+      {
+        "url": "http://127.0.0.1:5513/api/capabilities",
+        "status": 404,
+        "contentType": "application/json"
+      },
+      {
+        "url": "http://127.0.0.1:9000/minio/health/live",
+        "status": 200,
+        "contentType": null,
+        "bytesRead": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "url": "http://127.0.0.1:6333/healthz",
+        "status": 200,
+        "contentType": "text/plain; charset=utf-8",
+        "bytesRead": 20,
+        "sha256": "67685776e3385f19221ea0931021cadc7a689bbcf0bc23ecc948774f205f51da"
+      },
+      {
+        "url": "http://127.0.0.1:7474/",
+        "status": 200,
+        "contentType": "application/json",
+        "bytesRead": 253,
+        "sha256": "7c12af5cd7f6cc5a8f5714893a171f1bf64df628a129d069594c3e31ab0d981e",
+        "topLevelKeys": [
+          "bolt_routing",
+          "query",
+          "transaction",
+          "bolt_direct",
+          "neo4j_version",
+          "neo4j_edition"
+        ],
+        "observedFields": {}
+      },
+      {
+        "url": "https://metahumotonic.com/health",
+        "status": 404,
+        "contentType": "text/html"
+      },
+      {
+        "url": "https://metahumotonic.com/api/stats",
+        "status": 200,
+        "contentType": "application/json",
+        "bytesRead": 85,
+        "sha256": "e5d663e7d338e05173d3b9f7b3b7ad03774e040282e69580bd47847dd2033944",
+        "topLevelKeys": [
+          "nodes",
+          "rels",
+          "labels",
+          "relTypes",
+          "domains",
+          "skills"
+        ],
+        "observedFields": {
+          "nodes": 127576,
+          "rels": 667875,
+          "labels": 3456
+        }
+      },
+      {
+        "url": "https://metahumotonic.com/api/public/v1/hub",
+        "status": 404,
+        "contentType": "text/html"
+      },
+      {
+        "url": "https://metahumotonic.com/learn/publication.json",
+        "status": 404,
+        "contentType": "text/html"
+      },
+      {
+        "url": "https://soopoolim.metahumotonic.com/",
+        "status": 200,
+        "contentType": "text/html; charset=utf-8",
+        "bytesRead": 82961,
+        "sha256": "2a01664122316968f2236ed41395d27f8c53052e934421a8294a2827c7252187"
+      },
+      {
+        "url": "http://127.0.0.1:5511/hspine/api/capabilities",
+        "status": 200,
+        "contentType": "application/json",
+        "sha256": "a3930eb91f5eca58172376530834f4ad1b1079777842d90c4b6898b6387e1a71",
+        "fields": {
+          "mode": "unified",
+          "storage": "single",
+          "access_boundary": "thread",
+          "execution_enabled": false,
+          "kg_enabled": false,
+          "revision": "c96c8dcd599c7fe4d611805455bd8d88a0a65e72"
+        }
+      },
+      {
+        "url": "http://127.0.0.1:5510/api/capabilities",
+        "status": 200,
+        "contentType": "application/json",
+        "sha256": "610ec33162328ae491515b939cc862e5069f70b903247950ceca2ce4050a04fa",
+        "fields": {
+          "mode": "local_operator",
+          "storage": "single",
+          "access_boundary": "thread",
+          "execution_enabled": true,
+          "kg_enabled": true,
+          "revision": "c96c8dcd599c7fe4d611805455bd8d88a0a65e72"
+        }
+      },
+      {
+        "url": "https://metahumotonic.com/hspine/api/capabilities",
+        "error": "HTTPError",
+        "status": 403
+      },
+      {
+        "url": "https://metahumotonic.com/api/research/summary",
+        "error": "HTTPError",
+        "status": 403
+      },
+      {
+        "url": "https://metahumotonic.com/game/",
+        "error": "HTTPError",
+        "status": 403
+      },
+      {
+        "url": "https://metahumotonic.com/",
+        "userAgent": "metahumotonic-workspace-audit/1.0",
+        "observedAt": "2026-09-27T06:15:50.859475+00:00",
+        "status": 200,
+        "contentType": "text/html",
+        "sha256": "83caa8765e425bcb1aca4211d88380c0cf489d72d20dddb94d11ceb20e4a3e28"
+      },
+      {
+        "url": "https://metahumotonic.com/hspine/api/capabilities",
+        "userAgent": "metahumotonic-workspace-audit/1.0",
+        "observedAt": "2026-09-27T06:15:50.860015+00:00",
+        "status": 200,
+        "contentType": "application/json",
+        "sha256": "a3930eb91f5eca58172376530834f4ad1b1079777842d90c4b6898b6387e1a71",
+        "fields": {
+          "mode": "unified",
+          "execution_enabled": false,
+          "revision": "c96c8dcd599c7fe4d611805455bd8d88a0a65e72",
+          "storage": "single",
+          "access_boundary": "thread"
+        }
+      },
+      {
+        "url": "https://metahumotonic.com/api/research/summary",
+        "userAgent": "metahumotonic-workspace-audit/1.0",
+        "observedAt": "2026-09-27T06:15:50.860459+00:00",
+        "status": 200,
+        "contentType": "application/json",
+        "sha256": "f4dd007546f6a639ef311099535cf01670e604b302b9d70248072c9f22811482",
+        "fields": {
+          "source": "live"
+        }
+      },
+      {
+        "url": "https://metahumotonic.com/game/",
+        "userAgent": "metahumotonic-workspace-audit/1.0",
+        "observedAt": "2026-09-27T06:15:50.860808+00:00",
+        "status": 200,
+        "contentType": "text/html",
+        "sha256": "3655ee9b351ffc34ed311f5ad81c600158635bdb287207d3a7cd55cca48ec1a0"
+      },
+      {
+        "url": "https://metahumotonic.com/game/hyper-cube/",
+        "userAgent": "metahumotonic-workspace-audit/1.0",
+        "observedAt": "2026-09-27T06:15:51.082576+00:00",
+        "status": 200,
+        "contentType": "text/html",
+        "sha256": "5b465900639be36d159e827d577150b413aa49e0cdd7538076d0a59cd6b81df6"
+      },
+      {
+        "url": "https://metahumotonic.com/game/null-drift/",
+        "userAgent": "metahumotonic-workspace-audit/1.0",
+        "observedAt": "2026-09-27T06:15:51.083353+00:00",
+        "status": 200,
+        "contentType": "text/html",
+        "sha256": "be54cae4948f4f09316223ea03bdad576f31ea4ab260e148bc69e70ce366f86d"
+      },
+      {
+        "url": "https://metahumotonic.com/game/axis-shift/",
+        "userAgent": "metahumotonic-workspace-audit/1.0",
+        "observedAt": "2026-09-27T06:15:51.120527+00:00",
+        "status": 200,
+        "contentType": "text/html",
+        "sha256": "dffdf0d93be969df64f3f4a4298046f298f0b1f749c80914adef4e92d87bcee9"
+      },
+      {
+        "url": "https://metahumotonic.com/game/orbit-foundry/",
+        "userAgent": "metahumotonic-workspace-audit/1.0",
+        "observedAt": "2026-09-27T06:15:51.237842+00:00",
+        "status": 200,
+        "contentType": "text/html",
+        "sha256": "29b87dbff4c58e61b9a21efd5b8d8fbad8a9ccf844fdebaf8e03c9dc9442082f"
+      },
+      {
+        "url": "https://metahumotonic.com/game/black-sun-shepherd/",
+        "userAgent": "metahumotonic-workspace-audit/1.0",
+        "observedAt": "2026-09-27T06:15:51.331995+00:00",
+        "status": 200,
+        "contentType": "text/html",
+        "sha256": "4e81b249f0f060dad25fc6dd3d12be41bd689e0f408c77ce2d7f9be2b3c581d2"
+      },
+      {
+        "url": "https://metahumotonic.com/game/rolling-tanghulu/",
+        "userAgent": "metahumotonic-workspace-audit/1.0",
+        "observedAt": "2026-09-27T06:15:51.351346+00:00",
+        "status": 200,
+        "contentType": "text/html",
+        "sha256": "c1523782b4bf7fa7a28ae686b580e33f1b6efa65cc24cdf4304a9dea489a0e41"
+      }
+    ]
+  },
+  "local": {
+    "observedAt": "2026-09-27T06:16:39.626078+00:00",
+    "sourceFiles": [
+      {
+        "path": "/home/lagyeongjun/CD/ORCA_SETTING/STATUS.md",
+        "sha256": "7f00492d347c442fb5ddd046ff0559e2c28b5a67519f300b9fb76203e6719c16"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/ORCA_SETTING/graph/r8.json",
+        "sha256": "99e169a8b70246be57de3fa89cc86c923a53534ca0aa28068f748eb8a3aeb7ed"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/ORCA_SETTING/receipts/r8-readback.json",
+        "sha256": "bc2c02e078011bb46792d5cc348d11eb28f92b9b726ffaa4df4ba944b5597688"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/GAME/README.md",
+        "sha256": "75d25d15261e7e64414d8a552447e2d526e8816aa1b20d32ed1f59f7135e934a"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/GAME/ONTOLOGY/workspace-layout.json",
+        "sha256": "e4a6548eedeede2d7c2d64c1f23de5140dbbe3b075ee7545cba39cdff99eb656"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/GAME/GAMES/INDEX.md",
+        "sha256": "57e2d4bcacba9880977bf5cbecf6c8da637c482a9ce012ff9f7918b4b6435e75"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/GAME/PLATFORM/game-web/README.md",
+        "sha256": "1319010b8d7f0c81475afd558df068d69aeb47560527d55a26727360683791a8"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/USL/README.md",
+        "sha256": "fe805519e5f5d3c77cc686dc63e0fa76b6a3834e3f207906754ce505471f5837"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/USL/docs/DECISIONS.md",
+        "sha256": "17ccb15ce494b6a437eddc8229da32e4c5caa92ffb005f1730b7f14b578336f2"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/HSPINE/docs/UNIFIED_HSPINE.md",
+        "sha256": "50c04c63e5c3cdd2f39981642fd3d881a6160e5726e43c84895e242279fcb819"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/HSPINE/README.md",
+        "sha256": "6262d171cbb1aecd05c2884d3a595af15fc48eb6bde5433719a7438719ca7dbb"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/HSWM/README.md",
+        "sha256": "3a0961c638786b82b3fcc82c1d839a57da2c24bce4007ed54c1081e5b8e3261f"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/MIND/AGENTS.md",
+        "sha256": "71487f801418070418302fe7ed6f9e29be98240faf87eedf3b04b604065152a7"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/BITCOIN/README.md",
+        "sha256": "f6fa34648626ed6ca0c6e3ac60c0ad84d629a1689ea6a318a0bc2987ada85e59"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/chatgpt-connector/README.md",
+        "sha256": "259af07513ebb438c72aab65f34bc442c43838a7d9f15874e1fcf2e11c063894"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/chatgpt-connector/graph/README.md",
+        "sha256": "14e5f9da05f95980ce4deedc9996e7eae34f002281ce8ac90300f88c2b611315"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/chatgpt-api/README.md",
+        "sha256": "1d835d8a3d2d16a35bfcce25e0fd94966a5f6265642d31af730be9f8d660d0c4"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/metahumotonic_web_back/ts/config/platform-catalog.json",
+        "sha256": "6bbf9af064dba149f93de3f73a7d78fb1b1bcb6377bd46dde8e18939f01a5a22"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/metahumotonic_web_back/ts/config/mcp-bindings.json",
+        "sha256": "9e12b4889455d5b6ee54a1007ff8e5e0383cfbdd1be4b7c2620fe001599ae722"
+      },
+      {
+        "path": "/home/lagyeongjun/CD/metahumotonic_web_back/docs/OPERATIONS_VM100.md",
+        "sha256": "77ef073a9483723e98b2bfcdb79830970c40ff59666e3a9f9d9a3b92d3d92d89"
+      }
+    ],
+    "connectorHealth": {
+      "observed_at": "2026-09-27T06:14:49.581929+00:00",
+      "ok": false,
+      "checks": [
+        {
+          "name": "physical-storage-host",
+          "ok": true,
+          "age_seconds": 6,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        },
+        {
+          "name": "storage",
+          "ok": true,
+          "age_seconds": 30,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        },
+        {
+          "name": "consistent-backup",
+          "ok": true,
+          "age_seconds": 6785,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        },
+        {
+          "name": "encrypted-backup-export",
+          "ok": true,
+          "age_seconds": 312,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        },
+        {
+          "name": "restore-verification",
+          "ok": true,
+          "age_seconds": 4419,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        },
+        {
+          "name": "service-volumes-backup",
+          "ok": true,
+          "age_seconds": 2881,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        },
+        {
+          "name": "service-volumes-restore",
+          "ok": true,
+          "age_seconds": 417210,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        },
+        {
+          "name": "recovery-configuration-backup",
+          "ok": true,
+          "age_seconds": 871,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        },
+        {
+          "name": "application-backup",
+          "ok": true,
+          "age_seconds": 85217,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        },
+        {
+          "name": "application-restore",
+          "ok": true,
+          "age_seconds": 415569,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        },
+        {
+          "name": "logical-database-restore",
+          "ok": true,
+          "age_seconds": 415521,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        },
+        {
+          "name": "public-mcp",
+          "ok": true,
+          "age_seconds": 308,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        },
+        {
+          "name": "offsite-backup",
+          "ok": false,
+          "age_seconds": 766,
+          "fresh": true,
+          "failures": [],
+          "reason": "latest-recovery-sets-not-offsite",
+          "warnings": [],
+          "verified_recovery_sets": {
+            "services": "20260927T052007Z",
+            "control": "20260926T060000Z",
+            "applications": "20260926T063019Z",
+            "workspaces": "20260927T043501Z"
+          },
+          "missing_recovery_sets": [
+            "control"
+          ]
+        },
+        {
+          "name": "workspace-backup",
+          "ok": true,
+          "age_seconds": 4277,
+          "fresh": true,
+          "failures": [],
+          "reason": null,
+          "warnings": []
+        }
+      ],
+      "account_installation_verified": false,
+      "scope": "server and backup operations; not proof of account installation or every application feature"
+    },
+    "unitStates": {
+      "connector-estate-watch.service": "Result=exit-code\nExecMainExitTimestamp=Sun 2026-09-27 06:14:49 UTC\nExecMainStatus=1\nActiveState=failed\nSubState=failed\n",
+      "hspine.service": "Result=success\nExecMainExitTimestamp=\nExecMainStatus=0\nActiveState=active\nSubState=running\n",
+      "mcp-toolbox-ontology.service": "Result=success\nExecMainExitTimestamp=\nExecMainStatus=0\nActiveState=active\nSubState=running\n",
+      "orca-serve.service": "Result=success\nExecMainExitTimestamp=\nExecMainStatus=0\nActiveState=active\nSubState=running\n"
+    },
+    "mcpConfigs": [
+      {
+        "path": "/home/lagyeongjun/.codex/config.toml",
+        "servers": [
+          {
+            "name": "ontology",
+            "transport": "http",
+            "enabled": true
+          },
+          {
+            "name": "openaiDeveloperDocs",
+            "transport": "http",
+            "enabled": true
+          },
+          {
+            "name": "context7",
+            "transport": "http",
+            "enabled": true
+          },
+          {
+            "name": "deepwiki",
+            "transport": "http",
+            "enabled": true
+          },
+          {
+            "name": "hspine",
+            "transport": "stdio",
+            "enabled": true
+          },
+          {
+            "name": "blender",
+            "transport": "stdio",
+            "enabled": true
+          }
+        ]
+      },
+      {
+        "path": "/home/lagyeongjun/.config/orca/codex-runtime-home/home/config.toml",
+        "servers": [
+          {
+            "name": "ontology",
+            "transport": "http",
+            "enabled": true
+          },
+          {
+            "name": "openaiDeveloperDocs",
+            "transport": "http",
+            "enabled": true
+          },
+          {
+            "name": "context7",
+            "transport": "http",
+            "enabled": true
+          },
+          {
+            "name": "deepwiki",
+            "transport": "http",
+            "enabled": true
+          },
+          {
+            "name": "hspine",
+            "transport": "stdio",
+            "enabled": true
+          },
+          {
+            "name": "blender",
+            "transport": "stdio",
+            "enabled": true
+          }
+        ]
+      }
+    ],
+    "localResources": {
+      "disk": "Filesystem                        Size  Used Avail Use% Mounted on\n/dev/mapper/pve-vm--307--disk--0  196G  135G   52G  73% /\n",
+      "memory": "               total        used        free      shared  buff/cache   available\nMem:            48Gi       3.9Gi        15Gi        20Mi        28Gi        44Gi\nSwap:           15Gi       524Mi        15Gi\n",
+      "listeners": "State  Recv-Q Send-Q       Local Address:Port  Peer Address:PortProcess                                  \nLISTEN 0      2048             127.0.0.1:6006       0.0.0.0:*    users:((\"phoenix\",pid=525,fd=16))       \nLISTEN 0      4096             127.0.0.1:5501       0.0.0.0:*    users:((\"toolbox\",pid=101,fd=7))        \nLISTEN 0      4096             127.0.0.1:5502       0.0.0.0:*    users:((\"toolbox\",pid=575011,fd=10))    \nLISTEN 0      5                127.0.0.1:5433       0.0.0.0:*                                            \nLISTEN 0      5                127.0.0.1:5432       0.0.0.0:*                                            \nLISTEN 0      511              127.0.0.1:5510       0.0.0.0:*                                            \nLISTEN 0      4096               0.0.0.0:111        0.0.0.0:*                                            \nLISTEN 0      128                0.0.0.0:22         0.0.0.0:*                                            \nLISTEN 0      5                127.0.0.1:5080       0.0.0.0:*                                            \nLISTEN 0      5                127.0.0.1:7687       0.0.0.0:*                                            \nLISTEN 0      4096             127.0.0.1:7233       0.0.0.0:*    users:((\"temporal\",pid=850,fd=9))       \nLISTEN 0      4096             127.0.0.1:7243       0.0.0.0:*    users:((\"temporal\",pid=850,fd=10))      \nLISTEN 0      5                127.0.0.1:7474       0.0.0.0:*                                            \nLISTEN 0      5                127.0.0.1:6379       0.0.0.0:*                                            \nLISTEN 0      5                127.0.0.1:6333       0.0.0.0:*                                            \nLISTEN 0      5                127.0.0.1:1729       0.0.0.0:*                                            \nLISTEN 0      511                0.0.0.0:5511       0.0.0.0:*                                            \nLISTEN 0      511                0.0.0.0:5513       0.0.0.0:*                                            \nLISTEN 0      511                0.0.0.0:5512       0.0.0.0:*                                            \nLISTEN 0      100              127.0.0.1:25         0.0.0.0:*                                            \nLISTEN 0      511                0.0.0.0:6768       0.0.0.0:*    users:((\"orca-ide\",pid=1381811,fd=82))  \nLISTEN 0      4096             127.0.0.1:9464       0.0.0.0:*    users:((\"temporal\",pid=850,fd=6))       \nLISTEN 0      5                127.0.0.1:9001       0.0.0.0:*                                            \nLISTEN 0      5                127.0.0.1:9000       0.0.0.0:*                                            \nLISTEN 0      4096             127.0.0.1:8233       0.0.0.0:*    users:((\"temporal\",pid=850,fd=12))      \nLISTEN 0      4096          192.168.0.32:5504       0.0.0.0:*    users:((\"toolbox\",pid=631546,fd=7))     \nLISTEN 0      511           192.168.0.32:5516       0.0.0.0:*    users:((\"MainThread\",pid=1511773,fd=24))\nLISTEN 0      511           192.168.0.32:5517       0.0.0.0:*                                            \nLISTEN 0      4096          192.168.0.32:5502       0.0.0.0:*    users:((\"toolbox\",pid=645413,fd=13))    \nLISTEN 0      2048          192.168.0.32:5503       0.0.0.0:*    users:((\"python\",pid=97,fd=6))          \nLISTEN 0      5                127.0.0.1:27017      0.0.0.0:*                                            \nLISTEN 0      511              127.0.0.1:38595      0.0.0.0:*    users:((\"orca-ide\",pid=1381811,fd=78))  \nLISTEN 0      128              127.0.0.1:33431      0.0.0.0:*    users:((\"codex\",pid=1405139,fd=40))     \nLISTEN 0      128              127.0.0.1:33651      0.0.0.0:*    users:((\"codex\",pid=1404425,fd=38))     \nLISTEN 0      128              127.0.0.1:35683      0.0.0.0:*    users:((\"codex\",pid=1426838,fd=40))     \nLISTEN 0      4096             127.0.0.1:35593      0.0.0.0:*    users:((\"temporal\",pid=850,fd=7))       \nLISTEN 0      4096             127.0.0.1:45859      0.0.0.0:*    users:((\"temporal\",pid=850,fd=8))       \nLISTEN 0      128              127.0.0.1:42987      0.0.0.0:*    users:((\"codex\",pid=1415924,fd=40))     \nLISTEN 0      4096             127.0.0.1:41433      0.0.0.0:*    users:((\"temporal\",pid=850,fd=11))      \nLISTEN 0      4096            100.64.0.7:49521      0.0.0.0:*                                            \nLISTEN 0      4096                  [::]:111           [::]:*                                            \nLISTEN 0      128                   [::]:22            [::]:*                                            \nLISTEN 0      4096                     *:4317             *:*    users:((\"phoenix\",pid=525,fd=15))       \nLISTEN 0      4096   [fd7a:115c:a1e0::7]:52401         [::]:*                                            \nLISTEN 0      100                  [::1]:25            [::]:*                                            \n",
+      "failedUnits": "UNIT                           LOAD   ACTIVE SUB    DESCRIPTION\nrun-rpc_pipefs.mount           loaded failed failed RPC Pipe File System\nconnector-estate-watch.service loaded failed failed Collect connector and recovery health for ChatGPT capabilities\n\nLegend: LOAD   → Reflects whether the unit definition was properly loaded.\n        ACTIVE → The high-level unit activation state, i.e. generalization of SUB.\n        SUB    → The low-level unit activation state, values depend on unit type.\n\n2 loaded units listed.\n"
+    }
+  }
+}

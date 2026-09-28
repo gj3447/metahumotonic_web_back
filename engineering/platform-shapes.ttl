@@ -1,0 +1,36 @@
+@prefix mh: <https://metahumotonic.com/vocab/platform#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix schema: <https://schema.org/> .
+
+mh:ProgramShape a sh:NodeShape ; sh:targetClass mh:program ;
+  sh:property [ sh:path schema:identifier ; sh:datatype xsd:string ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path schema:name ; sh:datatype xsd:string ; sh:minCount 1 ] ;
+  sh:property [ sh:path mh:category ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("product" "research" "tooling" "operations" "knowledge" "portfolio") ] ;
+  sh:property [ sh:path mh:ownerRepository ; sh:class mh:repository ; sh:maxCount 1 ] ;
+  sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ; sh:class prov:Entity ] .
+
+mh:DeploymentShape a sh:NodeShape ; sh:targetClass mh:deployment ;
+  sh:property [ sh:path mh:host ; sh:class mh:host ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path mh:deploymentSubject ; sh:minCount 1 ; sh:maxCount 1 ;
+    sh:or ( [ sh:class mh:service ] [ sh:class mh:mcp-server ] [ sh:class mh:datastore ] ) ] ;
+  sh:property [ sh:path mh:environment ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("production" "development" "unknown") ] ;
+  sh:property [ sh:path mh:runtime ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("docker" "systemd" "kubernetes" "proxmox") ] ;
+  sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ; sh:class prov:Entity ] .
+
+mh:RelationshipShape a sh:NodeShape ; sh:targetClass rdf:Statement ;
+  sh:property [ sh:path rdf:subject ; sh:nodeKind sh:IRI ; sh:class prov:Entity ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path rdf:object ; sh:nodeKind sh:IRI ; sh:class prov:Entity ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path rdf:predicate ; sh:nodeKind sh:IRI ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path mh:status ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("ACTIVE" "PROPOSED" "RETIRED" "UNSPECIFIED") ] ;
+  sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ; sh:class prov:Entity ] .
+
+mh:ObservationShape a sh:NodeShape ; sh:targetClass mh:Observation ;
+  sh:property [ sh:path mh:subject ; sh:nodeKind sh:IRI ; sh:class prov:Entity ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path mh:check ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("process" "container-health" "readiness" "http" "backup") ] ;
+  sh:property [ sh:path mh:outcome ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("healthy" "running" "degraded" "failed" "reachable" "unknown") ] ;
+  sh:property [ sh:path prov:generatedAtTime ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ; sh:lessThan mh:expiresAt ] ;
+  sh:property [ sh:path mh:expiresAt ; sh:datatype xsd:dateTime ; sh:minCount 1 ; sh:maxCount 1 ] ;
+  sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ; sh:class prov:Entity ] .

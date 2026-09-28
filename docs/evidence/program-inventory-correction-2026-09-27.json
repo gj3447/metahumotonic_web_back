@@ -1,0 +1,321 @@
+{
+  "schema": "metahumotonic/program-inventory-correction@1",
+  "observedAt": "2026-09-27T05:53:18.551Z",
+  "scope": "Owner-requested program coverage and PostgreSQL inventory; read-only KG and repository observations, no deployment or program runtime health assertion",
+  "records": [
+    {
+      "alias": null,
+      "aliases": [
+        "postgres",
+        "pg",
+        "PostgreSQL 5432",
+        "범용 PG"
+      ],
+      "authority_class": "SYSTEM_DERIVED",
+      "authority_scope": "BUNDLE_bundle:data-services-location:2026-09-07:v1",
+      "canonical_name": "PostgreSQL 범용 (VM200)",
+      "canonical_scope": "CANONICAL",
+      "canonical_title": null,
+      "characterization": null,
+      "deity_role": null,
+      "description_excerpt": "",
+      "description_truncated": false,
+      "epistemic_state": "PREFERRED",
+      "familiar_role": null,
+      "full_name": null,
+      "legacy_authority": "SYSTEM_DERIVED",
+      "legacy_labels": [
+        "DataStore",
+        "InfraAsset"
+      ],
+      "legacy_status": null,
+      "master": null,
+      "name": "postgresql",
+      "ontology_domain": "OPERATIONS",
+      "ontology_kind": "ENTITY",
+      "ontology_plane": "WORLD",
+      "record_lifecycle": "ACTIVE",
+      "review_required": false,
+      "semantic_roles": [],
+      "source_fields": [],
+      "target_version": "\"2026-09-07T04:46:14Z\"",
+      "text_availability": "NO_SUPPORTED_TEXT_FIELDS",
+      "text_fields": [],
+      "title": "PostgreSQL 범용 인스턴스 — 192.168.0.25:5432",
+      "uid": "sym:DataStore:postgresql",
+      "uid_collision": false,
+      "uid_match_count": 1,
+      "upper_ontology_uid": "sym:KG_KNOW:independentcontinuant",
+      "user_utterance_excerpt": "",
+      "user_utterance_truncated": false,
+      "workflow_state": "NOT_APPLICABLE"
+    },
+    {
+      "alias": null,
+      "aliases": [
+        "lakatos ledger",
+        "라카토트리 원장",
+        "PG17 5433"
+      ],
+      "authority_class": "SYSTEM_DERIVED",
+      "authority_scope": "BUNDLE_bundle:data-services-location:2026-09-07:v1",
+      "canonical_name": "LakatoTree 원장 PostgreSQL 17",
+      "canonical_scope": "CANONICAL",
+      "canonical_title": null,
+      "characterization": null,
+      "deity_role": null,
+      "description_excerpt": "",
+      "description_truncated": false,
+      "epistemic_state": "PREFERRED",
+      "familiar_role": null,
+      "full_name": null,
+      "legacy_authority": "SYSTEM_DERIVED",
+      "legacy_labels": [
+        "DataStore",
+        "InfraAsset"
+      ],
+      "legacy_status": null,
+      "master": null,
+      "name": "postgresql-lakatos",
+      "ontology_domain": "OPERATIONS",
+      "ontology_kind": "ENTITY",
+      "ontology_plane": "WORLD",
+      "record_lifecycle": "ACTIVE",
+      "review_required": false,
+      "semantic_roles": [],
+      "source_fields": [],
+      "target_version": "\"2026-09-07T04:46:14.001Z\"",
+      "text_availability": "NO_SUPPORTED_TEXT_FIELDS",
+      "text_fields": [],
+      "title": "PostgreSQL 17 LakatoTree 원장 — 192.168.0.25:5433 (TLS, 자체 CA)",
+      "uid": "sym:DataStore:postgresql-lakatos",
+      "uid_collision": false,
+      "uid_match_count": 1,
+      "upper_ontology_uid": "sym:KG_KNOW:independentcontinuant",
+      "user_utterance_excerpt": "",
+      "user_utterance_truncated": false,
+      "workflow_state": "NOT_APPLICABLE"
+    },
+    {
+      "alias": null,
+      "aliases": null,
+      "authority_class": "SYSTEM_DERIVED",
+      "authority_scope": "sym:ChangeSet:maplelineage-work-2026-09-07-v1",
+      "canonical_name": null,
+      "canonical_scope": "CANONICAL",
+      "canonical_title": null,
+      "characterization": null,
+      "deity_role": null,
+      "description_excerpt": "\"VM200 데이터 볼륨은 외부 fsck 복구 후 기대한 UUID·rw 마운트·오류 비트 0을 확인했다. 실제 PostgreSQL 18.3에 maplelineage_dev와 역할 5개를 생성하고 V001–V043을 적용했다. 재실행 추가 적용 0개, 네 역할 로그인과 용도별 실효 권한을 확인했다. 결제 역할은 NOLOGIN이다. 디스크 복구 자체는 이 세션에서 수행한 작업으로 기록하지 않는다.\"",
+      "description_truncated": false,
+      "epistemic_state": "PREFERRED",
+      "familiar_role": null,
+      "full_name": null,
+      "legacy_authority": "SYSTEM_DERIVED",
+      "legacy_labels": [
+        "Concept"
+      ],
+      "legacy_status": null,
+      "master": null,
+      "name": "maplelineage-work-2026-09-07-postgres-dev",
+      "ontology_domain": "OPERATIONS",
+      "ontology_kind": "CONCEPT",
+      "ontology_plane": "GOVERNANCE",
+      "record_lifecycle": "ACTIVE",
+      "review_required": false,
+      "semantic_roles": [
+        "project-work-summary"
+      ],
+      "source_fields": [],
+      "target_version": "null",
+      "text_availability": "TEXT_AVAILABLE",
+      "text_fields": [
+        {
+          "encoding": "text",
+          "next_offset": null,
+          "offset": 0,
+          "property": "description",
+          "sha256": "a69af894c0c5e3676ca8d18830b99c8fba7d49bc4d889e4bd02ed496b4d3c406",
+          "text": "VM200 데이터 볼륨은 외부 fsck 복구 후 기대한 UUID·rw 마운트·오류 비트 0을 확인했다. 실제 PostgreSQL 18.3에 maplelineage_dev와 역할 5개를 생성하고 V001–V043을 적용했다. 재실행 추가 적용 0개, 네 역할 로그인과 용도별 실효 권한을 확인했다. 결제 역할은 NOLOGIN이다. 디스크 복구 자체는 이 세션에서 수행한 작업으로 기록하지 않는다.",
+          "total_chars": 220,
+          "truncated": false
+        }
+      ],
+      "title": "실제 내부 PostgreSQL 개발 DB 연결",
+      "uid": "sym:Concept:maplelineage-work-2026-09-07-postgres-dev",
+      "uid_collision": false,
+      "uid_match_count": 1,
+      "upper_ontology_uid": "sym:KG_KNOW:conceptualentity",
+      "user_utterance_excerpt": "",
+      "user_utterance_truncated": false,
+      "workflow_state": "NOT_APPLICABLE"
+    },
+    {
+      "alias": null,
+      "aliases": [
+        "버엑시",
+        "버엑시 시스템",
+        "버엑시 전체 시스템",
+        "virtual-excel system map",
+        "the-excel-tycoon system map"
+      ],
+      "authority_class": "SYSTEM_DERIVED",
+      "authority_scope": "sym:ChangeSet:virtual-excel-system-map-2026-09-20-v1",
+      "canonical_name": null,
+      "canonical_scope": "CANONICAL",
+      "canonical_title": null,
+      "characterization": null,
+      "deity_role": null,
+      "description_excerpt": "\"기존 설계·구현·연구·후속 KG 초안·제작 관측을 시스템별로 탐색하는 지도. 문서의 권위·상태·개정 이력을 유지한다.\"",
+      "description_truncated": false,
+      "epistemic_state": "PREFERRED",
+      "familiar_role": null,
+      "full_name": null,
+      "legacy_authority": "SYSTEM_DERIVED",
+      "legacy_labels": [
+        "Concept"
+      ],
+      "legacy_status": "NAVIGATION_INDEX_2026_09_20",
+      "master": null,
+      "name": "버엑시 시스템 연결 지도",
+      "ontology_domain": "CREATIVE",
+      "ontology_kind": "CONCEPT",
+      "ontology_plane": "GOVERNANCE",
+      "record_lifecycle": "ACTIVE",
+      "review_required": false,
+      "semantic_roles": [
+        "system-navigation-index"
+      ],
+      "source_fields": [],
+      "target_version": "null",
+      "text_availability": "TEXT_AVAILABLE",
+      "text_fields": [
+        {
+          "encoding": "text",
+          "next_offset": null,
+          "offset": 0,
+          "property": "description",
+          "sha256": "5e9596e9daf46893c9387a3edb3d764790fd26be8e1d8be9c0231a2504811f2c",
+          "text": "기존 설계·구현·연구·후속 KG 초안·제작 관측을 시스템별로 탐색하는 지도. 문서의 권위·상태·개정 이력을 유지한다.",
+          "total_chars": 65,
+          "truncated": false
+        }
+      ],
+      "title": "버엑시 시스템 연결 지도",
+      "uid": "sym:Concept:virtual-excel-system-map-20260920-root",
+      "uid_collision": false,
+      "uid_match_count": 1,
+      "upper_ontology_uid": "sym:KG_KNOW:conceptualentity",
+      "user_utterance_excerpt": "",
+      "user_utterance_truncated": false,
+      "workflow_state": "NOT_APPLICABLE"
+    },
+    {
+      "alias": null,
+      "aliases": null,
+      "authority_class": "USER_PRIMARY",
+      "authority_scope": "SUPULLIM_PROJECT_SOURCE",
+      "canonical_name": null,
+      "canonical_scope": "USER_RATIFIED_CANON",
+      "canonical_title": null,
+      "characterization": null,
+      "deity_role": null,
+      "description_excerpt": "\"The KG ingestion project is named 수풀림.\"",
+      "description_truncated": false,
+      "epistemic_state": "NOT_APPLICABLE",
+      "familiar_role": null,
+      "full_name": null,
+      "legacy_authority": "USER_PRIMARY",
+      "legacy_labels": [
+        "UserVerdict"
+      ],
+      "legacy_status": "RATIFIED",
+      "master": null,
+      "name": "수풀림",
+      "ontology_domain": "CREATIVE",
+      "ontology_kind": "STATEMENT",
+      "ontology_plane": "ASSERTION",
+      "record_lifecycle": "ACTIVE",
+      "review_required": false,
+      "semantic_roles": [
+        "DECISION",
+        "PROJECT_NAMING_VERDICT"
+      ],
+      "source_fields": [],
+      "target_version": "\"2026-08-29\"",
+      "text_availability": "TEXT_AVAILABLE",
+      "text_fields": [
+        {
+          "encoding": "text",
+          "next_offset": null,
+          "offset": 0,
+          "property": "description",
+          "sha256": "6557b55abb6d6c7762de74bf08fa4563ea77a1a770abda01835a2ccc598ad6c5",
+          "text": "The KG ingestion project is named 수풀림.",
+          "total_chars": 38,
+          "truncated": false
+        },
+        {
+          "encoding": "text",
+          "next_offset": null,
+          "offset": 0,
+          "property": "user_utterance",
+          "sha256": "99d6753285ebd56dcb1d251150332dcf06aceb051f80f1abe2e47d7d2f2cba4c",
+          "text": "프로젝트 이름은 수풀림",
+          "total_chars": 12,
+          "truncated": false
+        }
+      ],
+      "title": "수풀림 프로젝트 명명",
+      "uid": "sym:UserVerdict:supullim-project-name-2026-08-29",
+      "uid_collision": false,
+      "uid_match_count": 1,
+      "upper_ontology_uid": "sym:KG_KNOW:proposition",
+      "user_utterance_excerpt": "\"프로젝트 이름은 수풀림\"",
+      "user_utterance_truncated": false,
+      "workflow_state": "COMPLETED"
+    }
+  ],
+  "repositories": [
+    {
+      "programId": "program:virtual-excel",
+      "repo": "virtual-excel-simulator",
+      "head": "36c346a4dc59bb5fdac22fd05ae5ad5bd7da67ef",
+      "committedAt": "2026-09-27T01:32:35Z",
+      "dirty": true,
+      "readmeSha256": "fee8f41ba21cd9f8fdbe379a342e89d4d2a2312e4f67701f9e55571f533c887e"
+    },
+    {
+      "programId": "program:soopoolim",
+      "repo": "soopoolim",
+      "head": "a4c8dab1fa2bb623eee6080d4991a484a965d7f8",
+      "committedAt": "2026-09-08T03:27:27Z",
+      "dirty": true,
+      "readmeSha256": "3ba690d1148f363536054af4cd2dececa996ae70491d7f3346fb524a57b196b7"
+    },
+    {
+      "programId": "program:maplelineage",
+      "repo": "MAPLELINEAGE",
+      "head": "4768d661718ae09a5b6f9d9d0a834c6738543794",
+      "committedAt": "2026-09-07T11:32:01Z",
+      "dirty": true,
+      "readmeSha256": "56e34e3db39b4f1d357437271bce977732c27766915af9d6e6ae2da4f4040693"
+    },
+    {
+      "programId": "program:usl",
+      "repo": "USL",
+      "head": "3c2c810d52bce9a4249c4e1ecf955d93337d233e",
+      "committedAt": "2026-09-22T09:53:11Z",
+      "dirty": false,
+      "readmeSha256": "fe805519e5f5d3c77cc686dc63e0fa76b6a3834e3f207906754ce505471f5837"
+    },
+    {
+      "programId": "program:hswm",
+      "repo": "HSWM",
+      "head": "0f88f121c7d970f3176a8fb2f94a2bd11d767edb",
+      "committedAt": "2026-09-27T05:41:01Z",
+      "dirty": true,
+      "readmeSha256": "3a0961c638786b82b3fcc82c1d839a57da2c24bce4007ed54c1081e5b8e3261f"
+    }
+  ]
+}

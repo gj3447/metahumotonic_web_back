@@ -24,13 +24,27 @@ import { ConfigError, Effect, Layer } from "effect"
 import { Api } from "../api/Api.js"
 import { AppConfigLive, AppConfigTag, validateWikiConfiguration, type AppConfig } from "../Config.js"
 import { ClientIpLive, ClientIpTag } from "../ports/ClientIp.js"
-import { FeedbackStoreMemory, FeedbackStoreTag } from "../ports/FeedbackStore.js"
+import { FeedbackStoreTag } from "../ports/FeedbackStore.js"
+import { FeedbackStoreLive } from "../ports/FeedbackStoreMongo.js"
+import { MongoLive } from "../ports/Mongo.js"
+import { NativeReadinessLive } from "../ports/NativeReadiness.js"
+import { RedisLive, redisLimiterLayer } from "../ports/RedisLimiter.js"
+import { McpRegistryLive, McpRegistryTag } from "../ports/McpRegistry.js"
+import { PlatformConfigLive, PlatformConfigTag } from "../platform/Config.js"
+import { PlatformInventoryLive } from "../ports/PlatformInventoryPostgres.js"
+import { PlatformInventoryStoreTag } from "../ports/PlatformInventoryStore.js"
+import { LegacyServiceLive, LegacyServiceTag } from "../ports/LegacyService.js"
+import { McpFederationLive, McpFederationTag } from "../ports/McpFederation.js"
+import { PlatformHandlers } from "./PlatformHandlers.js"
+import { RegistryHandlers } from "./RegistryHandlers.js"
+import { LearningHubHandlers } from "./LearningHubHandlers.js"
+import { LearningHubLive } from "../ports/LearningHub.js"
+import { PlatformBoundary } from "./PlatformBoundary.js"
 import { IdsLive, IdsTag } from "../ports/Ids.js"
 import { KgPortLive, KgPortTag } from "../ports/KgPort.js"
 import { KgWritePortLive, KgWritePortTag } from "../ports/KgWritePort.js"
 import {
   FeedbackLimiter,
-  layerInProcess,
   WikiMutationLimiter,
   WikiReadLimiter,
   WikiSessionLimiter
@@ -62,22 +76,22 @@ export const LimitersLive = Layer.unwrapEffect(
   Effect.gen(function* () {
     const cfg = yield* AppConfigTag
     return Layer.mergeAll(
-      layerInProcess(FeedbackLimiter, {
+      redisLimiterLayer(FeedbackLimiter, "feedback", {
         maxEvents: cfg.feedbackMaxPerWindow,
         windowSeconds: cfg.feedbackWindowSeconds,
         failClosed: false
       }),
-      layerInProcess(WikiSessionLimiter, {
+      redisLimiterLayer(WikiSessionLimiter, "wiki-session", {
         maxEvents: cfg.wikiSessionMaxPerWindow,
         windowSeconds: cfg.wikiSessionWindowSeconds,
         failClosed: cfg.wikiPublicWrites && cfg.wikiRequireRedis
       }),
-      layerInProcess(WikiMutationLimiter, {
+      redisLimiterLayer(WikiMutationLimiter, "wiki-mutation", {
         maxEvents: cfg.wikiMutationMaxPerWindow,
         windowSeconds: cfg.wikiMutationWindowSeconds,
         failClosed: cfg.wikiPublicWrites && cfg.wikiRequireRedis
       }),
-      layerInProcess(WikiReadLimiter, {
+      redisLimiterLayer(WikiReadLimiter, "wiki-read", {
         maxEvents: cfg.wikiReadMaxPerWindow,
         windowSeconds: cfg.wikiReadWindowSeconds,
         failClosed: cfg.wikiPublicWrites && cfg.wikiRequireRedis
@@ -96,6 +110,11 @@ export const LimitersLive = Layer.unwrapEffect(
  * between production and the harness.
  */
 export interface PortOverrides {
+  readonly inventoryStore?: Layer.Layer<PlatformInventoryStoreTag, never, PlatformConfigTag>
+  readonly platformConfig?: Layer.Layer<PlatformConfigTag>
+  readonly legacy?: Layer.Layer<LegacyServiceTag, never, PlatformConfigTag>
+  readonly federation?: Layer.Layer<McpFederationTag, never, PlatformConfigTag>
+  readonly registry?: Layer.Layer<McpRegistryTag>
   readonly config?: Layer.Layer<AppConfigTag, ConfigError.ConfigError>
   readonly kg?: Layer.Layer<KgPortTag>
   readonly kgWrite?: Layer.Layer<KgWritePortTag, never, SchemaGuardTag>
@@ -123,6 +142,9 @@ export interface PortOverrides {
  */
 export const portsLayer = (overrides: PortOverrides = {}) => {
   const config = overrides.config ?? AppConfigLive
+  const platformConfig = overrides.platformConfig ?? PlatformConfigLive
+  const inventoryStore = (overrides.inventoryStore ?? PlatformInventoryLive).pipe(Layer.provide(platformConfig))
+  const infrastructure = Layer.mergeAll(MongoLive, RedisLive).pipe(Layer.provide(config))
   const kg = overrides.kg ?? KgPortLive
   const schemaGuard = overrides.schemaGuard ?? SchemaGuardLive
   const kgWrite = overrides.kgWrite ?? KgWritePortLive
@@ -133,16 +155,21 @@ export const portsLayer = (overrides: PortOverrides = {}) => {
   )
 
   const base = Layer.mergeAll(
+    LearningHubLive,
+    NativeReadinessLive,
     kg,
     writeStack,
     overrides.clientIp ?? ClientIpLive,
-    overrides.feedbackStore ?? FeedbackStoreMemory,
+    overrides.feedbackStore ?? FeedbackStoreLive,
     overrides.turnstile ?? TurnstileVerifierLive,
     overrides.ids ?? IdsLive,
-    overrides.limiters ?? LimitersLive
+    overrides.limiters ?? LimitersLive,
+    overrides.registry ?? McpRegistryLive,
+    overrides.legacy ?? LegacyServiceLive,
+    overrides.federation ?? McpFederationLive
   )
 
-  const withConfig = base.pipe(Layer.provideMerge(config))
+  const withConfig = base.pipe(Layer.provide(infrastructure), Layer.provideMerge(inventoryStore), Layer.provideMerge(platformConfig), Layer.provideMerge(config))
   return overrides.skipConfigGuard === true
     ? withConfig
     : withConfig.pipe(Layer.provideMerge(ConfigGuard.pipe(Layer.provide(config))))
@@ -158,7 +185,8 @@ export const portsLayer = (overrides: PortOverrides = {}) => {
  * too, so a test would catch it.
  */
 export const apiLayer = HttpApiBuilder.api(Api).pipe(
-  Layer.provide(HandlersLive),
+  Layer.provide(Layer.mergeAll(HandlersLive, PlatformHandlers, RegistryHandlers, LearningHubHandlers)),
+  Layer.provide(PlatformBoundary),
   Layer.provide(OperatorPlaneNoStore)
 )
 
@@ -178,7 +206,7 @@ export const corsLayer = (
       return HttpApiBuilder.middlewareCors({
         allowedOrigins: (origin) => cfg.corsOrigins.includes(origin),
         allowedMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "X-CSRF-Token", "X-API-Key"],
+        allowedHeaders: ["Authorization", "Content-Type", "Idempotency-Key", "X-CSRF-Token", "X-API-Key", "X-Ontology-Key"],
         exposedHeaders: ["X-Data-Source", "X-Data-Quality", "X-Records-Omitted", "Retry-After"],
         credentials: true
       })

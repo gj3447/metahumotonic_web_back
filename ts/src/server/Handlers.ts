@@ -45,6 +45,9 @@ import { ClientIpTag } from "../ports/ClientIp.js"
 import { enforce, FeedbackLimiter } from "../ports/RateLimiter.js"
 import { AgentLive } from "./AgentHandlers.js"
 import { TurnstileVerifierTag } from "../ports/TurnstileVerifier.js"
+import { LegacyServiceTag } from "../ports/LegacyService.js"
+import { PlatformConfigTag } from "../platform/Config.js"
+import { NativeReadinessTag } from "../ports/NativeReadiness.js"
 
 // --------------------------------------------------------------------------
 // meta
@@ -62,8 +65,8 @@ export const MetaLive = HttpApiBuilder.group(Api, "meta", (handlers) =>
      * Degraded-tolerant readiness, matching `app/routers/meta.py` field for
      * field — `ops/check-web-back-live.sh:296-302` reads five of these keys.
      *
-     * The wiki plane is the only thing that can make the service NOT ready;
-     * a dead KG degrades, it does not fail.
+     * Required native stores and private domains must answer. A dead optional
+     * KG degrades but does not remove the snapshot/public-learning service.
      */
     .handle("ready", () =>
       Effect.gen(function* () {
@@ -73,13 +76,19 @@ export const MetaLive = HttpApiBuilder.group(Api, "meta", (handlers) =>
         const kgLive = cfg.neo4jLive ? yield* kg.ping : false
 
         const wikiRequired = cfg.wikiPublicWrites
-        // The wiki plane is not implemented in this port. Reporting it as live
-        // would be a lie the live-checker would then certify, so when writes
-        // are required this service declares itself not ready.
-        const wikiStoreLive = false
-        const wikiRateLimitLive = !(wikiRequired && cfg.wikiRequireRedis)
+        const platform = yield* PlatformConfigTag
+        const legacy = yield* LegacyServiceTag
+        const legacyReady = yield* legacy.readiness
+        const wikiStoreLive = legacyReady?.wiki_store_live ?? false
+        const wikiRateLimitLive = legacyReady?.wiki_rate_limit_live ?? !(wikiRequired && cfg.wikiRequireRedis)
         const wikiLive = wikiStoreLive && wikiRateLimitLive
-        const degraded = (cfg.neo4jLive && !kgLive) || (wikiRequired && !wikiLive)
+        const legacyMissing = platform.legacyRequired && legacyReady?.status !== "ready"
+        const ontologyLive = legacyReady?.ontology_live ?? false
+        const ontologyMissing = platform.ontologyRequired && !ontologyLive
+        const native = yield* (yield* NativeReadinessTag).read
+        const nativeMissing = (native.mongo_required && !native.mongo_live) || (native.redis_required && !native.redis_live) ||
+          (native.platform_postgres_required && !native.platform_postgres_live)
+        const degraded = (cfg.neo4jLive && !kgLive) || (wikiRequired && !wikiLive) || legacyMissing || ontologyMissing || nativeMissing
 
         const body = {
           kg_live: kgLive,
@@ -87,10 +96,13 @@ export const MetaLive = HttpApiBuilder.group(Api, "meta", (handlers) =>
           wiki_live: wikiLive,
           wiki_store_live: wikiStoreLive,
           wiki_rate_limit_live: wikiRateLimitLive,
+          ontology_required: platform.ontologyRequired,
+          ontology_live: ontologyLive,
+          ...native,
           degraded
         }
 
-        if (wikiRequired && !wikiLive) {
+        if ((wikiRequired && !wikiLive) || legacyMissing || ontologyMissing || nativeMissing) {
           return yield* Effect.fail(new NotReady({ status: "not_ready", ...body }))
         }
         return new ReadyResponse({ status: "ready", ...body })
@@ -110,7 +122,12 @@ export const MetaLive = HttpApiBuilder.group(Api, "meta", (handlers) =>
             "/api/domains",
             "/api/skills",
             "/api/feedback",
-            "/api/wiki/v1"
+            "/api/wiki/v1",
+            "/api/mcp",
+            "/api/platform/v1/programs",
+            "/api/platform/v1/graph",
+            "/api/platform/v1/reality",
+            "/mcp"
           ],
           runtime: "effect-ts",
           // Which box answered. Cheap, and it removes a whole class of "am I
@@ -247,7 +264,7 @@ export const FeedbackLive = HttpApiBuilder.group(Api, "feedback", (handlers) =>
       // An earlier version keyed on the submission's subject text, which meant
       // varying one field bypassed the limiter entirely.
       const key = yield* clientIp.key
-      yield* enforce(limiter, `feedback:${key}`)
+      yield* enforce(limiter, key)
 
       // Turnstile AFTER the rate limit, matching app/routers/feedback.py:56-58:
       // rate-limit first so an invalid-token flood cannot force unbounded

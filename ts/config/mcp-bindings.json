@@ -1,0 +1,64 @@
+{
+  "schema": "metahumotonic/mcp-bindings@1",
+  "servers": [
+    {
+      "id": "ontology",
+      "nodeId": "mcp:ontology",
+      "urlEnv": "MHB_ONTOLOGY_MCP_URL",
+      "tokenEnv": "MHB_ONTOLOGY_MCP_TOKEN",
+      "tools": [
+        {
+          "name": "ontology_search",
+          "access": "read",
+          "description": "Resolve non-secret ontology records."
+        },
+        {
+          "name": "ontology_get",
+          "access": "read",
+          "description": "Read exact ontology uid and provenance."
+        },
+        {
+          "name": "ontology_neighbors",
+          "access": "read",
+          "description": "Read bounded, status-labelled graph neighbors."
+        }
+      ]
+    },
+    {
+      "id": "hspine",
+      "nodeId": "mcp:hspine",
+      "urlEnv": "MHB_HSPINE_MCP_URL",
+      "tokenEnv": "MHB_HSPINE_MCP_TOKEN",
+      "tools": [
+        {
+          "name": "hspine_capabilities",
+          "access": "read",
+          "description": "Read supported agent/human boundaries."
+        }
+      ]
+    },
+    {
+      "id": "maplelineage",
+      "nodeId": "mcp:maplelineage",
+      "urlEnv": "MHB_MAPLELINEAGE_MCP_URL",
+      "tokenEnv": "MHB_MAPLELINEAGE_MCP_TOKEN",
+      "tools": [
+        {
+          "name": "maplelineage_status",
+          "access": "read",
+          "description": "Read the pinned development corpus status; not game server health."
+        },
+        {
+          "name": "maplelineage_search_design",
+          "access": "read",
+          "description": "Search bounded development design material."
+        },
+        {
+          "name": "maplelineage_verify_harness",
+          "access": "read",
+          "description": "Read/check the bundled design harness; does not execute the game or database."
+        }
+      ]
+    }
+  ]
+}

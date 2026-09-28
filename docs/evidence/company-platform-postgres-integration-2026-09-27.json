@@ -1,0 +1,64 @@
+{
+  "schema": "metahumotonic/platform-postgres-integration-summary@1",
+  "verifiedAt": "2026-09-27T08:07:09.973653+00:00",
+  "status": "PASS",
+  "scope": "Local implementation and disposable database verification only; no production database, KG write, remote CI or rollout",
+  "ordinaryTests": {
+    "passed": 266,
+    "skipped": 15,
+    "skippedReason": "Ten PostgreSQL and five Mongo/Redis tests require separate disposable stores; both suites were run below."
+  },
+  "postgres": {
+    "passed": 10,
+    "skipped": 0,
+    "receipt": "company-platform-postgres-2026-09-27-r2.json",
+    "receiptSha256": "8e03f014d1aff357566a37a29aa721b700336ec1bea23f7ef1e82265e5a40fbb"
+  },
+  "mongoRedis": {
+    "passed": 5,
+    "skipped": 0,
+    "status": "PASS",
+    "environmentAdjustment": "Redis is not in PATH. The existing extracted test binary and its local library directory were supplied explicitly through MHB_TEST_REDIS_BINARY and LD_LIBRARY_PATH."
+  },
+  "compiledSmoke": {
+    "status": "PASS",
+    "includesTypeScriptBuild": true
+  },
+  "pythonPackaging": {
+    "passed": 2
+  },
+  "remoteCI": "NOT_RUN",
+  "productionActivation": "NOT_RUN",
+  "automaticProbeCollector": "NOT_IMPLEMENTED",
+  "logSha256": {
+    "ordinary": "314e5fb55b82c0d295365e547e4a3a9564e5036c8bf64f38b65002e2ca3ae599",
+    "persistence": "1669be048a269b4ae3c8493b1631ca7883fcabf9f88671938395a20c41d62625",
+    "smoke": "96156cd8bc96019935c5f2c8e3794f9cac195b78fad3443ed5e66f4c1d7d1150",
+    "packaging": "fcd476841e8af121ff907e81a92a59579b64c007b70cb79f9d096806f703fc7e"
+  },
+  "sourceSha256": {
+    "ts/src/ports/PlatformInventoryPostgres.ts": "970a1ee18dc7222d99000d7d2dcc85ac343d695e0f3e0bef9305e2c336248b9f",
+    "ts/src/ports/PlatformInventoryStore.ts": "6c447a556cea9d5e12da77f240eccfad1862376e4fc9371428dfb4e6c69527ed",
+    "ts/src/domain/ObservationIngest.ts": "285efa73c4f6726f1264c3148906a2243d3b1f405eace9c1426e9317ca410009",
+    "ts/src/platform/Digest.ts": "3d8e73c4eabfa6931ac6b246dec0a24557e442a84d8487bca9185bf345db1673",
+    "ts/src/platform/Config.ts": "9be325da22674ba48e48d8c09b7777691fa9845df45b74877afad633e1cdfd8e",
+    "ts/src/platform/McpServer.ts": "cebf0efa35c4bbd40737b669f65fd9aaa64e5bdb66038e9e638b116f35eeb463",
+    "ts/src/api/PlatformApi.ts": "0a25a93aa643b14a6a81b64f607a8220ada01cb8b6bb0056c722ff04dd0d30e4",
+    "ts/src/server/PlatformHandlers.ts": "c1f27afd801b8c5ba43a27e20a70cc44ecbd576f58f8e9b008a463007c0abee9",
+    "ts/src/server/Composition.ts": "856b14020cf8a67a32943b557edd9b4a29261e51ceeca36172f2c1dac9f59133",
+    "ts/src/server/Handlers.ts": "5d2ccd662b26a8af2af867e33a06767367d4047e0f853622df31f5d8c239cf54",
+    "ts/src/ports/NativeReadiness.ts": "bcb135d50b94aeb589f75c8dff003040b73a08029a19ae5947ee3fc242f4879e",
+    "ts/src/domain/Errors.ts": "75c63614846b10e9c8d5319e04a7331f8e89cd0d8bc53885db0e342a4e8e627c",
+    "ts/src/domain/Contracts.ts": "c0ec553dbba637270e1a7082dc044e27f1614289fa7d206463869862f3293b2f",
+    "ts/config/migrations/001-platform.sql": "d5fb606590db5d80401e73489b023b72d40677e24dd90463955c731e4061a6af",
+    "ts/scripts/platform-db.mjs": "d5bba3fbab1bf35b27eb62a7824df58667ff193aaadac4cdeab6b27dee8b9155",
+    "ts/scripts/smoke.sh": "47a44b42dc014ce7f79c91d9b91e5e6012b0b368c426f82a02793f8c327be3f1",
+    "ts/test/platform-postgres.test.ts": "fecbb5491a2ec12a03becd9122bca10a9ffc60d32b6317cc9ca0f30da1e5f9a0",
+    "ts/test/readiness.test.ts": "43c291926aaaf3f31da8fd439972c3e6618ecfd799a8dcab538ac96ea6f213d2",
+    "ts/test/http.test.ts": "e8033267c5c0d12bd2cc90be62d8a90ac1aa168fea1560590a27eb27d9172836",
+    "ts/package.json": "83078ce0d987b39d7f268dd5165beb4c72bc0f8bbc996e92136baa89f5ed0cc6",
+    "ts/package-lock.json": "a98d41aae0f35dd37984d6a3ca016b34dd57b3ab9b9bdc7011a20d02dc500507",
+    "Dockerfile": "fb6589ece04df00b49f100f31424623d3347844a88532572cf2783d16041c28c",
+    ".github/workflows/ci.yml": "7ed327b87e83da228d1e776adbb6e3d63bbac9dc1a124a2e6aea4ee243a164c0"
+  }
+}

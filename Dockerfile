@@ -1,18 +1,24 @@
-FROM python:3.12-slim
+FROM node:24.21.0-bookworm-slim AS build
+WORKDIR /build
+COPY ts/package.json ts/package-lock.json ts/.node-version ./
+COPY ts/scripts ./scripts
+RUN npm ci --no-audit --no-fund
+COPY ts/tsconfig.json ./
+COPY ts/src ./src
+COPY ts/test ./test
+COPY ts/config ./config
+RUN npm run build && npm prune --omit=dev --no-audit --no-fund
 
+FROM node:24.21.0-bookworm-slim AS runtime
+ENV NODE_ENV=production
 WORKDIR /app
-
-# requirements.lock is generated from uv.lock and pins every runtime wheel by
-# version and SHA-256.  The service runs directly from the copied source tree,
-# so the image never performs a second, range-resolving project installation.
-COPY requirements.lock README.md LICENSE NOTICE THIRD_PARTY_NOTICES.md ./
-RUN pip install --no-cache-dir --require-hashes -r requirements.lock
-
-COPY app ./app
-COPY migrations ./migrations
-
+COPY --from=build --chown=node:node /build/package.json ./
+COPY --from=build --chown=node:node /build/node_modules ./node_modules
+COPY --from=build --chown=node:node /build/dist/src ./dist/src
+COPY --from=build --chown=node:node /build/dist/config ./dist/config
+COPY --from=build --chown=node:node /build/scripts/platform-db.mjs ./scripts/platform-db.mjs
+USER node
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD node -e "fetch('http://127.0.0.1:8000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "dist/src/main.js"]

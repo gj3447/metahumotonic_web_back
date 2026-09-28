@@ -1,0 +1,622 @@
+{
+  "schema": "metahumotonic/backend-reality@1",
+  "recordedAt": "2026-09-28T00:25:40.315736Z",
+  "scope": "metahumotonic_web_back implementation, active VM100 web API, and immediate owners; this is a dated assessment, not an automatic health monitor",
+  "nodes": [
+    {
+      "id": "component:python-public-http",
+      "name": "VM100 Python public API",
+      "implementation": "native",
+      "runtime": "production-observed",
+      "decision": "retire-after-gate",
+      "platformNodeId": "service:web-back-python",
+      "evidence": [
+        {
+          "source": "repo:app/main.py",
+          "kind": "source"
+        },
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/vm100",
+          "kind": "runtime"
+        }
+      ],
+      "runtimeEvidence": [
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/vm100/web-back-pve-1",
+          "observedAt": "2026-09-28T00:12:01.802420Z",
+          "expiresAt": "2026-09-28T00:27:01.802420Z",
+          "outcome": "healthy"
+        },
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/vm100/web-back-pve-2",
+          "observedAt": "2026-09-28T00:12:01.802420Z",
+          "expiresAt": "2026-09-28T00:27:01.802420Z",
+          "outcome": "healthy"
+        }
+      ],
+      "nextGate": "Deploy digest-pinned TS canary, prove public route/auth parity and rollback, then withdraw only the Python public ingress."
+    },
+    {
+      "id": "component:python-wiki",
+      "name": "Python Wiki owner",
+      "implementation": "native",
+      "runtime": "production-observed",
+      "decision": "retain",
+      "platformNodeId": "service:web-back-python",
+      "evidence": [
+        {
+          "source": "repo:app/wiki/http.py",
+          "kind": "source"
+        },
+        {
+          "source": "doc:docs/WIKI.md",
+          "kind": "document"
+        },
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/vm100/web-back-pve-1",
+          "kind": "runtime"
+        },
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/vm100/web-back-pve-2",
+          "kind": "runtime"
+        }
+      ],
+      "finding": "Both Python replicas reported Wiki/store readiness and returned HTTP 200 for /api/wiki/v1/pages.",
+      "runtimeEvidence": [
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/vm100/web-back-pve-1",
+          "observedAt": "2026-09-28T00:25:16.297771Z",
+          "expiresAt": "2026-09-28T00:40:16.297771Z",
+          "outcome": "healthy"
+        },
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/vm100/web-back-pve-2",
+          "observedAt": "2026-09-28T00:25:16.312692Z",
+          "expiresAt": "2026-09-28T00:40:16.312692Z",
+          "outcome": "healthy"
+        }
+      ]
+    },
+    {
+      "id": "component:python-ontology",
+      "name": "Python ontology owner",
+      "implementation": "native",
+      "runtime": "not-configured",
+      "decision": "retain",
+      "platformNodeId": "service:web-back-python",
+      "evidence": [
+        {
+          "source": "repo:app/routers/ontology.py",
+          "kind": "source"
+        },
+        {
+          "source": "doc:docs/ONTOLOGY.md",
+          "kind": "document"
+        },
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/vm100/web-back-pve-1/readyFlags",
+          "kind": "runtime"
+        }
+      ],
+      "finding": "Both production replicas reported ontology_required=false and ontology_live=false on /ready."
+    },
+    {
+      "id": "component:python-research",
+      "name": "Python research and KG presentation",
+      "implementation": "native",
+      "runtime": "production-observed",
+      "decision": "retain",
+      "platformNodeId": "service:web-back-python",
+      "evidence": [
+        {
+          "source": "repo:app/routers/research.py",
+          "kind": "source"
+        },
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/vm100/web-back-pve-1",
+          "kind": "runtime"
+        },
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/vm100/web-back-pve-2",
+          "kind": "runtime"
+        }
+      ],
+      "finding": "Both Python replicas returned HTTP 200 with source=live for /api/research/summary.",
+      "runtimeEvidence": [
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/vm100/web-back-pve-1",
+          "observedAt": "2026-09-28T00:25:40.301969Z",
+          "expiresAt": "2026-09-28T00:40:40.301969Z",
+          "outcome": "healthy"
+        },
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/vm100/web-back-pve-2",
+          "observedAt": "2026-09-28T00:25:40.315736Z",
+          "expiresAt": "2026-09-28T00:40:40.315736Z",
+          "outcome": "healthy"
+        }
+      ]
+    },
+    {
+      "id": "component:python-feedback",
+      "name": "Python feedback owner during cutover",
+      "implementation": "native",
+      "runtime": "production-unverified",
+      "decision": "retire-after-gate",
+      "platformNodeId": "service:web-back-python",
+      "evidence": [
+        {
+          "source": "repo:app/routers/feedback.py",
+          "kind": "source"
+        }
+      ],
+      "nextGate": "Verify TS durable Mongo feedback, public form submission and triage parity before removing the Python route."
+    },
+    {
+      "id": "component:python-kg-proxy",
+      "name": "Python raw KG proxy",
+      "implementation": "native",
+      "runtime": "production-unverified",
+      "decision": "retain",
+      "platformNodeId": "service:web-back-python",
+      "evidence": [
+        {
+          "source": "repo:app/routers/kg_proxy.py",
+          "kind": "source"
+        },
+        {
+          "source": "doc:docs/KG_PROXY_CONNECT.md",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "id": "component:python-mcp-registry",
+      "name": "Python MCP registry API",
+      "implementation": "native",
+      "runtime": "production-observed",
+      "decision": "retire-after-gate",
+      "platformNodeId": "service:web-back-python",
+      "evidence": [
+        {
+          "source": "repo:app/routers/mcp_registry.py",
+          "kind": "source"
+        },
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/public/api-mcp-status",
+          "kind": "runtime"
+        }
+      ],
+      "runtimeEvidence": [
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/public/api-mcp-status",
+          "observedAt": "2026-09-28T00:12:21.150246Z",
+          "expiresAt": "2026-09-28T00:27:21.150246Z",
+          "outcome": "reachable"
+        }
+      ],
+      "nextGate": "Populate owner-approved entries, prove verified health and TS readback, then retire the Python registry route."
+    },
+    {
+      "id": "component:registry-membership",
+      "name": "Production MCP registry membership",
+      "implementation": "snapshot",
+      "runtime": "production-observed",
+      "decision": "complete",
+      "evidence": [
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/public/api-mcp-status",
+          "kind": "runtime"
+        }
+      ],
+      "runtimeEvidence": [
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/public/api-mcp-status",
+          "observedAt": "2026-09-28T00:12:21.150246Z",
+          "expiresAt": "2026-09-28T00:27:21.150246Z",
+          "outcome": "reachable"
+        }
+      ],
+      "finding": "The live registry returned zero registered servers and no last verification time.",
+      "nextGate": "Register scoped owner entries and verify each through the production route; a reachable empty registry is not MCP federation."
+    },
+    {
+      "id": "component:ts-http",
+      "name": "TS/Effect company HTTP entrypoint",
+      "implementation": "native",
+      "runtime": "candidate-only",
+      "decision": "complete",
+      "platformNodeId": "service:web-back-ts-runtime",
+      "evidence": [
+        {
+          "source": "repo:ts/src/server/Composition.ts",
+          "kind": "source"
+        },
+        {
+          "source": "repo:Dockerfile",
+          "kind": "source"
+        }
+      ],
+      "nextGate": "Run container gate and staged VM100 canary with exact revision, public route and rollback readback."
+    },
+    {
+      "id": "component:ts-platform-graph",
+      "name": "Typed platform graph and inventory API",
+      "implementation": "native",
+      "runtime": "candidate-only",
+      "decision": "retain",
+      "platformNodeId": "service:web-back-ts-runtime",
+      "evidence": [
+        {
+          "source": "repo:ts/src/domain/PlatformGraph.ts",
+          "kind": "source"
+        },
+        {
+          "source": "repo:ts/test/inventory.test.ts",
+          "kind": "test"
+        }
+      ]
+    },
+    {
+      "id": "component:ts-platform-postgres",
+      "name": "Append-only platform PostgreSQL store",
+      "implementation": "native",
+      "runtime": "not-configured",
+      "decision": "complete",
+      "platformNodeId": "service:web-back-ts-runtime",
+      "evidence": [
+        {
+          "source": "repo:ts/src/ports/PlatformInventoryPostgres.ts",
+          "kind": "source"
+        },
+        {
+          "source": "doc:docs/PLATFORM_POSTGRES.md",
+          "kind": "document"
+        }
+      ],
+      "nextGate": "Migrate and import a dedicated production database, configure read/write roles and prove a receipt and readback before enabling required mode."
+    },
+    {
+      "id": "component:ts-mcp-federation",
+      "name": "Allowlisted TS MCP federation",
+      "implementation": "federated",
+      "runtime": "not-configured",
+      "decision": "complete",
+      "platformNodeId": "service:web-back-ts-runtime",
+      "evidence": [
+        {
+          "source": "repo:ts/src/ports/McpFederation.ts",
+          "kind": "source"
+        },
+        {
+          "source": "repo:ts/config/mcp-bindings.json",
+          "kind": "source"
+        }
+      ],
+      "nextGate": "Configure reviewed upstreams and prove exact tool list plus owner readback through production REST and MCP."
+    },
+    {
+      "id": "component:ts-learning-hub",
+      "name": "Public learning graph API",
+      "implementation": "native",
+      "runtime": "candidate-only",
+      "decision": "retain",
+      "platformNodeId": "service:web-back-ts-runtime",
+      "evidence": [
+        {
+          "source": "repo:ts/src/domain/LearningHub.ts",
+          "kind": "source"
+        },
+        {
+          "source": "repo:ts/config/learning-hub.json",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "id": "component:ts-feedback",
+      "name": "TS durable feedback adapter",
+      "implementation": "native",
+      "runtime": "candidate-only",
+      "decision": "complete",
+      "platformNodeId": "service:web-back-ts-runtime",
+      "evidence": [
+        {
+          "source": "repo:ts/src/ports/FeedbackStoreMongo.ts",
+          "kind": "source"
+        },
+        {
+          "source": "repo:ts/test/persistence.test.ts",
+          "kind": "test"
+        }
+      ],
+      "nextGate": "Prove production Mongo durability and public form plus operator triage parity before traffic cutover."
+    },
+    {
+      "id": "component:ts-python-boundary",
+      "name": "Private Wiki/ontology legacy boundary",
+      "implementation": "federated",
+      "runtime": "candidate-only",
+      "decision": "retain",
+      "platformNodeId": "service:web-back-ts-runtime",
+      "evidence": [
+        {
+          "source": "repo:ts/src/server/PlatformBoundary.ts",
+          "kind": "source"
+        },
+        {
+          "source": "repo:ts/src/ports/LegacyService.ts",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "id": "component:platform-snapshot",
+      "name": "One-time platform asset/observation snapshot",
+      "implementation": "snapshot",
+      "runtime": "candidate-only",
+      "decision": "retain",
+      "evidence": [
+        {
+          "source": "repo:ts/config/platform-catalog.json",
+          "kind": "source"
+        },
+        {
+          "source": "doc:docs/COMPANY_PLATFORM_ARCHITECTURE.md",
+          "kind": "document"
+        }
+      ],
+      "finding": "197 assets and 197 relations are catalogued; all 109 imported observations have expired. Membership and ACTIVE lifecycle are not live readiness."
+    },
+    {
+      "id": "component:platform-auto-collector",
+      "name": "Automatic fixed-scope runtime collector",
+      "implementation": "missing",
+      "runtime": "not-configured",
+      "decision": "complete",
+      "evidence": [
+        {
+          "source": "doc:docs/COMPANY_PLATFORM_ARCHITECTURE.md",
+          "kind": "document"
+        }
+      ],
+      "nextGate": "Add allowlisted owner probes that append signed or authenticated time-limited observations with idempotent receipts to the platform store."
+    },
+    {
+      "id": "component:feedback-memory-fallback",
+      "name": "In-memory feedback fallback",
+      "implementation": "simulation",
+      "runtime": "development-only",
+      "decision": "retain",
+      "evidence": [
+        {
+          "source": "repo:app/store.py",
+          "kind": "source"
+        },
+        {
+          "source": "repo:README.md",
+          "kind": "document"
+        }
+      ],
+      "finding": "Useful for local/CI behavior; durability must be established by Mongo-backed production readback."
+    },
+    {
+      "id": "component:retired-dgx-k8s",
+      "name": "DGX Kubernetes web-back deployment files",
+      "implementation": "retired",
+      "runtime": "retired",
+      "decision": "archive",
+      "evidence": [
+        {
+          "source": "doc:deploy/k8s/README.md",
+          "kind": "document"
+        },
+        {
+          "source": "repo:deploy/legacy/web-back-dgx-retired.yaml",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "id": "component:retired-omd",
+      "name": "OMD parallel driver",
+      "implementation": "retired",
+      "runtime": "retired",
+      "decision": "archive",
+      "evidence": [
+        {
+          "source": "doc:docs/archive/omd/README.md",
+          "kind": "document"
+        },
+        {
+          "source": "repo:scripts/omd/driver.py",
+          "kind": "source"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "reality:ts-supersedes-python",
+      "from": "component:ts-http",
+      "to": "component:python-public-http",
+      "relation": "SUPERSEDES",
+      "status": "PROPOSED",
+      "meaning": "TS public ingress is a proposed replacement after a canary cutover.",
+      "evidence": [
+        {
+          "source": "doc:docs/COMPANY_BACKEND.md",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "id": "reality:ts-uses-platform",
+      "from": "component:ts-http",
+      "to": "component:ts-platform-graph",
+      "relation": "USES",
+      "status": "ACTIVE",
+      "meaning": "The TS composition includes platform handlers.",
+      "evidence": [
+        {
+          "source": "repo:ts/src/server/Composition.ts",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "id": "reality:ts-uses-learning",
+      "from": "component:ts-http",
+      "to": "component:ts-learning-hub",
+      "relation": "USES",
+      "status": "ACTIVE",
+      "meaning": "The TS composition includes learning hub handlers.",
+      "evidence": [
+        {
+          "source": "repo:ts/src/server/Composition.ts",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "id": "reality:ts-uses-feedback",
+      "from": "component:ts-http",
+      "to": "component:ts-feedback",
+      "relation": "USES",
+      "status": "ACTIVE",
+      "meaning": "The TS composition includes feedback handlers.",
+      "evidence": [
+        {
+          "source": "repo:ts/src/server/Composition.ts",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "id": "reality:ts-uses-mcp",
+      "from": "component:ts-http",
+      "to": "component:ts-mcp-federation",
+      "relation": "USES",
+      "status": "ACTIVE",
+      "meaning": "The TS composition includes the bounded MCP gateway.",
+      "evidence": [
+        {
+          "source": "repo:ts/src/server/Composition.ts",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "id": "reality:ts-delegates-wiki",
+      "from": "component:ts-python-boundary",
+      "to": "component:python-wiki",
+      "relation": "DELEGATES_TO",
+      "status": "PROPOSED",
+      "meaning": "The local TS boundary delegates Wiki to the Python owner; production cutover remains proposed.",
+      "evidence": [
+        {
+          "source": "repo:ts/src/server/PlatformBoundary.ts",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "id": "reality:ts-delegates-ontology",
+      "from": "component:ts-python-boundary",
+      "to": "component:python-ontology",
+      "relation": "DELEGATES_TO",
+      "status": "PROPOSED",
+      "meaning": "The local TS boundary delegates ontology to the Python owner; production cutover remains proposed.",
+      "evidence": [
+        {
+          "source": "repo:ts/src/server/PlatformBoundary.ts",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "id": "reality:platform-reads-snapshot",
+      "from": "component:ts-platform-graph",
+      "to": "component:platform-snapshot",
+      "relation": "READS",
+      "status": "ACTIVE",
+      "meaning": "The default TS inventory reads the bundled snapshot when the platform database is unset.",
+      "evidence": [
+        {
+          "source": "repo:ts/src/ports/PlatformInventoryPostgres.ts",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "id": "reality:pg-replaces-snapshot",
+      "from": "component:ts-platform-postgres",
+      "to": "component:platform-snapshot",
+      "relation": "SUPERSEDES",
+      "status": "PROPOSED",
+      "meaning": "The PG store is a proposed production source of time-limited observations.",
+      "evidence": [
+        {
+          "source": "doc:docs/PLATFORM_POSTGRES.md",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "id": "reality:collector-writes-pg",
+      "from": "component:platform-auto-collector",
+      "to": "component:ts-platform-postgres",
+      "relation": "PRODUCES",
+      "status": "PROPOSED",
+      "meaning": "A future fixed-scope collector would submit observations to the PG store.",
+      "evidence": [
+        {
+          "source": "doc:docs/COMPANY_PLATFORM_ARCHITECTURE.md",
+          "kind": "document"
+        }
+      ]
+    },
+    {
+      "id": "reality:python-exposes-wiki",
+      "from": "component:python-public-http",
+      "to": "component:python-wiki",
+      "relation": "EXPOSES",
+      "status": "ACTIVE",
+      "meaning": "The Python public application mounts Wiki routes.",
+      "evidence": [
+        {
+          "source": "repo:app/main.py",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "id": "reality:python-exposes-registry",
+      "from": "component:python-public-http",
+      "to": "component:python-mcp-registry",
+      "relation": "EXPOSES",
+      "status": "ACTIVE",
+      "meaning": "The Python public application mounts MCP registry routes.",
+      "evidence": [
+        {
+          "source": "repo:app/main.py",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "id": "reality:registry-has-membership",
+      "from": "component:python-mcp-registry",
+      "to": "component:registry-membership",
+      "relation": "READS",
+      "status": "ACTIVE",
+      "meaning": "The production registry readback found zero registered entries at the recorded time.",
+      "evidence": [
+        {
+          "source": "receipt:docs/evidence/backend-reality-2026-09-28.json#/public/api-mcp-status",
+          "kind": "runtime"
+        }
+      ]
+    }
+  ]
+}

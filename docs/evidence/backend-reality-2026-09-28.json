@@ -1,0 +1,82 @@
+{
+  "schema": "metahumotonic/backend-reality-evidence@1",
+  "observedAt": "2026-09-28T00:12:01.802420+00:00",
+  "scope": "read-only production spot check; current only until expiration",
+  "vm100": {
+    "web-back-pve-1": {
+      "command": [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ],
+      "state": "running",
+      "health": "healthy",
+      "image": "metahumotonic-web-back:1.0.0-x86",
+      "healthHttpStatus": 200,
+      "readyHttpStatus": 200,
+      "readyFlags": {
+        "status": "ready",
+        "kg_live": true,
+        "wiki_required": true,
+        "wiki_live": true,
+        "wiki_store_live": true,
+        "ontology_required": false,
+        "ontology_live": false,
+        "degraded": false
+      },
+      "readyFlagsObservedAt": "2026-09-28T00:25:02.742812+00:00",
+      "wikiListHttpStatus": 200,
+      "wikiListObservedAt": "2026-09-28T00:25:16.297771+00:00",
+      "researchSummaryHttpStatus": 200,
+      "researchSummaryObservedAt": "2026-09-28T00:25:40.301969+00:00",
+      "researchSummarySource": "live"
+    },
+    "web-back-pve-2": {
+      "command": [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ],
+      "state": "running",
+      "health": "healthy",
+      "image": "metahumotonic-web-back:1.0.0-x86",
+      "healthHttpStatus": 200,
+      "readyHttpStatus": 200,
+      "readyFlags": {
+        "status": "ready",
+        "kg_live": true,
+        "wiki_required": true,
+        "wiki_live": true,
+        "wiki_store_live": true,
+        "ontology_required": false,
+        "ontology_live": false,
+        "degraded": false
+      },
+      "readyFlagsObservedAt": "2026-09-28T00:25:02.799231+00:00",
+      "wikiListHttpStatus": 200,
+      "wikiListObservedAt": "2026-09-28T00:25:16.312692+00:00",
+      "researchSummaryHttpStatus": 200,
+      "researchSummaryObservedAt": "2026-09-28T00:25:40.315736+00:00",
+      "researchSummarySource": "live"
+    }
+  },
+  "public": {
+    "api-mcp-status": {
+      "httpStatus": 200,
+      "source": "live",
+      "total": 0,
+      "lastVerifyAt": null,
+      "registryObservedAt": "2026-09-28T00:12:21.150246+00:00",
+      "serverCount": 0
+    },
+    "api-mcp": {
+      "httpStatus": 200
+    }
+  }
+}

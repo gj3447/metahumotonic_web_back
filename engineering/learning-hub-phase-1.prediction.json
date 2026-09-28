@@ -1,0 +1,15 @@
+{
+  "schema": "metahumotonic/local-verification-prediction@1",
+  "recordedAt": "2026-09-27",
+  "scope": "Public learning graph contracts and release artifact readback",
+  "authority": "SECONDARY_AI / LOCAL_ENGINEERING_PLAN",
+  "priorEvidence": "Existing unit and browser tests already passed. Inspection found missing relation-kind checks and a deployment verifier limited to home/wiki. This is not a preregistration of the earlier results.",
+  "predictions": [
+    { "id": "typed-relations", "metric": "invalid relation, locator, date and path fixtures rejected", "expected": "all fixed negative fixtures rejected; current catalog and cyclic semantic reading links accepted" },
+    { "id": "independent-readback", "metric": "Python verifier on actual frontend release files", "expected": "valid publication passes; missing HTML anchors, reversed USL edges, changed RDF claims, mismatched digests and removed files each fail" },
+    { "id": "release-boundary", "metric": "public readback with expected publication artifact", "expected": "current matching publication passes; a stale but HTTP-200 publication fails" }
+  ],
+  "verificationOwner": "Repository-owned deterministic validators and adversarial fixtures",
+  "notClaims": ["LakatoTree preregistration", "LakatoTree automated verdict", "GEIP D1-D4 conformance", "production activation"],
+  "lakatos": "Owner LakatoTree registration/submission tools are not present in this session. No KG record or verdict is fabricated."
+}

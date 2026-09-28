@@ -70,7 +70,7 @@ case "${1:-deploy}" in
     #    "which build is running" is answerable without trusting a label.
     tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
     tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
-        -cf "$tmp/app.tar" ts/dist ts/package.json ts/package-lock.json
+        -cf "$tmp/app.tar" ts/dist ts/package.json ts/package-lock.json ts/.node-version ts/scripts/check-runtime.mjs
     sha="$(sha256sum "$tmp/app.tar" | cut -c1-16)"
     rel="$(git rev-parse --short HEAD)-${sha}"
     say "artifact: $rel  ($(du -h "$tmp/app.tar" | cut -f1))"

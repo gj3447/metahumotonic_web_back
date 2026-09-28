@@ -1,0 +1,18 @@
+{
+  "schema": "metahumotonic/publication-verification@1",
+  "observedAt": "2026-09-27T01:48:27.004118+00:00",
+  "scope": "local artifact readback",
+  "verifierSha256": "d344db193f843b0e236763c1548a051e4038bf3ec85e9c610867451d8397af36",
+  "sourceDigest": "sha256:23fd8ad86329a5b8513a7455b122538a428ebe9b80f99ce81ba7e8224a03f495",
+  "nodes": 19,
+  "relations": 23,
+  "surfaces": 5,
+  "files": {
+    "index.html": "4eb1fc23f183b38e3183e2526df089476f8f1a147056ca5dc978a5c96137b967",
+    "learn/index.html": "02190fbb6d8b54202dbaa317e12fbda696018a6080e6387607df93d9a95102e5",
+    "learn/data.json": "aacbfa5cb988e6e195ded14c7b3fedaef184db9058f51be8e33dd83646e23bfa",
+    "learn/graph.jsonld": "c3d84d6c783e7c07489ef9cefc707ddd51fc69b2aeb689e63957dce929103a76",
+    "learn/usl.json": "c275a9a8b6de42c2969cdcafad07c1a177b0406724286ca645156cf469a93d88"
+  },
+  "status": "PASS"
+}

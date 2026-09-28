@@ -1,0 +1,116 @@
+{
+  "schema": "metahumotonic/company-inventory-verification@1",
+  "verifiedAt": "2026-09-27T07:44:01.007950+00:00",
+  "authority": "SYSTEM_DERIVED",
+  "status": "PASS",
+  "scope": "Local TS inventory, REST/MCP parity, compiled HTTP smoke, independent RDF/SHACL and native USL adaptation. No production rollout, live collector, KG write or GEIP runtime conformance.",
+  "inventory": {
+    "snapshotAt": "2026-09-27T07:28:22.462Z",
+    "nodes": 197,
+    "relationships": 197,
+    "observations": 109,
+    "byKind": {
+      "program": 40,
+      "repository": 25,
+      "mcp-server": 15,
+      "datastore": 10,
+      "service": 35,
+      "host": 20,
+      "deployment": 52
+    },
+    "byCategory": {
+      "operations": 4,
+      "product": 18,
+      "research": 8,
+      "tooling": 6,
+      "knowledge": 2,
+      "portfolio": 2
+    },
+    "programsWithoutOwner": [
+      "program:bitcoin",
+      "program:crypto-kg-studio"
+    ],
+    "runtimeObservationSource": "workspace-runtime-survey-2026-09-27.json",
+    "runtimeObservationMode": "Imported snapshot, 15-minute TTL; already stale at verification time"
+  },
+  "checks": {
+    "tsTests": {
+      "status": "PASS",
+      "passed": 264,
+      "skipped": 5,
+      "skippedScope": "External Mongo/Redis persistence suite; independent prior receipt retained, not rerun for inventory change",
+      "command": "bash ts/scripts/with-node.sh npm --prefix ts test",
+      "logSha256": "acdacb232530d1bbd09e1cde7338d91a8577e7925bbadefc1295f9f1f66a7120"
+    },
+    "compiledSmoke": {
+      "status": "PASS",
+      "command": "bash ts/scripts/with-node.sh npm --prefix ts run smoke",
+      "includes": [
+        "TypeScript build",
+        "real loopback process",
+        "new routes with/without platform key",
+        "public routes",
+        "CORS"
+      ],
+      "logSha256": "b635988674250bbdeaa12afb58c20595ca2925ac90ba3fea9052e474ca522cc0"
+    },
+    "rdf": {
+      "status": "PASS",
+      "scope": "offline RDF projection and SHACL; no KG write or runtime claim",
+      "nodes": 197,
+      "relationships": 197,
+      "observations": 109,
+      "rdfTriples": 7162,
+      "negativeControls": 2,
+      "catalogSha256": "67ad9ec09fb8cb9fb27dcc8cf4ccda2e159a0a63c5feaee321e95fb528e80379",
+      "jsonldSha256": "33db6c16bf48e22ad3f04a2f2535ed7599d5c04641838f48550c97e6eda18261",
+      "shapesSha256": "0b5a9016c2efbb2a79ababa2cca0d915f0cb6fda9a5b69fa6bc60e72b27f7698"
+    },
+    "usl": {
+      "status": "PASS",
+      "receipt": "usl-company-inventory-2026-09-27.json",
+      "nodes": 197,
+      "relationships": 197
+    },
+    "sourceCoverage": {
+      "status": "PASS",
+      "testedAgainst": "Independent previous workspace/runtime evidence fixtures",
+      "primaryRepositories": 21,
+      "vmOrCtHosts": 13,
+      "dockerDeployments": 39
+    },
+    "remoteCI": {
+      "status": "NOT_RUN"
+    },
+    "productionRollout": {
+      "status": "NOT_RUN"
+    },
+    "postgresInventoryStore": {
+      "status": "NOT_IMPLEMENTED",
+      "note": "Design decision only; existing Wiki PostgreSQL ownership unchanged"
+    },
+    "automaticObservationCollection": {
+      "status": "NOT_IMPLEMENTED"
+    }
+  },
+  "fileSha256": {
+    "ts/config/platform-catalog.json": "67ad9ec09fb8cb9fb27dcc8cf4ccda2e159a0a63c5feaee321e95fb528e80379",
+    "ts/src/domain/PlatformGraph.ts": "a8f744bde5f290e27316613d04a026f224acb3030eaa68448778e59d3b6cf5f3",
+    "ts/src/domain/PlatformInventory.ts": "01a5ed5a60d480f89b53da85013bbd51bea1ca3726921ee7ce735d028a39ec4a",
+    "ts/src/api/PlatformApi.ts": "550ca400d066b4a68032d8968a82511ef9bc0d5209d7737397a7c01d350b8c06",
+    "ts/src/server/PlatformHandlers.ts": "40b75ff2b8121c8f5bd1b4d14fb44eb0cb68175a2c561170ea2cc8d3110292f9",
+    "ts/src/platform/McpServer.ts": "bd4ac38019b4d4b2735ba088e6dd69aeebfb4d57105e1dc729a4552b8d2f0540",
+    "ts/test/inventory.test.ts": "2a84b9ae03933ea9d205c858419c4f756cd0b17e4bbec4d8919b6fdb1c8ff361",
+    "ts/test/platform.test.ts": "a221fdf921478b026300fdeb6abe58e81e8264298aa96c60f87f89fa84738e79",
+    "ts/scripts/smoke.sh": "49fa076417fddc8e3044f011451cd8b8e65882b2abd8a4bcd22064da35a82d94",
+    "ts/scripts/export-platform.mjs": "7707f8800c010e854b8d0f61db1658b065d9a07ec0627f518b0594049184940b",
+    "engineering/platform-shapes.ttl": "0b5a9016c2efbb2a79ababa2cca0d915f0cb6fda9a5b69fa6bc60e72b27f7698",
+    "scripts/verify-platform-rdf.py": "55a232bf9cefa1119143e704c02798064af3aff3da5374e57d5aa8c61fca849d",
+    "scripts/verify-platform-rdf.py.lock": "fe51c7c918117501d8b3b3cf9b0dd1e7d7b649fa56d79775b4ddb9b09866e1fd",
+    ".github/workflows/ci.yml": "e90807cb55caafd3ccdb4939d5ee4bff63c5dfe2e3e942fbbf37693165781f25",
+    "docs/COMPANY_PLATFORM_ARCHITECTURE.md": "c2ab79111b6c7d3bf3e5fda3a9918b7e4c1a6131be56e99ce0b4933b71b3c546",
+    "docs/evidence/workspace-inventory-2026-09-27.json": "2eea44e76020989ed39e6782711366ab0eca02bc33bd81eb4babb11206d73c53",
+    "docs/evidence/workspace-runtime-survey-2026-09-27.json": "78e7bdab848244c49daaa8310e9199a0b0cfa28d0f9bae831da95effed1e6ff0",
+    "docs/evidence/workspace-kg-survey-2026-09-27.json": "ce5516b4feec7e8782532deaa3cb70a15c8d8ad50af5c5be24afec2e6c81e9da"
+  }
+}

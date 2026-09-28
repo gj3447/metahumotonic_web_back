@@ -9,7 +9,7 @@
 import { Context, Effect, Layer, Ref } from "effect"
 import { FeedbackRecord } from "../domain/Contracts.js"
 import type { FeedbackRequest, FeedbackStatus } from "../domain/Contracts.js"
-import { Conflict } from "../domain/Errors.js"
+import { Conflict, Unavailable } from "../domain/Errors.js"
 
 export interface SaveResult {
   readonly id: string
@@ -21,14 +21,14 @@ export interface FeedbackStore {
   /** False for the in-memory fallback. The feedback handler consults this
    *  before acknowledging when `feedbackRequireDurable` is on. */
   readonly durable: boolean
-  readonly ensureIndexes: Effect.Effect<void>
+  readonly ensureIndexes: Effect.Effect<void, Unavailable>
   readonly save: (
     input: FeedbackRequest,
     meta: { readonly now: string; readonly id: string }
-  ) => Effect.Effect<SaveResult>
+  ) => Effect.Effect<SaveResult, Unavailable>
   readonly list: (opts: {
     readonly limit: number
-  }) => Effect.Effect<{ readonly items: ReadonlyArray<FeedbackRecord>; readonly count: number }>
+  }) => Effect.Effect<{ readonly items: ReadonlyArray<FeedbackRecord>; readonly count: number }, Unavailable>
   /**
    * A BOUNDED transition, matching `app/store.py:164-168`:
    *   reviewed <- {new}
@@ -41,9 +41,9 @@ export interface FeedbackStore {
   readonly triage: (
     id: string,
     patch: { readonly status: FeedbackStatus; readonly operatorNote: string; readonly now: string }
-  ) => Effect.Effect<FeedbackRecord, Conflict>
+  ) => Effect.Effect<FeedbackRecord, Conflict | Unavailable>
   /** Permanently erase the record AND its contact address. Returns false if absent. */
-  readonly erase: (id: string) => Effect.Effect<boolean>
+  readonly erase: (id: string) => Effect.Effect<boolean, Unavailable>
   readonly close: Effect.Effect<void>
 }
 

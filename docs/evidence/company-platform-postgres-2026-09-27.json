@@ -1,0 +1,26 @@
+{
+  "schema": "metahumotonic/platform-postgres-check@1",
+  "observedAt": "2026-09-27T08:03:32.653911+00:00",
+  "scope": "Disposable local PostgreSQL and native TS inventory store and real compiled-server tests; no production DSN or service changes",
+  "status": "PASS",
+  "postgresVersion": "postgres (PostgreSQL) 18.6",
+  "tests": {
+    "tests": 10,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "sourceSha256": {
+    "scripts/check-platform-postgres-local.py": "8614d07f97c15a7bd90ccec19a72332b639fbb6bb8ef5e62dad3f52d43f2ab3d",
+    "ts/test/platform-postgres.test.ts": "05ec5d79ba560ab41ae19ae77d608a09a950c251528e05c2a62a933a06ba9963",
+    "ts/src/ports/PlatformInventoryPostgres.ts": "970a1ee18dc7222d99000d7d2dcc85ac343d695e0f3e0bef9305e2c336248b9f",
+    "ts/src/domain/ObservationIngest.ts": "285efa73c4f6726f1264c3148906a2243d3b1f405eace9c1426e9317ca410009",
+    "ts/config/migrations/001-platform.sql": "d5fb606590db5d80401e73489b023b72d40677e24dd90463955c731e4061a6af",
+    "ts/src/server/Composition.ts": "856b14020cf8a67a32943b557edd9b4a29261e51ceeca36172f2c1dac9f59133",
+    "ts/package-lock.json": "a98d41aae0f35dd37984d6a3ca016b34dd57b3ab9b9bdc7011a20d02dc500507"
+  },
+  "cleanup": {
+    "clusterStopped": true,
+    "temporaryDirectoryRemoved": true
+  }
+}

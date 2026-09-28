@@ -1,5 +1,23 @@
 # metahumotonic_web_back
 
+**MetaHumotonic 회사 웹사이트를 위한 백엔드입니다.** 제품·연구·철학과 공개 자료를
+찾고 배우는 경험, 피드백과 Wiki 참여를 지원합니다. KG·USL·MCP·회사 프로그램 연결은
+그 위에 확장합니다. [웹백의 역할과 기술 우선순위](docs/WEB_BACKEND_ROLE.md)를 따릅니다.
+
+**현재 공개 API 운영본은 VM100의 Python `uvicorn` 복제본 두 개입니다.** 기본
+Dockerfile/Compose는 차기 TypeScript + Effect HTTP·MCP 진입점을 빌드하지만,
+그 산출물은 아직 공개 트래픽으로 전환하지 않았습니다. 피드백 Mongo 저장, Redis 분산
+제한, MCP 레지스트리와 프로그램 그래프의 TS 구현은 운영 전환 후보입니다.
+Wiki·ontology는 현재 Python 소유 도메인으로 유지합니다.
+[백엔드 현실 판정 그래프](docs/BACKEND_REALITY_GRAPH.md)는 구현·실제 배포·시뮬레이션·은퇴를
+각각의 근거와 완료 조건으로 구분합니다.
+구성·KG 조사·연결 방법은 [회사 백엔드 문서](docs/COMPANY_BACKEND.md)를 따릅니다.
+
+프로그램·저장소·MCP·서버·배포를 함께 담은 197개 자산의 검색·관측·JSON-LD/USL API와
+후속 PostgreSQL·관측·인증 도입 결정은 [회사 플랫폼 설계](docs/COMPANY_PLATFORM_ARCHITECTURE.md)에 있습니다.
+자산 버전·관측 이력의 TS PostgreSQL 저장소와 수집 API도 구현했습니다.
+[활성화·권한·검증](docs/PLATFORM_POSTGRES.md)은 기존 Wiki·제품 DB와 분리됩니다.
+
 [metahumotonic-web](https://github.com/gj3447/metahumotonic-web) (정적 Astro 사이트)의 **백엔드 API**.
 정적 사이트가 빌드 타임에 구워두던 `/api/*`를 **실시간**으로 서빙하고, 지금까지
 받아주는 데가 없어 죽어 있던 **피드백 폼(`POST /api/feedback`)**을 살린다.
@@ -135,8 +153,10 @@ VM100 내부 접근만 사용한다. 토폴로지와 검증법은
 
 ```sh
 cp .env.example .env          # 필요시 값 채우기
-uv run --extra dev pytest -q  # 테스트
-uv run uvicorn app.main:app --reload   # 로컬 서버 (:8000)
+bash ts/scripts/with-node.sh npm --prefix ts ci
+bash ts/scripts/with-node.sh npm --prefix ts run dev  # TS 단독 (:8000)
+docker compose up --build  # TS + 기존 Wiki/ontology 도메인
+uv run --extra dev pytest -q  # Python 도메인 회귀 검증
 ```
 
 ## 배포 및 운영 — Proxmox VM100 (라이브)

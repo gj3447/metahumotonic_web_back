@@ -56,8 +56,129 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+      - name: Verify catalog with independent RDF parser and SHACL
+        run: |
+          node scripts/export-platform.mjs "$RUNNER_TEMP/platform.jsonld"
+          uv run --locked --script ../scripts/verify-platform-rdf.py "$RUNNER_TEMP/platform.jsonld"
+      - name: Verify backend reality graph and evidence with independent RDF parser and SHACL
+        run: |
+          node scripts/export-backend-reality.mjs "$RUNNER_TEMP/backend-reality.jsonld"
+          uv run --locked --script ../scripts/verify-backend-reality.py "$RUNNER_TEMP/backend-reality.jsonld"
       - name: Smoke (real server, zero infra)
         run: bash scripts/smoke.sh
+
+  platform-persistence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mongo:
+        image: mongo:7.0.24
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:8.0.2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.21.0'
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      - run: npm ci
+        working-directory: ts
+      - name: Independent persistence and replica checks
+        working-directory: ts
+        env:
+          MHB_TEST_MONGO_URI: mongodb://127.0.0.1:27017
+          MHB_TEST_REDIS_URL: redis://127.0.0.1:6379
+          MHB_REQUIRE_PERSISTENCE_TESTS: '1'
+        run: npm test -- test/persistence.test.ts
+
+  platform-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18.3
+        env:
+          POSTGRES_USER: mhb_platform_test
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mhb_platform_test -d postgres"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.21.0'
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      - run: npm ci && npm run build
+        working-directory: ts
+      - name: Verify platform PostgreSQL, replicas and compiled server restart
+        working-directory: ts
+        env:
+          MHB_TEST_PLATFORM_DATABASE_URL: postgresql://mhb_platform_test:disposable-ci-only@127.0.0.1:5432/postgres
+          MHB_REQUIRE_PLATFORM_POSTGRES_TESTS: '1'
+        run: npm test -- test/platform-postgres.test.ts
+
+  wiki-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18.3
+        env:
+          POSTGRES_USER: wiki_test
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: wiki_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wiki_test -d wiki_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+      - name: Verify PostgreSQL migrations, independent readback and concurrent mutations
+        env:
+          MHB_WIKI_TEST_DATABASE_URL: postgresql://wiki_test:disposable-ci-only@127.0.0.1:5432/wiki_test
+          MHB_REQUIRE_WIKI_POSTGRES_TESTS: '1'
+        run: uv run --extra dev pytest tests/test_wiki_postgres.py -vv
+
+  platform-containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify actual company images and isolated stores
+        run: python3 scripts/check-platform-containers.py --receipt container-check.json
+      - name: Publish container readback and cleanup receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: company-container-check
+          path: container-check.json
 
   # The harness (AGENT_PARADIGM_SPEC_v1 §4-§5). Runs every gate and folds the
   # results into DONE. It exits non-zero only on RED — INCONCLUSIVE and NOT_RUN

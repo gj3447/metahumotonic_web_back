@@ -1,0 +1,11 @@
+{
+  "schema": "metahumotonic/learning-usl-check@1",
+  "observedAt": "2026-09-27T13:43:53.956Z",
+  "status": "PASS",
+  "scope": "native property-graph adaptation; no resolver reads or authority admission",
+  "sourceDigest": "sha256:5933313125cc604c8ba3d4a017c17e6a1b6690878369b1282d0f38d8655a71e1",
+  "adapter": "property-graph/v2",
+  "adapterSha256": "83363d28b47ed422c11aded4dd959acdf2c5d8ff1d97c058ef9b26c51af41ad5",
+  "nodes": 51,
+  "relationships": 79
+}

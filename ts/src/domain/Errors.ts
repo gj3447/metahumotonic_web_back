@@ -80,6 +80,14 @@ export class NotReady extends Schema.TaggedError<NotReady>()("NotReady", {
   wiki_live: Schema.Boolean,
   wiki_store_live: Schema.Boolean,
   wiki_rate_limit_live: Schema.Boolean,
+  ontology_required: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  ontology_live: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  mongo_required: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  mongo_live: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  redis_required: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  redis_live: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  platform_postgres_required: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  platform_postgres_live: Schema.optionalWith(Schema.Boolean, { default: () => false }),
   degraded: Schema.Boolean
 }, HttpApiSchema.annotations({ status: 503 })) {}
 

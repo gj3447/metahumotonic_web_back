@@ -1,0 +1,15 @@
+{
+  "schema": "metahumotonic/local-verification-prediction@1",
+  "recordedAt": "2026-09-27",
+  "authority": "SECONDARY_AI / LOCAL_ENGINEERING_PLAN",
+  "scope": "Real read-only MCP federation and disposable container integration gate",
+  "priorEvidence": "Unit, public graph and local Python compatibility checks passed. Actual Ontology and HSPINE HTTP MCP initialize calls succeeded before this record; these are not novel predictions.",
+  "predictions": [
+    {"id": "owner-readback", "expected": "Compiled company backend returns the same bounded non-secret Ontology record and HSPINE capabilities as direct official MCP clients, through REST and MCP."},
+    {"id": "read-boundary", "expected": "Anonymous and non-allowlisted calls fail locally; only binding-allowlisted tools are advertised; no upstream credential appears in service discovery."},
+    {"id": "container-gate", "expected": "A disposable gate builds and runs the TS and Python images, checks private-domain parity and public learning data, verifies real Mongo/Redis effects, and cleans up its own resources before PASS."}
+  ],
+  "environment": "dev-01 currently has no Docker/Podman daemon or client; passwordless sudo and rootless UID-map helpers are unavailable. Container execution must be recorded as NOT_RUN until a suitable isolated runtime is available.",
+  "notClaims": ["Production cutover", "LakatoTree registration or verdict", "GEIP D1-D4 certification"],
+  "lakatos": "Owner registration/submission tools are absent; predictions are a local implementation record only."
+}

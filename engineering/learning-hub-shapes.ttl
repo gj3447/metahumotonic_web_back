@@ -1,0 +1,22 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix schema: <https://schema.org/> .
+@prefix mh: <https://metahumotonic.com/learn/#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+
+mh:PublicEntityShape a sh:NodeShape ;
+  sh:targetSubjectsOf mh:reviewedAt ;
+  sh:nodeKind sh:IRI ;
+  sh:property [ sh:path schema:name ; sh:minCount 1 ; sh:maxCount 1 ; sh:minLength 1 ] ;
+  sh:property [ sh:path schema:description ; sh:minCount 1 ; sh:maxCount 1 ; sh:minLength 1 ] ;
+  sh:property [ sh:path schema:url ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^https://" ] ;
+  sh:property [ sh:path mh:authority ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("PRIMARY_SOURCE" "EDITORIAL_SUMMARY") ] ;
+  sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ; sh:nodeKind sh:IRI ] .
+
+mh:PublicRelationShape a sh:NodeShape ;
+  sh:targetClass rdf:Statement ;
+  sh:property [ sh:path rdf:subject ; sh:minCount 1 ; sh:maxCount 1 ; sh:node mh:PublicEntityShape ] ;
+  sh:property [ sh:path rdf:predicate ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
+  sh:property [ sh:path rdf:object ; sh:minCount 1 ; sh:maxCount 1 ; sh:node mh:PublicEntityShape ] ;
+  sh:property [ sh:path mh:status ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("ACTIVE" "PROPOSED" "RETIRED") ] ;
+  sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ; sh:nodeKind sh:IRI ] .

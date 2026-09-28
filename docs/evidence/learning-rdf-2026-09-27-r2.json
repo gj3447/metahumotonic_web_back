@@ -1,0 +1,16 @@
+{
+  "schema": "metahumotonic/learning-rdf-verification@1",
+  "observedAt": "2026-09-27T13:42:50.436367+00:00",
+  "scope": "offline named RDF graph and SHACL; no resolver I/O or certification",
+  "status": "PASS",
+  "nodes": 51,
+  "relations": 79,
+  "triples": 1275,
+  "sourceDigest": "sha256:5933313125cc604c8ba3d4a017c17e6a1b6690878369b1282d0f38d8655a71e1",
+  "shapesSha256": "c06e82b5d5fa51367e662bcbbe5294cda6a59fb0b7eb1d9c62994deb5b237078",
+  "verifierSha256": "8bb5d0a35e6cba9900cc7a6622b1e9145303da5e782e7d9d4e0bca5559e1eec4",
+  "negativeControls": [
+    "http://www.w3.org/ns/prov#wasDerivedFrom",
+    "https://metahumotonic.com/learn/#status"
+  ]
+}

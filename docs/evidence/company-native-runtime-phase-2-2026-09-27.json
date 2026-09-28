@@ -1,0 +1,53 @@
+{
+  "schema": "metahumotonic/native-runtime-readback@1",
+  "observedAt": "2026-09-27T05:43:55.821Z",
+  "status": "PASS",
+  "scope": "Compiled TS process with owned disposable loopback Mongo/Redis; no containers or production configuration",
+  "checks": [
+    {
+      "name": "healthy",
+      "status": 200,
+      "mongoLive": true,
+      "redisLive": true,
+      "ownProcessLive": true
+    },
+    {
+      "name": "mongo-down",
+      "status": 503,
+      "mongoLive": false,
+      "redisLive": true,
+      "ownProcessLive": true
+    },
+    {
+      "name": "mongo-recovered",
+      "status": 200,
+      "mongoLive": true,
+      "redisLive": true,
+      "ownProcessLive": true
+    },
+    {
+      "name": "redis-unresponsive",
+      "status": 503,
+      "mongoLive": true,
+      "redisLive": false,
+      "ownProcessLive": true
+    },
+    {
+      "name": "redis-recovered",
+      "status": 200,
+      "mongoLive": true,
+      "redisLive": true,
+      "ownProcessLive": true
+    }
+  ],
+  "sourceSha256": {
+    "scripts/check-native-runtime.mjs": "5f40e8cb9f4ba5dad9d5908a19d66a6fa2035e1ffcfa073f155e3f80c979ac76",
+    "dist/src/ports/NativeReadiness.js": "d3482d006e18cee0f4b47bf5d104897eb3cd8234dcea20352287b89da7e7ec09",
+    "dist/src/server/Composition.js": "3ad23e3261f1752faadb6129f2cd78a0e28010bb3458746ef9c6d83fc71ebdea",
+    "dist/src/server/Handlers.js": "31f1a22dbcc6af8f179f83e396951dd947ac0e688c0f0a1f74b6c03e925d89bb"
+  },
+  "cleanup": {
+    "processesStopped": true,
+    "temporaryDirectoryRemoved": true
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schema": "metahumotonic/container-check@1",
+  "observedAt": "2026-09-27T05:41:45.933244+00:00",
+  "scope": "Disposable integration stack; no production services or credentials",
+  "nonce": "7e11b528e7184eac81c07655b1e38175",
+  "sourceTreeSha256": "90a3f35e6dd8d6112ebc3efc5ce1937f4354275edfac992f3d73c3febb87e4b3",
+  "status": "NOT_RUN",
+  "checks": [],
+  "images": {},
+  "reason": "Docker executable unavailable",
+  "cleanup": {
+    "verified": true,
+    "unremoved": []
+  }
+}

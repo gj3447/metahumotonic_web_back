@@ -174,6 +174,14 @@ describe("meta", () => {
     expect(Object.keys(body).sort()).toEqual([
       "degraded",
       "kg_live",
+      "mongo_live",
+      "mongo_required",
+      "ontology_live",
+      "ontology_required",
+      "platform_postgres_live",
+      "platform_postgres_required",
+      "redis_live",
+      "redis_required",
       "status",
       "wiki_live",
       "wiki_rate_limit_live",
@@ -195,7 +203,7 @@ describe("meta", () => {
       wikiDatabaseUrl: Redacted.make("postgres://wiki@localhost/wiki"),
       wikiSessionSecret: Redacted.make("s".repeat(32)),
       wikiModerationAdminKey: Redacted.make("m".repeat(32)),
-      redisUrl: Redacted.make("redis://localhost:6379")
+      redisUrl: Redacted.make("redis://127.0.0.1:1")
     })
     const res = await get("/ready")
     expect(res.status).toBe(503)
@@ -231,7 +239,12 @@ describe("meta", () => {
       "/api/domains",
       "/api/skills",
       "/api/feedback",
-      "/api/wiki/v1"
+      "/api/wiki/v1",
+      "/api/mcp",
+      "/api/platform/v1/programs",
+      "/api/platform/v1/graph",
+      "/api/platform/v1/reality",
+      "/mcp"
     ])
     expect(body.runtime).toBe("effect-ts") // additive, tells the two apart
     expect(typeof body.deployedAt).toBe("string")

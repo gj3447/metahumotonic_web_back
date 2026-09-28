@@ -18,7 +18,8 @@ export interface Ids {
 export class IdsTag extends Context.Tag("Ids")<IdsTag, Ids>() {}
 
 export const IdsLive = Layer.succeed(IdsTag, {
-  newId: Effect.sync(() => randomUUID()),
+  // Python's uuid4().hex and the operator routes require 32 lowercase hex chars.
+  newId: Effect.sync(() => randomUUID().replaceAll("-", "")),
   nowIso: Effect.sync(() => new Date().toISOString())
 })
 
