@@ -246,7 +246,9 @@ OIDC/MCP OAuth는 후속 단계다. 기존 조사 관측은 이관되어도 자�
 `ops/provision-platform-read-canary-role.sh`와
 `ops/run-ts-platform-read-canary-data01.sh`를 사용한다. 둘 다 기본값은 변경 없는
 `dry-run`이며, Wiki·제품 DB, MongoDB, Redis, Neo4j, 기존 Python runtime credential을
-읽거나 전달하지 않는다. 이 단계는 **운영 실행 전 CI와 ACL 검토가 끝난 operator step**이다.
+읽거나 전달하지 않는다. 2026-09-28에 CI·SQL ACL 확인 뒤 비공개 실행을 완료했다.
+[canary 증거](evidence/company-private-ts-platform-read-canary-2026-09-28.json)에
+정확한 이미지, DB 수량 불변, 405 차단, 정리 상태를 기록했다.
 
 전용 `mhb_platform_shadow_reader`는 `NOINHERIT`, `NOSUPERUSER`, `NOCREATEDB`,
 `NOCREATEROLE`, `NOREPLICATION`, `NOBYPASSRLS` login이다. bootstrap 소유 표식과
@@ -264,8 +266,8 @@ ops/provision-platform-read-canary-role.sh status
 
 canary는 data-01에 이미 존재하는 tag 없는 exact image ID만 받는다. controller는 full
 Git commit에서 계산한 source archive SHA-256을 image label과 비교하고,
-`org.opencontainers.image.revision`도 같은 commit인지 확인한다. image publication/staging이
-아직 충족되지 않으면 실행할 수 없다. 컨테이너는 PostgreSQL container의 network namespace를
+`org.opencontainers.image.revision`도 같은 commit인지 확인한다. 각 새 commit의 image
+staging이 충족되지 않으면 실행할 수 없다. 컨테이너는 PostgreSQL container의 network namespace를
 공유하지만 `-p`를 사용하지 않아 공개 port가 없고, loopback HTTP probe는 `docker exec`로만
 수행한다. `read-only` filesystem, tmpfs, capability drop, no-new-privileges, 512 MiB,
 1 CPU, 128 pids 제한을 건다.

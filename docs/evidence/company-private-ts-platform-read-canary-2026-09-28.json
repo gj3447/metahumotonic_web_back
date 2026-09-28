@@ -1,0 +1,45 @@
+{
+  "schema": "metahumotonic/private-ts-platform-read-canary-evidence@1",
+  "observedAt": "2026-09-28T08:33:11Z",
+  "environment": "data-01 private PostgreSQL namespace",
+  "commit": "ac6bac282f7da1b6236b281e6eca1c082c58b3f7",
+  "ci": {
+    "url": "https://github.com/gj3447/metahumotonic_web_back/actions/runs/36397786873",
+    "conclusion": "success",
+    "successfulJobs": 7
+  },
+  "image": {
+    "id": "sha256:0c2d76739de6d19140971fa0aba2a29d4e7829af5a0d7d7f4fdafbc000255481",
+    "sourceArchiveSha256": "b8303a02fbdac97b89a00d7c134428e6849a3d1c95990d64eb3908fe7a171b0e",
+    "revisionAndSourceLabelsVerified": true
+  },
+  "readerRole": {
+    "name": "mhb_platform_shadow_reader",
+    "selectOnPlatformTables": true,
+    "insertOnPlatformTables": false,
+    "databaseCreate": false,
+    "databaseTemporary": false,
+    "publicSchemaCreate": false,
+    "memberships": 0,
+    "rootOnlySecretAndReceipt": true
+  },
+  "canary": {
+    "status": "PASS",
+    "completedWithoutManualIntervention": true,
+    "readyRequiredAndLive": true,
+    "programSource": "postgres",
+    "postMutationStatus": 405,
+    "publishedPorts": 0,
+    "containerRemoved": true,
+    "receiptMode": "root:root:600"
+  },
+  "databaseAfterCanary": {
+    "catalogVersions": 1,
+    "assets": 197,
+    "ingestReceipts": 1,
+    "observations": 109,
+    "countsUnchanged": true
+  },
+  "publicSiteHttpStatus": 200,
+  "scope": "Private TS/Effect PostgreSQL read proof only. Python remains public backend owner; Wiki, Mongo feedback, Redis, Neo4j and MCP upstream parity are not proven by this canary."
+}
