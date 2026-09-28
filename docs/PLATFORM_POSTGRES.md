@@ -29,6 +29,27 @@ KG를 소유하고 USL은 의미 연결을 표현한다.
 
 ## 명시적 활성화
 
+### data-01 전용 DB 준비
+
+기존 Wiki의 `metahumotonic_wiki`·`mhb_wiki`는 재사용하지 않는다. 전용 bootstrap은
+`metahumotonic_platform`, NOLOGIN 소유 role `mhb_platform_owner`, runtime role
+`mhb_platform_runtime`만 다룬다. 기본은 DB를 바꾸지 않는 dry-run이다.
+
+```sh
+ops/provision-platform-storage.sh dry-run
+ops/provision-platform-storage.sh status
+```
+
+`apply`는 root-owned data-01 secret 파일에 새 runtime password와 암호화된 빈 bootstrap
+baseline backup을 한 번 저장하며 stdout, Git, receipt, 명령줄에 값을 출력하지 않는다. DB/role만
+만들고 migration/import나 VM100 env는 바꾸지 않는다. 빈 bootstrap만 `rollback-empty`로 보상할 수
+있고, migration 또는 데이터가 있으면 중단한다. migration/import를 검증한 뒤에만 runtime grant를 실행한다.
+
+```sh
+ops/provision-platform-storage.sh apply
+ops/provision-platform-storage.sh grant-runtime
+```
+
 기본값은 기존 Git snapshot 모드다. `MHB_PLATFORM_DATABASE_URL`을 설정하면
 PostgreSQL이 필수 의존성이 된다. `MHB_PLATFORM_DATABASE_REQUIRED=true`는 URL을
 빠뜨린 경우에도 readiness와 내부 자산 조회를 실패시킨다. 운영 설정에 URL이 있는데
