@@ -3,7 +3,8 @@
 `ops/run-ts-backend-canary-vm100.sh` starts an unpublished, resource-limited
 TS/Effect candidate in the network namespace of one existing Python replica.
 It does not load an operation environment file, publish a port, change ingress,
-or call a write-capable datastore. Its read-only delegation gate compares the
+or mutate Wiki pages or other domain data. Legacy Wiki GETs may increment the
+Python read limiter in Redis or in-process memory. Its delegation gate compares the
 Python domain owner at loopback with the TS proxy for these fixed paths:
 
 - `GET` and `HEAD /api/wiki/v1`

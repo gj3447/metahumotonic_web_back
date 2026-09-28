@@ -130,6 +130,8 @@ write their contents to disk or print them. VM100 refuses an existing or
 symlinked destination, checks each SHA-256 while receiving and again before its
 own `VERIFIED` receipt, and stores only root-owned `0700` directories and
 `0600` files. It does not contact the Wiki database or change public ingress.
+The first verified production mirror is recorded in
+[`docs/evidence/company-platform-offhost-mirror-2026-09-28.json`](evidence/company-platform-offhost-mirror-2026-09-28.json).
 
 기본값은 기존 Git snapshot 모드다. `MHB_PLATFORM_DATABASE_URL`을 설정하면
 PostgreSQL이 필수 의존성이 된다. `MHB_PLATFORM_DATABASE_REQUIRED=true`는 URL을

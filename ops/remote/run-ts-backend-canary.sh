@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Root-only helper for an isolated TS gateway canary on VM100.
 #
-# It never changes ingress, existing containers, databases, Mongo or Docker
-# networks. The new container shares a *read-only client* network namespace
+# It never changes ingress, existing containers, durable domain data, Mongo or
+# Docker networks. Legacy Wiki GETs may increment read rate-limit state. The
+# new container shares a *read-only client* network namespace
 # with one existing Python replica solely to verify the fixed legacy proxy.
 set -Eeuo pipefail
 
@@ -173,5 +174,5 @@ if (!mcp.ok || (await mcp.json()).result?.serverInfo?.name !== 'metahumotonic-pl
 NODE
 
 image_id="$(docker image inspect --format '{{.Id}}' "$tag")"
-printf '{"schema":"metahumotonic/ts-canary@1","status":"PASS","commit":"%s","image":"%s","legacyContainer":"%s","checks":["ready","wiki-ontology-read-parity","public-hub","platform-auth","mcp-initialize"],"publishedPorts":false,"databaseWrites":false,"publicIngressChanged":false}\n' \
+printf '{"schema":"metahumotonic/ts-canary@2","status":"PASS","commit":"%s","image":"%s","legacyContainer":"%s","checks":["ready","wiki-ontology-read-parity","public-hub","platform-auth","mcp-initialize"],"publishedPorts":false,"domainDataWrites":false,"legacyReadLimiterStateMayChange":true,"publicIngressChanged":false}\n' \
   "$commit" "$image_id" "$legacy"

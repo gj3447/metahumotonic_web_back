@@ -1,0 +1,22 @@
+{
+  "schema": "metahumotonic/platform-offhost-mirror-evidence@1",
+  "observedAt": "2026-09-28T08:39:01Z",
+  "sourceHost": "data-01",
+  "destinationHost": "VM100",
+  "backupId": "aaa533cf75b602d4d7a7382dc03e6ad0efb74ad3-d31c0d80d767dfcd84a27cff4408b363",
+  "sourceMigrationCommit": "aaa533cf75b602d4d7a7382dc03e6ad0efb74ad3",
+  "sourceReceiptSha256": "c87cc482b4ce09b6240df0543c248e4d7cb05266945c89eed7d0ed3bd90afb9f",
+  "encryptedArtifactSha256": "aab9bb8efe4b10e88b86130bca591719457c1fd6bf94a88e0835764064f96457",
+  "sourceRestoreDrill": "PASS",
+  "destinationReceipt": "VERIFIED",
+  "independentDestinationReadback": {
+    "encryptedHashMatchesSource": true,
+    "keyHashMatchesSource": true,
+    "sourceReceiptHashMatchesSource": true,
+    "backupIdMatchesSource": true,
+    "directoriesRootOnly0700": true,
+    "filesRootOnly0600": true
+  },
+  "publicSiteHttpStatus": 200,
+  "scope": "One encrypted platform PostgreSQL backup and its root-only key were mirrored. The source backup passed an isolated restore drill; no separate VM100 restore drill, recurring schedule, retention policy, Wiki database backup, or public TS cutover is established here."
+}

@@ -8,7 +8,8 @@
 #
 # `run` accepts only a commit already reachable from origin/main, archives that
 # exact tree, and automatically removes its owned container/image. It does not
-# change ingress, Docker networks, existing Python containers or any database.
+# change ingress, Docker networks, existing Python containers or durable domain
+# data. Legacy Wiki GETs may increment the Python read rate limiter.
 set -Eeuo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -16,8 +16,10 @@ def test_private_canary_has_bounded_fixed_read_delegation_parity_contract():
     assert "delegated response exceeds parity bound" in source
     assert "x-mhb-service" in source
     assert '"wiki-ontology-read-parity"' in source
+    assert '"schema":"metahumotonic/ts-canary@2"' in source
+    assert '"legacyReadLimiterStateMayChange":true' in source
 
 def test_document_states_stateful_gaps_and_no_public_cutover_claim():
     text = DOC.read_text()
-    for phrase in ["session issuance", "CSRF", "idempotency replay", "Redis outage", "disposable Wiki database", "Python remains"]:
+    for phrase in ["session issuance", "CSRF", "idempotency replay", "Redis outage", "disposable Wiki database", "Python remains", "read limiter"]:
         assert phrase in text
