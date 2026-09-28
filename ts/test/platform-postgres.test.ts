@@ -216,18 +216,34 @@ describe.skipIf(!dsn)("PostgreSQL inventory, independent readback and shared HTT
     } finally { await pool.query(`DROP OWNED BY ${role}`); await admin!.query(`DROP ROLE ${role}`) }
   })
   it("uses the PostgreSQL Layer on real compiled sockets and reads persisted state after process restart", async () => {
-    // Exercise the shipped administration CLI with the compiled catalog, then
-    // start the production composition. No test-only seeding shortcut here.
-    for (const command of ["migrate", "import"]) {
+    // Exercise the shipped CLI's exact catalog expectation/readback boundary
+    // against a disposable PostgreSQL database, then start production composition.
+    const runCli = async (command: "inspect" | "migrate" | "import" | "readback") => {
       const cli = spawn(process.execPath, [new URL("../scripts/platform-db.mjs", import.meta.url).pathname, command], {
         env: { PATH: process.env["PATH"] ?? "", MHB_PLATFORM_DATABASE_URL: uri }, stdio: ["ignore", "pipe", "pipe"]
       })
-      let output = ""
+      let output = "", errors = ""
       cli.stdout.on("data", (chunk) => { output += String(chunk) })
+      cli.stderr.on("data", (chunk) => { errors += String(chunk) })
       const [code] = await once(cli, "close")
-      expect(code).toBe(0)
-      expect(JSON.parse(output)).toMatchObject({ status: "PASS", operation: command })
+      return { code, output, errors }
     }
+    const expected = await runCli("inspect")
+    expect(expected.code).toBe(0)
+    expect(JSON.parse(expected.output)).toMatchObject({ status: "PASS", operation: "inspect", result: {
+      catalogDigest: contentDigest(catalog), assets: catalog.nodes.length, observations: catalog.observations?.length, receipts: 1
+    } })
+    expect((await runCli("readback")).code).toBe(1) // catalog has not been imported
+    for (const command of ["migrate", "import"] as const) {
+      const result = await runCli(command)
+      expect(result.code).toBe(0)
+      expect(JSON.parse(result.output)).toMatchObject({ status: "PASS", operation: command })
+    }
+    const readback = await runCli("readback")
+    expect(readback.code).toBe(0)
+    expect(JSON.parse(readback.output)).toMatchObject({ status: "PASS", operation: "readback", result: JSON.parse(expected.output).result })
+    await pool.query("UPDATE mhb_platform.schema_migrations SET checksum='0'.repeat(64)")
+    expect((await runCli("readback")).code).toBe(1) // SQL checksum mismatch is fail-closed
     const start = async () => {
       const socket = createServer(); socket.listen(0, "127.0.0.1"); await once(socket, "listening")
       const port = (socket.address() as { port: number }).port; await new Promise<void>((resolve) => socket.close(() => resolve()))
