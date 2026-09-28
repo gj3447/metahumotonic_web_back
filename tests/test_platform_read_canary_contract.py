@@ -15,7 +15,7 @@ def test_read_canary_never_publishes_or_configures_other_datastores():
 
 def test_reader_contract_is_root_secret_and_checks_denied_privileges():
     script = text("ops/remote/provision-platform-read-canary-role.sh")
-    for expected in ["mhb_platform_shadow_reader", "NOBYPASSRLS", "NOINHERIT", "has_database_privilege", "has_schema_privilege", "has_table_privilege", "privilegeDenialVerified", "root -g root"]:
+    for expected in ["mhb_platform_shadow_reader", "NOBYPASSRLS", "NOINHERIT", "has_database_privilege", "has_schema_privilege", "has_table_privilege", "privilegeDenialVerified", "root -g root", "REVOKE ALL PRIVILEGES ON DATABASE", "drop_owned_reader", "datdba"]:
         assert expected in script
     assert "GRANT INSERT" not in script
 
@@ -25,3 +25,7 @@ def test_scripts_parse_and_controller_requires_exact_id_commit():
     controller = text("ops/run-ts-platform-read-canary-data01.sh")
     assert "^sha256:[0-9a-f]{64}$" in controller
     assert "git -C \"$repo_root\" archive" in controller
+    assert "git -C \"$repo_root\" show \"$commit:ops/remote/run-ts-platform-read-canary.sh\"" in controller
+    assert "MHB_PLATFORM_READ_CANARY_NONCE" in controller
+    remote = text("ops/remote/run-ts-platform-read-canary.sh")
+    assert "container_is_owned" in remote and "docker logs" not in remote

@@ -15,11 +15,18 @@ if [[ "$mode" != cleanup ]]; then
   source_label="$(docker image inspect --format '{{ index .Config.Labels "com.metahumotonic.source-archive-sha256" }}' "$image")"; [[ "$source_label" == "$source_digest" ]] || fail 'image source archive digest does not match requested commit'
 fi
 [[ "$mode" == cleanup ]] || { [[ -f "$reader_receipt" && -f "$password_file" ]] || fail 'reader role receipt or root-only secret missing'; [[ "$(stat -c '%U:%G:%a' "$reader_receipt")" == root:root:600 && "$(stat -c '%U:%G:%a' "$password_file")" == root:root:600 ]] || fail 'reader artifacts must be root:root 0600'; }
-cleanup() { docker rm -f "$name" >/dev/null 2>&1 || true; rm -rf -- "$work"; }
+container_is_owned() {
+  [[ "$(docker inspect --format '{{ index .Config.Labels "metahumotonic.owner" }}' "$name")" == platform-read-canary ]] || return 1
+  [[ "$(docker inspect --format '{{ index .Config.Labels "metahumotonic.nonce" }}' "$name")" == "$nonce" ]]
+}
+remove_owned_container() {
+  if docker inspect "$name" >/dev/null 2>&1; then container_is_owned || fail 'refusing to remove non-canary or nonce-mismatched container'; docker rm -f "$name" >/dev/null; fi
+}
+cleanup_owned() { remove_owned_container; [[ ! -e "$work" ]] || rm -rf -- "$work"; }
 if [[ "$mode" == status ]]; then printf '{"schema":"metahumotonic/platform-read-canary@1","mode":"status","image":"%s","commit":"%s","publishedPorts":false,"databaseWrites":false,"publicIngressChanged":false}\n' "$image" "$commit"; exit 0; fi
-if [[ "$mode" == cleanup ]]; then cleanup; printf '{"schema":"metahumotonic/platform-read-canary@1","mode":"cleanup","containerRemoved":true,"imageRemoved":false}\n'; exit 0; fi
+if [[ "$mode" == cleanup ]]; then cleanup_owned; printf '{"schema":"metahumotonic/platform-read-canary@1","mode":"cleanup","containerRemoved":true,"imageRemoved":false}\n'; exit 0; fi
 [[ ! -e "$work" ]] || fail 'nonce work path exists'; install -d -m 700 -o root -g root "$work"
-trap 'cleanup' EXIT
+trap 'trap - EXIT; cleanup_owned || { printf \"FAIL canary cleanup failed\\n\" >&2; exit 1; }' EXIT
 password="$(cat "$password_file")"; [[ "$password" =~ ^[0-9a-f]{64}$ ]] || fail 'invalid reader secret'
 read_key="$(openssl rand -hex 32)"; env_file="$work/env"; umask 077
 cat >"$env_file" <<ENV
@@ -50,10 +57,10 @@ for _ in $(seq 1 30); do
   if docker exec "$name" node -e 'fetch("http://127.0.0.1:18082/ready").then(async r=>{const b=await r.json();if(r.ok&&b.platform_postgres_live===true&&b.platform_postgres_required===true)process.exit(0);process.exit(1)}).catch(()=>process.exit(1))' >/dev/null 2>&1; then ready=true; break; fi
   sleep 1
 done
-[[ "$ready" == true ]] || { docker logs "$name" >&2 || true; fail 'ready did not pass'; }
+[[ "$ready" == true ]] || fail 'ready did not pass'
 docker exec "$name" node -e 'fetch("http://127.0.0.1:18082/api/platform/v1/programs",{headers:{"x-api-key":process.env.MHB_PLATFORM_READ_KEY}}).then(async r=>{const b=await r.json();process.exit(r.ok&&b.source==="postgres"?0:1)}).catch(()=>process.exit(1))'
 docker exec "$name" node -e 'fetch("http://127.0.0.1:18082/api/platform/v1/observations",{method:"POST",headers:{"x-api-key":process.env.MHB_PLATFORM_READ_KEY,"content-type":"application/json"},body:"{}"}).then(r=>process.exit(r.status===405?0:1)).catch(()=>process.exit(1))'
-docker rm -f "$name" >/dev/null
+remove_owned_container
 rm -f "$env_file"
 printf '{"schema":"metahumotonic/platform-read-canary@1","status":"PASS","commit":"%s","image":"%s","ready":true,"postgresRead":true,"mutationBlocked":true,"publishedPorts":false,"databaseWrites":false,"publicIngressChanged":false,"secretMaterialPrinted":false}\n' "$commit" "$image" >"$receipt"; chmod 600 "$receipt"; trap - EXIT
 printf '%s\n' "$(cat "$receipt")"

@@ -281,7 +281,8 @@ Mongo/Redis/Neo4j/legacy URI와 credential은 명시적으로 빈 값이다. Red
 쓰기 때문에 구성하지 않는다. `MHB_SHADOW_READ_ONLY=true`는 모든 GET/HEAD/OPTIONS 이외
 요청을 라우팅 전 405로 차단한다. PASS는 `/ready`의 PostgreSQL live/required, PostgreSQL
 source program read, 그리고 POST 차단을 모두 뜻한다. 컨테이너와 env는 PASS/실패 뒤
-정리하지만 staged image 및 reader role은 제거하지 않는다. `cleanup`은 canary-owned
-container/work path만 제거한다; reader role의 `rollback-empty`는 별도 operator action이다.
+정리하지만 staged image 및 reader role은 제거하지 않는다. `cleanup`은 원래 run의 `MHB_PLATFORM_READ_CANARY_NONCE`를 명시해야 하며 owner/nonce label이 일치하는 canary container와 work path만 제거한다; reader role의 `rollback-empty`는 별도 operator action이다.
+
+rollback-empty는 DB/schema/table/sequence grant를 먼저 명시적으로 revoke하고 role drop을 확인한 뒤에만 root secret/receipt를 지운다.
 
 새 migration은 transient migrator가 만든 table을 owner로 재소유시킬 수 있으므로 reader의 future-table 권한을 자동으로 상속하지 않는다. 새 schema version은 migration review에서 reader SELECT를 명시적으로 부여하고 privilege-denial 검증을 다시 통과한 뒤에만 이 canary 범위를 확장한다.
