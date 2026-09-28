@@ -1,7 +1,11 @@
 """Redis-backed sliding-window limiter (PROM16 C2) — fakeredis, no infra."""
 
-import pytest
+import asyncio
 
+import pytest
+import redis.asyncio as aioredis
+
+import app.ratelimit as ratelimit
 from app.ratelimit import RateLimiter, RateLimitUnavailable
 
 
@@ -93,3 +97,119 @@ async def test_allow_closes_a_cached_client_that_fails_during_use():
         await rl.allow("k")
     assert broken.closed is True
     assert rl._redis is None
+
+
+class _NeverPing:
+    def __init__(self) -> None:
+        self.closed = False
+        self.ping_started = asyncio.Event()
+        self._never = asyncio.Event()
+
+    async def ping(self):
+        self.ping_started.set()
+        await self._never.wait()
+
+    async def aclose(self):
+        self.closed = True
+
+
+class _NeverPipeline:
+    def __init__(self) -> None:
+        self._never = asyncio.Event()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return False
+
+    def zremrangebyscore(self, *_args):
+        pass
+
+    def zadd(self, *_args):
+        pass
+
+    def zcard(self, *_args):
+        pass
+
+    def expire(self, *_args):
+        pass
+
+    async def execute(self):
+        await self._never.wait()
+
+
+class _NeverPipelineClient:
+    def __init__(self) -> None:
+        self.closed = False
+
+    def pipeline(self, *, transaction: bool):
+        assert transaction is True
+        return _NeverPipeline()
+
+    async def aclose(self):
+        self.closed = True
+
+
+class _NeverClose:
+    def __init__(self) -> None:
+        self.started = asyncio.Event()
+        self._never = asyncio.Event()
+
+    async def aclose(self):
+        self.started.set()
+        await self._never.wait()
+
+
+async def test_connect_ping_timeout_is_bounded_and_uses_socket_limits(monkeypatch, caplog):
+    monkeypatch.setattr(ratelimit, "REDIS_IO_TIMEOUT_SECONDS", 0.01)
+    client = _NeverPing()
+    captured: dict[str, object] = {}
+
+    def from_url(_url: str, **kwargs):
+        captured.update(kwargs)
+        return client
+
+    monkeypatch.setattr(aioredis, "from_url", from_url)
+    limiter = RateLimiter(max_events=2, window_seconds=60, redis_url="redis://unreachable", fail_closed=True)
+    async with asyncio.timeout(0.2):
+        assert await limiter.ready() is False
+    assert client.closed is True
+    assert limiter._breaker.is_open() is True
+    assert captured["socket_connect_timeout"] == 0.01
+    assert captured["socket_timeout"] == 0.01
+    assert "redis://unreachable" not in caplog.text
+
+
+async def test_allow_timeout_falls_back_or_fails_closed_without_hanging(monkeypatch):
+    monkeypatch.setattr(ratelimit, "REDIS_IO_TIMEOUT_SECONDS", 0.01)
+
+    fallback = RateLimiter(max_events=2, window_seconds=60, redis_url="redis://unreachable")
+    fallback_client = _NeverPipelineClient()
+    fallback._redis = fallback_client
+    async with asyncio.timeout(0.2):
+        assert await fallback.allow("fallback") is True
+    assert fallback_client.closed is True
+    assert fallback._breaker.is_open() is True
+    assert await fallback.allow("fallback") is True
+    assert await fallback.allow("fallback") is False
+
+    fail_closed = RateLimiter(max_events=2, window_seconds=60, redis_url="redis://unreachable", fail_closed=True)
+    closed_client = _NeverPipelineClient()
+    fail_closed._redis = closed_client
+    async with asyncio.timeout(0.2):
+        with pytest.raises(RateLimitUnavailable):
+            await fail_closed.allow("closed")
+    assert closed_client.closed is True
+    assert fail_closed._breaker.is_open() is True
+
+
+async def test_redis_cleanup_timeout_does_not_hang_shutdown(monkeypatch):
+    monkeypatch.setattr(ratelimit, "REDIS_IO_TIMEOUT_SECONDS", 0.01)
+    limiter = RateLimiter(max_events=2, window_seconds=60, redis_url="redis://unreachable")
+    client = _NeverClose()
+    limiter._redis = client
+    async with asyncio.timeout(0.2):
+        await limiter.close()
+    assert client.started.is_set()
+    assert limiter._redis is None

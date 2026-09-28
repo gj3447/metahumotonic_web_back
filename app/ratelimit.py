@@ -20,6 +20,10 @@ from .breaker import Breaker
 
 log = logging.getLogger("mhb.ratelimit")
 
+# Redis calls sit on the public request path. Bound every await so a dropped
+# packet cannot exhaust workers; failures still follow the existing breaker.
+REDIS_IO_TIMEOUT_SECONDS = 3.0
+
 
 class RateLimitUnavailable(RuntimeError):
     """Raised when a fail-closed distributed limiter cannot use Redis."""
@@ -87,6 +91,10 @@ class RateLimiter:
     def window_seconds(self, v: int) -> None:
         self._mem.window_seconds = v
 
+    async def _bounded_redis(self, awaitable):
+        async with asyncio.timeout(REDIS_IO_TIMEOUT_SECONDS):
+            return await awaitable
+
     async def _get_redis(self):
         if not self.redis_url or self._breaker.is_open():
             return None
@@ -99,13 +107,18 @@ class RateLimiter:
             try:
                 import redis.asyncio as aioredis
 
-                client = aioredis.from_url(self.redis_url, decode_responses=True)
-                await client.ping()
+                client = aioredis.from_url(
+                    self.redis_url,
+                    decode_responses=True,
+                    socket_connect_timeout=REDIS_IO_TIMEOUT_SECONDS,
+                    socket_timeout=REDIS_IO_TIMEOUT_SECONDS,
+                )
+                await self._bounded_redis(client.ping())
                 self._redis = client
                 return client
             except Exception as e:  # noqa: BLE001  # pragma: no cover - infra boundary
                 await self._discard_redis(client)
-                log.warning("redis rate-limit unavailable, using in-process: %s", e)
+                log.warning("redis rate-limit unavailable, using in-process (%s)", type(e).__name__)
                 return None
 
     async def allow(self, key: str) -> bool:
@@ -120,7 +133,7 @@ class RateLimiter:
             return result
         except Exception as e:  # pragma: no cover - infra dependent
             await self._discard_redis(client)
-            log.warning("redis rate-limit error, falling back in-process: %s", e)
+            log.warning("redis rate-limit error, falling back in-process (%s)", type(e).__name__)
             if self.fail_closed:
                 raise RateLimitUnavailable(
                     "distributed rate limiter is unavailable"
@@ -136,10 +149,10 @@ class RateLimiter:
         if client is None:
             return False
         try:
-            await client.ping()
+            await self._bounded_redis(client.ping())
         except Exception as exc:  # noqa: BLE001 - dependency health boundary
             await self._discard_redis(client)
-            log.warning("redis rate-limit readiness failed: %s", exc)
+            log.warning("redis rate-limit readiness failed (%s)", type(exc).__name__)
             return False
         self._breaker.reset()
         return True
@@ -151,18 +164,22 @@ class RateLimiter:
         # globally-unique member: a class counter resets to 0 per process, so two
         # replicas could mint identical members → ZADD dedups → undercount.
         member = f"{now_ms:.0f}-{uuid.uuid4().hex}"
-        async with client.pipeline(transaction=True) as pipe:
-            pipe.zremrangebyscore(rk, 0, now_ms - window_ms)
-            pipe.zadd(rk, {member: now_ms})
-            pipe.zcard(rk)
-            pipe.expire(rk, self.window_seconds + 1)
-            results = await pipe.execute()
-        count = results[2]
-        if count > self.max_events:
-            # don't let a denied request count against future windows
-            await client.zrem(rk, member)
-            return False
-        return True
+
+        async def operation() -> bool:
+            async with client.pipeline(transaction=True) as pipe:
+                pipe.zremrangebyscore(rk, 0, now_ms - window_ms)
+                pipe.zadd(rk, {member: now_ms})
+                pipe.zcard(rk)
+                pipe.expire(rk, self.window_seconds + 1)
+                results = await pipe.execute()
+            count = results[2]
+            if count > self.max_events:
+                # don't let a denied request count against future windows
+                await client.zrem(rk, member)
+                return False
+            return True
+
+        return await self._bounded_redis(operation())
 
     def reset(self) -> None:
         self._mem.reset()
@@ -174,12 +191,15 @@ class RateLimiter:
         if client is None:
             return
         try:
-            await client.aclose()
+            await self._bounded_redis(client.aclose())
         except Exception as close_exc:  # noqa: BLE001 - cleanup boundary
-            log.debug("failed to close broken Redis client: %s", close_exc)
+            log.debug("failed to close broken Redis client (%s)", type(close_exc).__name__)
 
     async def close(self) -> None:
         if self._redis is not None:
             client = self._redis
             self._redis = None
-            await client.aclose()
+            try:
+                await self._bounded_redis(client.aclose())
+            except Exception as close_exc:  # noqa: BLE001 - shutdown must not hang
+                log.debug("failed to close Redis client (%s)", type(close_exc).__name__)
