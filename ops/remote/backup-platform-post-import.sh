@@ -68,7 +68,7 @@ chown root:root "$restored_plain"; chmod 600 "$restored_plain"
 postgres_image="$(docker inspect "$container" --format '{{.Image}}')"; [[ "$postgres_image" =~ ^sha256:[0-9a-f]{64}$ ]] || fail 'current PostgreSQL image ID unavailable'
 postgres_pgdata="$(docker inspect "$container" --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^PGDATA=//p')"
 [[ "$postgres_pgdata" =~ ^/var/lib/postgresql/[0-9]+/docker$ ]] || fail 'unsupported current PostgreSQL PGDATA'
-timeout 60 docker run -d --name "$restore_container" --label "com.metahumotonic.platform-backup-nonce=$nonce" --network none --read-only --tmpfs /var/lib/postgresql:rw,size=768m --tmpfs /var/run/postgresql:rw,size=16m --tmpfs /tmp:rw,size=128m -e POSTGRES_HOST_AUTH_METHOD=trust "$postgres_image" >/dev/null
+timeout 60 docker run -d --name "$restore_container" --label "com.metahumotonic.platform-backup-nonce=$nonce" --network none --read-only --memory 1536m --memory-swap 1536m --cpus 1 --pids-limit 256 --tmpfs /var/lib/postgresql:rw,size=768m --tmpfs /var/run/postgresql:rw,size=16m --tmpfs /tmp:rw,size=128m -e POSTGRES_HOST_AUTH_METHOD=trust "$postgres_image" >/dev/null
 for _ in $(seq 1 45); do docker exec "$restore_container" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
 docker exec "$restore_container" pg_isready -U postgres >/dev/null 2>&1 || fail 'isolated restore PostgreSQL did not become ready'
 docker cp "$restored_plain" "$restore_container:/tmp/platform.dump"
