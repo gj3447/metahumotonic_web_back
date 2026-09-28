@@ -12,14 +12,24 @@ run_dir="$mirror_root/$backup_id"; mirror_receipt="$run_dir/receipt.json"; sourc
 test ! -L "$mirror_root" && test ! -L "$key_root" && test ! -L "$run_dir" && test ! -L "$mirror_receipt" && test ! -L "$source_receipt" || fail 'symlinked mirror path refused'
 read -r source_counts image encrypted_sha key_sha < <(python3 - "$mirror_receipt" "$source_receipt" "$encrypted" "$key_file" <<'PY'
 import hashlib,json,pathlib,stat,sys
+def sha256(path):
+    digest=hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024*1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
 m,s,e,k=map(pathlib.Path,sys.argv[1:])
+for directory in (m.parent.parent,k.parent,m.parent):
+    x=directory.lstat(); assert x.st_uid==0 and x.st_gid==0 and stat.S_IMODE(x.st_mode)==0o700 and not directory.is_symlink()
 for p in (m,s,e,k):
     x=p.stat(); assert x.st_uid==0 and x.st_gid==0 and stat.S_IMODE(x.st_mode)==0o600 and not p.is_symlink()
 mirror=json.loads(m.read_text()); source=json.loads(s.read_text())
 assert mirror.get('schema')=='metahumotonic/platform-offhost-mirror@1' and mirror.get('status')=='VERIFIED' and mirror.get('restoreDrill')=='SOURCE_VERIFIED'
 assert source.get('schema')=='metahumotonic/platform-post-import-backup@1' and source.get('status')=='VERIFIED' and source.get('restoreDrill')=='PASS' and source.get('database')=='metahumotonic_platform'
-assert hashlib.sha256(e.read_bytes()).hexdigest()==mirror['sourceEncryptedBackupSha256']==source['encryptedBackupSha256']
-assert hashlib.sha256(k.read_bytes()).hexdigest()==mirror['sourceKeySha256']==source['keySha256']
+assert mirror.get('backupId')==m.parent.name==source['migrationCommit']+'-'+m.parent.name.split('-',1)[1]
+assert sha256(s)==mirror['sourceReceiptSha256']
+assert sha256(e)==mirror['sourceEncryptedBackupSha256']==source['encryptedBackupSha256']
+assert sha256(k)==mirror['sourceKeySha256']==source['keySha256']
 counts=source.get('sourceCounts',''); image=source.get('restoreImage','')
 assert __import__('re').fullmatch(r'[0-9]+\|[0-9]+\|[0-9]+\|[0-9]+\|[0-9]+',counts)
 assert __import__('re').fullmatch(r'sha256:[0-9a-f]{64}',image)

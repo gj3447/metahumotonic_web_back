@@ -213,6 +213,7 @@ def test_offhost_platform_restore_drill_is_isolated_and_receipt_bound() -> None:
     assert 'mode="${1:-status}"' in helper and '^(status|drill)$' in helper
     assert "mirror.get('status')=='VERIFIED'" in helper
     assert "source.get('status')=='VERIFIED'" in helper and "source.get('restoreDrill')=='PASS'" in helper
+    assert "sha256(s)==mirror['sourceReceiptSha256']" in helper
     assert 'openssl enc -d -aes-256-cbc -pbkdf2' in helper and '-pass file:"$key_file"' in helper
     assert 'chown root:root "$plain"; chmod 600 "$plain"' in helper
     assert 'rm -f -- "$plain"' in helper
