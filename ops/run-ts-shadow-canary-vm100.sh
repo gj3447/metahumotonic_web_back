@@ -6,7 +6,7 @@ set -Eeuo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 runtime_host="${MHB_RUNTIME_HOST:-metahumotonic27@192.168.0.24}"
 legacy_container="${MHB_SHADOW_LEGACY_CONTAINER:-web-back-pve-1}"
-runtime_env_file="${MHB_RUNTIME_ENV_FILE:-/etc/metahumotonic/web-back.env}"
+runtime_env_file="${MHB_SHADOW_ENV_FILE:-/etc/metahumotonic/ts-shadow-readonly.env}"
 mode=run
 if [[ "${1:-}" == --dry-run || "${1:-}" == --status || "${1:-}" == --cleanup ]]; then mode="${1#--}"; shift; fi
 commit="${1:-}"

@@ -12,6 +12,7 @@ def test_shadow_canary_limits_env_and_forbids_public_or_write_paths() -> None:
     remote = (ROOT / "ops" / "remote" / "run-ts-shadow-canary.sh").read_text(encoding="utf-8")
     assert "--dry-run" in controller
     assert "git merge-base --is-ancestor" in controller
+    assert "/etc/metahumotonic/ts-shadow-readonly.env" in controller
     assert "--network \"container:${legacy}\"" in remote
     assert "--read-only --cap-drop ALL --security-opt no-new-privileges" in remote
     assert "MHB_SHADOW_READ_ONLY=true" in remote

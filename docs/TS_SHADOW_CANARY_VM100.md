@@ -30,3 +30,10 @@ canary가 통과해도 public traffic 전환이나 Python owner retirement를 �
 `MHB_SHADOW_MONGO_URI`, `MHB_SHADOW_REDIS_URL`이 모두 있어야 한다. 선택적
 platform readback에는 `MHB_SHADOW_PLATFORM_DATABASE_URL`을 쓴다. 값은 첫 `=`
 뒤 전체를 보존하므로 signed URL·query string을 포함할 수 있다.
+
+이 파일의 기본 위치는 `/etc/metahumotonic/ts-shadow-readonly.env`이며 Python
+운영 container가 읽는 `/etc/metahumotonic/web-back.env`와 분리한다. `MHB_SHADOW_*`
+값만 이 파일에 둔다. `read-only`라는 이름은 권한을 보장하지 않는다. 실행 전 운영자는
+각 Neo4j·Mongo·Redis·PostgreSQL principal이 대상 데이터에 쓰기 권한이 없음을 ACL/role
+조회로 별도 검증해야 한다. 이 검증과 전용 principal이 없으면 shadow canary를 실행하지
+않는다.
