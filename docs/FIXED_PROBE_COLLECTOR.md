@@ -16,20 +16,35 @@ the response body. At most two fixed probes run concurrently. Failure is stored
 as a normal `failed` observation with only `timeout`, `network`, or
 `unexpected-status` in the evidence note.
 
-Build first, then create a reviewable batch without writing it:
+Build first, then create a new, reviewable batch file without posting it:
 
 ```sh
 bash ts/scripts/with-node.sh npm --prefix ts run build
 bash ts/scripts/with-node.sh node ts/scripts/collect-fixed-observations.mjs \
   --run-id fixed-probe-YYYYMMDD-001 \
   --observed-at 2026-09-28T08:00:00.000Z \
-  --ttl-seconds 900 --dry-run
+  --ttl-seconds 900 \
+  --output /secure/operator/fixed-probe-YYYYMMDD-001.json
 ```
 
-`runId` and `observedAt` are required and form the receipt and observation
-identities. Repeating the same probe inputs yields the same batch for the
-existing append-only receipt replay contract. The collector never retries a
-POST automatically. When an operator has reviewed the dry-run payload and the
-dedicated platform PostgreSQL path is active, `--write` additionally requires
-operator-injected `MHB_PLATFORM_INGEST_ORIGIN` and `MHB_PLATFORM_WRITE_KEY`.
-Neither is printed. The request is only `POST /api/platform/v1/observations`.
+The command makes its HTTP observations once and writes a new mode-0600 file;
+it refuses to overwrite an existing plan. It prints the plan's SHA-256, receipt
+ID, and result summary. A later probe can produce different outcomes even with
+the same run ID, so re-running the plan command is never an idempotent replay.
+
+After review, the dedicated platform PostgreSQL path can submit exactly those
+saved bytes. `--write` does **not** run any probes and accepts no run, TTL, or
+target option:
+
+```sh
+MHB_PLATFORM_INGEST_ORIGIN=operator-managed-origin \
+MHB_PLATFORM_WRITE_KEY=operator-managed-write-key \
+bash ts/scripts/with-node.sh node ts/scripts/collect-fixed-observations.mjs \
+  --write --input /secure/operator/fixed-probe-YYYYMMDD-001.json
+```
+
+The collector makes one `POST /api/platform/v1/observations` attempt and never
+retries it automatically. If the response is uncertain, rerun the exact same
+`--write --input` command. The stored bytes, receipt ID, and observation IDs
+remain unchanged for the existing append-only receipt replay contract. Neither
+the origin nor key is printed.

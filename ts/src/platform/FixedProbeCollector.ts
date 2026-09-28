@@ -1,5 +1,5 @@
-import { Context, Effect, Layer, Schema } from "effect"
-import type { ObservationBatch } from "../domain/ObservationIngest.js"
+import { Context, Effect, Either, Layer, Schema } from "effect"
+import { ObservationBatch } from "../domain/ObservationIngest.js"
 import type { PlatformObservation } from "../domain/PlatformGraph.js"
 
 /**
@@ -84,11 +84,7 @@ const probe = async (target: typeof fixedProbeTargets[number], request: FixedPro
   }
 }
 
-/**
- * A single invocation produces a stable batch. Repeating the same runId and
- * observedAt produces byte-equivalent identities and timestamps, so the
- * platform receipt endpoint can perform its existing idempotent replay.
- */
+/** A run produces a new observation of the current fixed targets. */
 export const collectFixedProbeBatch = (request: FixedProbeRequest) => Effect.gen(function* () {
   const fetcher = (yield* ProbeFetchTag).fetch
   const collected: Array<{ observation: PlatformObservation; result: FixedProbeResult }> = []
@@ -99,5 +95,21 @@ export const collectFixedProbeBatch = (request: FixedProbeRequest) => Effect.gen
     results: collected.map((item) => item.result)
   }
 })
+
+/**
+ * The operator persists these exact UTF-8 bytes before approval. A later
+ * network result can change a newly collected batch, so replay must use the
+ * persisted bytes rather than collecting again.
+ */
+export const fixedProbeBatchBytes = (batch: typeof ObservationBatch.Type): Uint8Array => new TextEncoder().encode(JSON.stringify(batch))
+
+export const parseFixedProbeBatchBytes = (bytes: Uint8Array): typeof ObservationBatch.Type => {
+  if (bytes.byteLength === 0 || bytes.byteLength > 524_288) throw new Error("invalid fixed probe batch file size")
+  let value: unknown
+  try { value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) } catch { throw new Error("invalid fixed probe batch JSON") }
+  const decoded = Schema.decodeUnknownEither(ObservationBatch, { onExcessProperty: "error" })(value)
+  if (Either.isLeft(decoded)) throw new Error("invalid fixed probe batch contract")
+  return decoded.right
+}
 
 export const FixedProbeFetchLive = Layer.succeed(ProbeFetchTag, { fetch: globalThis.fetch })
