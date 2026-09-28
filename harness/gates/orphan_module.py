@@ -26,7 +26,19 @@ ENTRYPOINTS = [SRC / "main.ts"]
 # A module may be declared an intentional non-entrypoint export — a library
 # surface consumed from outside this tree. Each entry needs a reason, so the
 # allowlist cannot quietly become a place to hide dead code.
-ALLOWED_ORPHANS: dict[str, str] = {}
+ALLOWED_ORPHANS: dict[str, str] = {
+    "platform/FixedProbeCollector.ts": (
+        "Operator-only fixed probe collector imported by "
+        "ts/scripts/collect-fixed-observations.mjs, not the HTTP server"
+    ),
+}
+
+OPERATOR_IMPORTS: dict[str, tuple[str, str]] = {
+    "platform/FixedProbeCollector.ts": (
+        "ts/scripts/collect-fixed-observations.mjs",
+        "../dist/src/platform/FixedProbeCollector.js",
+    ),
+}
 
 IMPORT_RE = re.compile(
     r"""^\s*(?:import|export)\b[^'"]*?from\s+['"](\.[^'"]+)['"]|"""
@@ -82,6 +94,11 @@ def main() -> int:
 
     orphans = sorted(all_modules - reachable)
     allowed = {SRC / rel for rel in ALLOWED_ORPHANS}
+    for rel, (script, import_spec) in OPERATOR_IMPORTS.items():
+        path = ROOT / script
+        if not path.is_file() or import_spec not in path.read_text(encoding="utf-8"):
+            print(f"FAIL allowed operator module {rel} is not imported by {script}")
+            return 1
     unexpected = [p for p in orphans if p not in allowed]
 
     print(f"orphan_module: {len(reachable)}/{len(all_modules)} modules reachable from main.ts")
