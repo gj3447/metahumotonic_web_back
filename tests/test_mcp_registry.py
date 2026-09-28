@@ -148,7 +148,7 @@ async def test_manifest_live(client):
     assert body["source"] == "live"
     assert body["updated"] == "2026-07-27"
     assert body["site"] == "https://metahumotonic.com"
-    assert body["notes"] == ["note a"]
+    assert "notes" not in body
     assert len(body["servers"]) == 2
 
 
@@ -170,6 +170,7 @@ async def test_health_live(client):
     by_name = {s["name"]: s for s in body["servers"]}
     assert by_name["mongodb"]["status"] == "verified"
     assert by_name["mongodb"]["verified_at"] == "2026-07-27"
+    assert "notes" not in by_name["mongodb"]
 
 
 async def test_health_fail_soft(client, _broken_registry):
@@ -323,6 +324,7 @@ async def test_status_aggregate(client, _rich_health):
     assert by_name["omd"]["badge"] == "down"
     assert by_name["airo-neo4j"]["badge"] == "unused"
     assert by_name["redis"]["last_check_at"]
+    assert all("notes" not in server for server in by_name.values())
 
 
 async def test_status_text_format(client, _rich_health):
@@ -338,6 +340,20 @@ async def test_status_text_format(client, _rich_health):
     assert "redis: verified" in text
     assert "mongodb: stale" in text
     assert "omd: down" in text
+    assert "probe failed" not in text
+
+
+def test_manifest_and_status_reject_raw_meta_and_notes():
+    manifest = mcp_registry.build_manifest([], {
+        "site": "http://internal.example", "notes": ["token=secret"], "unknown_sentinel": "must-not-leak",
+    })
+    assert manifest["site"] == "https://metahumotonic.com"
+    assert "notes" not in manifest and "unknown_sentinel" not in manifest
+    status = mcp_registry._status_payload([{
+        "name": "fixture", "status": "unreachable", "notes": "postgres://internal:secret@host",
+    }])
+    rendered = json.dumps(status) + mcp_registry._status_text(status)
+    assert "postgres://" not in rendered and "secret" not in rendered
 
 
 async def test_status_fail_soft(client, _broken_registry):

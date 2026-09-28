@@ -87,7 +87,8 @@ describe.skipIf(!enabled)("real disposable persistence (no production configurat
     const runtime = ManagedRuntime.make(storageLayer)
     try {
       const result = await runtime.runPromise(Effect.flatMap(McpRegistryTag, (registry) => registry.read("manifest")))
-      expect(result).toMatchObject({ source: "live", notes: ["legacy-compatible"], servers: [{ name: "fixture" }] })
+      expect(result).toMatchObject({ source: "live", site: "https://metahumotonic.com", servers: [{ name: "fixture" }] })
+      expect(result).not.toHaveProperty("notes")
       const vault = await runtime.runPromise(Effect.either(Effect.flatMap(McpRegistryTag, (registry) => registry.read("vault"))))
       expect(vault).toMatchObject({ _tag: "Left", left: { _tag: "NotFound" } })
       expect(JSON.stringify(vault)).not.toContain("MUST-NOT-LEAK")

@@ -113,7 +113,7 @@ def _discovery() -> dict[str, Any]:
             "manifest": {
                 "id": SCHEMA,
                 "fields": [
-                    "@context", "@type", "schema", "updated", "site", "notes",
+                    "@context", "@type", "schema", "updated", "site",
                     "credential_vault", "servers",
                 ],
             },
@@ -292,7 +292,6 @@ def _status_payload(items: list[dict[str, Any]]) -> dict[str, Any]:
                 "verified_at": item.get("verified_at"),
                 "last_probe_at": item.get("last_probe_at"),
                 "last_check_at": last_check.isoformat() if last_check else None,
-                "notes": item.get("notes"),
             }
         )
     return {
@@ -341,8 +340,6 @@ def _status_text(payload: dict[str, Any]) -> str:
         extra = ""
         if badge == "stale":
             extra = f" (verified {srv.get('verified_at') or '?'}, not re-checked within 24h)"
-        elif badge == "down" and srv.get("notes"):
-            extra = f" ({srv['notes'][:120]})"
         lines.append(f"{srv['name']}: {badge}, last check {when}{extra}")
     return "\n".join(lines) + "\n"
 

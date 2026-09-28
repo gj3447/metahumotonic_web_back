@@ -140,7 +140,6 @@ class McpRegistryStore:
                     "status": 1,
                     "verified_at": 1,
                     "last_probe_at": 1,
-                    "notes": 1,
                 },
             ).sort("name", 1)
             self._breaker.reset()

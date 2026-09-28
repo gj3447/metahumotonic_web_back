@@ -13,7 +13,7 @@ import { configFromEnv } from "../src/Config.js"
 import { Unavailable } from "../src/domain/Errors.js"
 import { decodeCatalog, graphProblems, neighborhood, propertyGraph } from "../src/domain/PlatformGraph.js"
 import { PlatformConfigTag, type PlatformConfig } from "../src/platform/Config.js"
-import { McpRegistryTag, enrichServer, manifest, registryStatus, type McpRegistry } from "../src/ports/McpRegistry.js"
+import { McpRegistryTag, enrichServer, manifest, registryStatus, registryStatusText, type McpRegistry } from "../src/ports/McpRegistry.js"
 import { PlatformInventoryStoreTag, type PlatformInventoryStore } from "../src/ports/PlatformInventoryStore.js"
 import { configOf, webHandlerLayer } from "../src/server/Composition.js"
 
@@ -212,9 +212,12 @@ describe("native registry contract", () => {
     const projected = enrichServer({ name: "fixture", category: "document", connection: { url: "http://internal.example" }, token: "secret", backend: "private-host", notes: "private topology", auth: { type: "bearer", token: "secret" }, unknown_sentinel: "must-not-leak" })
     expect(projected).toMatchObject({ auth: { type: "operator-managed" } })
     for (const forbidden of ["connection", "token", "backend", "notes", "unknown_sentinel"]) expect(projected).not.toHaveProperty(forbidden)
-    expect(manifest([], { updated: "2026-09-26", notes: ["example"] })).toMatchObject({ updated: "2026-09-26", notes: ["example"], servers: [] })
-    const status = registryStatus([{ name: "old", status: "verified", verified_at: "2026-09-20" }, { name: "bad", status: "unreachable" }], Date.parse("2026-09-27"))
+    const publicManifest = manifest([], { site: "http://internal.example", notes: ["token=secret"], unknown_sentinel: "must-not-leak" })
+    expect(publicManifest).toMatchObject({ site: "https://metahumotonic.com", servers: [] })
+    expect(publicManifest).not.toHaveProperty("notes")
+    const status = registryStatus([{ name: "old", status: "verified", verified_at: "2026-09-20" }, { name: "bad", status: "unreachable", notes: "postgres://internal:secret@host" }], Date.parse("2026-09-27"))
     expect(status.summary).toMatchObject({ verified: 1, stale: 1, down: 1, total: 2 })
+    expect(JSON.stringify(status) + registryStatusText(status)).not.toContain("postgres://")
   })
 })
 

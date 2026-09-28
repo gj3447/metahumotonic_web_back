@@ -111,7 +111,7 @@ def build_manifest(
 ) -> dict[str, Any]:
     """The canonical ``metahumotonic/mcp-registry@1`` manifest payload
     (without the router-only ``source`` field — the caller adds it)."""
-    resolved_updated = updated or meta.get("updated") or max(
+    resolved_updated = updated or max(
         (s.get("verified_at") or "" for s in servers), default=""
     )
     return {
@@ -119,8 +119,7 @@ def build_manifest(
         "@type": MANIFEST_TYPES,
         "schema": SCHEMA,
         "updated": resolved_updated,
-        "site": meta.get("site", SITE),
-        "notes": meta.get("notes", []),
+        "site": SITE,
         "credential_vault": VAULT_SPEC,
         "servers": [enrich_server(s) for s in servers],
     }

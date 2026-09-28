@@ -32,12 +32,15 @@ export const enrichServer = (server: Document) => {
       : { type: "none" }
   }
 }
-export const manifest = (servers: ReadonlyArray<Document>, meta: Document = {}) => ({
+export const manifest = (servers: ReadonlyArray<Document>, meta: Document = {}) => {
+  void meta
+  return {
   "@context": { schema: "https://schema.org/", mhb: "https://metahumotonic.com/mcp/ontology#" },
   "@type": ["schema:ItemList", "mhb:McpRegistry"], schema: REGISTRY_SCHEMA,
-  updated: meta["updated"] || servers.map((s) => String(s["verified_at"] ?? "")).sort().at(-1) || "",
-  site: meta["site"] ?? SITE, notes: meta["notes"] ?? [], credential_vault: VAULT_SPEC, servers: servers.map(enrichServer)
-})
+  updated: servers.map((s) => String(s["verified_at"] ?? "")).sort().at(-1) || "",
+  site: SITE, credential_vault: VAULT_SPEC, servers: servers.map(enrichServer)
+  }
+}
 const iso = (value: unknown): string | null => {
   if (value === null || value === undefined || value === "") return null
   const date = value instanceof Date ? value : new Date(String(value))
@@ -58,7 +61,7 @@ export const registryStatus = (items: ReadonlyArray<Document>, now: number) => {
     if (badge === "down") counts.down++
     if (badge === "stale") counts.stale++
     return { name: item["name"], status, badge, stale, verified_at: item["verified_at"] ?? null,
-      last_probe_at: item["last_probe_at"] ?? null, last_check_at: checked, notes: item["notes"] ?? null }
+      last_probe_at: item["last_probe_at"] ?? null, last_check_at: checked }
   })
   return { schema: REGISTRY_SCHEMA, source: "live", generated_at: new Date(now).toISOString(), last_verify_at: lastVerify,
     stale_after_hours: 24, summary: counts, servers }
@@ -97,7 +100,7 @@ export const McpRegistryLive = Layer.effect(McpRegistryTag, Effect.gen(function*
       }
       if (surface === "status") return registryStatus(items, yield* Clock.currentTimeMillis)
       const result = surface === "health" ? items.map((item) => Object.fromEntries(
-        ["name", "status", "verified_at", "last_probe_at", "notes"].map((field) => [field, item[field] ?? null])
+        ["name", "status", "verified_at", "last_probe_at"].map((field) => [field, item[field] ?? null])
       )) : items.map(enrichServer)
       return { ...envelope, count: result.length, servers: result }
     })).pipe(Effect.catchTag("Unavailable", () => Effect.succeed({

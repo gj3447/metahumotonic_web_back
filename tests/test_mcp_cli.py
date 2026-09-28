@@ -207,7 +207,7 @@ async def test_export_roundtrip(col, manifest_file, tmp_path):
     assert rc == 0
     exported = json.loads(out.read_text(encoding="utf-8"))
     assert exported["schema"] == "metahumotonic/mcp-registry@1"
-    assert exported["notes"] == ["secrets are placeholders"]
+    assert "notes" not in exported
     assert {s["name"] for s in exported["servers"]} == {"memory", "redis"}
     # bookkeeping fields must not leak into the manifest
     for s in exported["servers"]:
