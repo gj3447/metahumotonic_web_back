@@ -93,3 +93,30 @@ uv run --locked --script scripts/verify-backend-reality.py /tmp/backend-reality.
 
 현재 구현된 것은 판정 그래프, 내부 조회/JSON-LD/USL 투영, 검증 게이트다.
 자동 수집기·운영 PostgreSQL 활성화·TS 트래픽 전환·MCP 등록은 아직 완료되지 않았다.
+
+## VM100 격리 TS canary
+
+공개 Python 복제본과 ingress를 바꾸지 않는 좁은 검증 경로는
+[`ops/run-ts-backend-canary-vm100.sh`](../ops/run-ts-backend-canary-vm100.sh)다.
+원격 `origin/main`에 포함된 정확한 40자리 commit만 source archive로 빌드한다.
+새 TS 컨테이너는 공개 포트를 열지 않고, 기존 `web-back-pve-1`의 네트워크 namespace에서
+내부 `18080`만 사용한다. 따라서 기존 Python의 `127.0.0.1:8000`을 Wiki 위임 대상으로
+읽을 수 있지만 기존 컨테이너·Docker network·공개 EndpointSlice는 수정하지 않는다.
+
+canary에는 env file이나 운영 DB/Mongo/Redis/KG/MCP 설정을 전달하지 않는다. 임시 read key로
+`/ready`, Python Wiki 위임, 공개 학습 hub, platform API의 401/읽기 키, MCP initialize만 확인한다.
+피드백·관측·registry·상위 MCP 쓰기 호출은 하지 않는다. 컨테이너와 이미지는 nonce 소유 label,
+512 MiB/1 CPU/128 PID, read-only filesystem, no-new-privileges로 만들며 성공·실패와 관계없이
+정리한다. 정리가 남았을 때만 출력된 commit·nonce로 상태 확인 또는 정리를 재실행한다.
+
+```sh
+# commit은 먼저 origin/main에 push되어 있어야 한다. 출력에는 secret이나 response body가 없다.
+ops/run-ts-backend-canary-vm100.sh <COMMIT40>
+
+# 비정상 종료 뒤 남은 동일 nonce 자원만 확인/정리한다.
+ops/run-ts-backend-canary-vm100.sh --status <COMMIT40> <NONCE32>
+ops/run-ts-backend-canary-vm100.sh --cleanup <COMMIT40> <NONCE32>
+```
+
+이 검증은 TS 공개 전환, 운영 PostgreSQL 활성화, Mongo 내구성 또는 upstream MCP federation의
+운영 증거가 아니다. 모든 항목은 별도 canary와 rollback 검증이 필요하다.
