@@ -29,7 +29,7 @@ def test_stateful_delegation_is_exact_image_bound_and_disposable_only():
     assert "gateway_image_id" in source
     assert "PASS existing commit/image-bound synthetic canary receipt" in source
 
-def test_standalone_controller_never_calls_public_release_or_builds_images():
+def test_stateful_controller_creates_and_cleans_exact_receipt_owned_drill():
     source = CONTROLLER.read_text()
     subprocess.run(["bash", "-n", str(CONTROLLER)], check=True)
     assert "release-web-back-vm100.sh" not in source
@@ -43,8 +43,17 @@ def test_standalone_controller_never_calls_public_release_or_builds_images():
     assert "mktemp -d /var/tmp/mhb-wiki-stateful.XXXXXX" in source
     assert 'valid_stage() { [[ "$1" =~ ^/var/tmp/mhb-wiki-stateful\\.[A-Za-z0-9]{6}$ ]]; }' in source
     assert "stat -c '%u:%g:%a'" in source and "\\$(id -u):\\$(id -g):700" in source
-    assert "verify-restored" in source
-    assert "releases/$commit" in source
+    assert "MHB_WIKI_STATEFUL_BACKUP_RECEIPT" in source
+    assert "current-production" in source and "restore_drill')=='PASS'" in source
+    assert "for chunk in iter(lambda: source.read(1024*1024), b'')" in source
+    assert "assert digest(a)==b[field]" in source
+    assert "'$data_helper' create postgresql" in source
+    assert "'$data_helper' drop postgresql" in source
+    assert "database_owned=true" in source
+    assert "cleanup_all()" in source and "stateful drill database cleanup failed" in source
+    assert "install -d -m 700 -o root -g root" in source
+    assert "mhb-wiki-data-operation" in source and "mhb-wiki-runtime-operation" in source
+    assert "exact canary database or receipt already exists" in source
     assert "cleanup_gateway" in source
     assert "sudo -n docker rm -f '$gateway_name'" in source
     assert "sudo -n rm -rf" not in source
