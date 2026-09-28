@@ -101,6 +101,11 @@ class RateLimiter:
         if self._redis is not None:
             return self._redis
         async with self._redis_lock:
+            # A waiter can queue while the first connection blackholes. Recheck
+            # after acquiring the lock so its timeout opens the shared breaker
+            # once rather than causing a serial reconnect storm.
+            if self._breaker.is_open():
+                return None
             if self._redis is not None:
                 return self._redis
             client = None
@@ -118,7 +123,7 @@ class RateLimiter:
                 return client
             except Exception as e:  # noqa: BLE001  # pragma: no cover - infra boundary
                 await self._discard_redis(client)
-                log.warning("redis rate-limit unavailable, using in-process (%s)", type(e).__name__)
+                log.warning("redis rate-limit unavailable (%s)", type(e).__name__)
                 return None
 
     async def allow(self, key: str) -> bool:
@@ -133,7 +138,7 @@ class RateLimiter:
             return result
         except Exception as e:  # pragma: no cover - infra dependent
             await self._discard_redis(client)
-            log.warning("redis rate-limit error, falling back in-process (%s)", type(e).__name__)
+            log.warning("redis rate-limit error (%s)", type(e).__name__)
             if self.fail_closed:
                 raise RateLimitUnavailable(
                     "distributed rate limiter is unavailable"

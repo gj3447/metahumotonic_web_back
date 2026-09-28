@@ -213,3 +213,29 @@ async def test_redis_cleanup_timeout_does_not_hang_shutdown(monkeypatch):
         await limiter.close()
     assert client.started.is_set()
     assert limiter._redis is None
+
+
+async def test_concurrent_blackholed_connect_attempts_once_then_fails_closed(monkeypatch):
+    monkeypatch.setattr(ratelimit, "REDIS_IO_TIMEOUT_SECONDS", 0.05)
+    clients: list[_NeverPing] = []
+
+    def from_url(_url: str, **_kwargs):
+        client = _NeverPing()
+        clients.append(client)
+        return client
+
+    monkeypatch.setattr(aioredis, "from_url", from_url)
+    limiter = RateLimiter(max_events=20, window_seconds=60, redis_url="redis://unreachable", fail_closed=True)
+    first = asyncio.create_task(limiter.allow("first"))
+    while not clients:
+        await asyncio.sleep(0)
+    await clients[0].ping_started.wait()
+    followers = [asyncio.create_task(limiter.allow(f"queued-{index}")) for index in range(8)]
+    await asyncio.sleep(0)  # let followers queue on the connection lock
+    async with asyncio.timeout(0.5):
+        results = await asyncio.gather(first, *followers, return_exceptions=True)
+
+    assert len(clients) == 1
+    assert all(isinstance(result, RateLimitUnavailable) for result in results)
+    assert clients[0].closed is True
+    assert limiter._breaker.is_open() is True
