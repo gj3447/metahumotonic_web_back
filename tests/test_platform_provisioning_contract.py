@@ -83,13 +83,24 @@ def test_platform_migration_controller_is_exact_commit_and_secret_free() -> None
     assert 'merge-base --is-ancestor "$commit" origin/main' in controller
     assert 'git -C "$root" show "$commit:ts/config/platform-catalog.json"' in controller
     assert 'git -C "$root" cat-file -e "$commit^{commit}"' in controller
-    assert 'MHB_PLATFORM_IMAGE must be digest pinned' in controller
+    assert 'MHB_PLATFORM_IMAGE must be a digest reference or image ID' in controller
     assert 'org.opencontainers.image.revision' in remote
     assert 'stage-image' in remote and 'catalog artifact digest mismatch' in remote
     assert 'expected == result' in remote
     assert 'databaseWrites":false' in remote
     assert 'remote_dir="/var/tmp/mhb-platform-migrate-$nonce"' in controller
     assert 'test ! -L' in controller and 'stat -c %a' in controller
+
+
+def test_local_image_stage_is_exact_and_db_free() -> None:
+    stage = (ROOT / "ops/stage-platform-image-local.sh").read_text()
+    remote = (ROOT / "ops/remote/migrate-platform-catalog.sh").read_text()
+    assert 'mode="${1:-dry-run}"' in stage
+    assert 'worktree add --detach' in stage
+    assert 'docker save' in stage and 'docker load' in stage
+    assert 'source-archive-sha256' in stage and 'databaseWrites":false' in stage
+    assert '--read-only' in remote and '--cap-drop ALL' in remote
+    assert 'no-new-privileges' in remote and '--pids-limit 128' in remote
     assert 'VERIFIED_BEFORE_RUNTIME_GRANT' in remote
     assert '"$provision" grant-runtime' in remote
     assert 'MHB_PLATFORM_DATABASE_URL=' in remote

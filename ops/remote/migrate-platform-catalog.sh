@@ -7,7 +7,7 @@ database="metahumotonic_platform"; owner="mhb_platform_owner"; runtime="mhb_plat
 root="/var/lib/metahumotonic-platform/migration"; receipt="$root/receipt.json"; secret_dir="/etc/metahumotonic/platform"
 fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
 [[ "$mode" =~ ^(status|stage-image|apply)$ ]] || fail 'invalid mode'
-[[ "$commit" =~ ^[0-9a-f]{40}$ && "$image" =~ @sha256:[0-9a-f]{64}$ && "$catalog" =~ ^/[A-Za-z0-9._/-]+$ && "$catalog_sha" =~ ^[0-9a-f]{64}$ && "$provision" =~ ^/[A-Za-z0-9._/-]+$ ]] || fail 'invalid pinned inputs'
+[[ "$commit" =~ ^[0-9a-f]{40}$ && ( "$image" =~ @sha256:[0-9a-f]{64}$ || "$image" =~ ^sha256:[0-9a-f]{64}$ ) && "$catalog" =~ ^/[A-Za-z0-9._/-]+$ && "$catalog_sha" =~ ^[0-9a-f]{64}$ && "$provision" =~ ^/[A-Za-z0-9._/-]+$ ]] || fail 'invalid pinned inputs'
 q() { docker exec "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -Atqc "$1"; }
 qd() { docker exec "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$database" -Atqc "$1"; }
 [[ -f "$catalog" && "$(sha256sum "$catalog" | awk '{print $1}')" == "$catalog_sha" ]] || fail 'catalog artifact digest mismatch'; command -v openssl >/dev/null || fail 'openssl required'
@@ -38,7 +38,7 @@ GRANT $owner TO $manager;
 REVOKE ALL ON DATABASE $database FROM $manager;
 GRANT CONNECT,TEMPORARY ON DATABASE $database TO $manager;
 SQL
-run() { docker run --rm --network "container:$container" --env-file "$env_file" -v "$catalog:/run/platform-catalog.json:ro" "$image" node scripts/platform-db.mjs "$1" /run/platform-catalog.json; }
+run() { timeout 120 docker run --rm --read-only --tmpfs /tmp:size=64m --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 --memory 512m --cpus 1 --network "container:$container" --env-file "$env_file" -v "$catalog:/run/platform-catalog.json:ro" "$image" node scripts/platform-db.mjs "$1" /run/platform-catalog.json; }
 expected="$(run inspect)"; run migrate >/dev/null; run import >/dev/null
 readback="$(run readback)"
 python3 - "$receipt" "$commit" "$image_id" "$expected" "$readback" "$catalog_sha" <<'PY'
