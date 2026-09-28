@@ -76,6 +76,11 @@ snapshot 모드이며 자동 probe 수집기는 아직 구현하지 않았다.
 | `GET /api/platform/v1/graph/export` | USL `property-graph/v2` 입력 |
 | MCP `platform_inventory`, `platform_summary`, `platform_export` | REST와 같은 도메인 투영 |
 
+2026-09-28 [소유 MCP 읽기 검증](evidence/company-mcp-live-readback-2026-09-28.json)에서는
+일회성 로컬 TS 진입점이 Ontology·HSPINE 읽기 도구의 직접 소유 서비스 결과와
+REST·MCP 결과 일치를 확인했다. 허용 목록 밖 도구는 거부됐다. 이 기록은
+런타임 환경변수로만 연결한 사전 검증이며 공개 배포나 쓰기 권한을 뜻하지 않는다.
+
 목록은 `limit=1..100`, 기본 25, `offset=0..2000`과 `nextOffset`을 사용한다.
 응답의 `digest`는 페이지 간 투영 변경 확인, `definitionDigest`는 고정된 정의 버전,
 `source`는 snapshot/PostgreSQL 구분에 쓰고 `evaluatedAt`은 신선도 계산 시점이다.

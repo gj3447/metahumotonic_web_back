@@ -1,0 +1,81 @@
+{
+  "schema": "metahumotonic/mcp-readback@1",
+  "observedAt": "2026-09-28T07:08:39.340Z",
+  "scope": "Disposable compiled TS entrypoint; explicit read-only calls to owner MCP services; no deployment",
+  "status": "PASS",
+  "checks": [
+    "own-process-health",
+    "anonymous-denied",
+    "configured-bindings",
+    "discovery-excludes-upstream-secrets"
+  ],
+  "servers": [
+    {
+      "id": "ontology",
+      "endpointEnv": "MHB_ONTOLOGY_MCP_URL",
+      "owner": {
+        "name": "Toolbox",
+        "version": "1.10.0+binary.linux.amd64.21f972f"
+      },
+      "allowedTools": [
+        "ontology_get",
+        "ontology_neighbors",
+        "ontology_search"
+      ],
+      "probeTool": "ontology_get",
+      "arguments": {
+        "uid": "sym:Concept:hswm",
+        "text_limit": 300,
+        "text_offset": 0
+      },
+      "ownerResultSha256": "f9ae0234f35cd1d00a8fffd070f690607d838f80e7eec8b7df5dd1a0d3adad29",
+      "restResultSha256": "f9ae0234f35cd1d00a8fffd070f690607d838f80e7eec8b7df5dd1a0d3adad29",
+      "mcpResultSha256": "f9ae0234f35cd1d00a8fffd070f690607d838f80e7eec8b7df5dd1a0d3adad29",
+      "checks": [
+        "owner-subject-present",
+        "tool-allowlist",
+        "direct-rest-mcp-parity",
+        "non-allowlisted-call-denied"
+      ]
+    },
+    {
+      "id": "hspine",
+      "endpointEnv": "MHB_HSPINE_MCP_URL",
+      "owner": {
+        "name": "hspine",
+        "version": "0.4.0"
+      },
+      "allowedTools": [
+        "hspine_capabilities"
+      ],
+      "probeTool": "hspine_capabilities",
+      "arguments": {},
+      "ownerResultSha256": "50b1cbfe8740192ba14f18cea30c1d26299ae1b4abf6042aa0572b405f4d3071",
+      "restResultSha256": "50b1cbfe8740192ba14f18cea30c1d26299ae1b4abf6042aa0572b405f4d3071",
+      "mcpResultSha256": "50b1cbfe8740192ba14f18cea30c1d26299ae1b4abf6042aa0572b405f4d3071",
+      "observedBoundary": {
+        "mode": "unified",
+        "executionEnabled": false,
+        "revision": "c96c8dcd599c7fe4d611805455bd8d88a0a65e72"
+      },
+      "checks": [
+        "owner-subject-present",
+        "tool-allowlist",
+        "direct-rest-mcp-parity",
+        "non-allowlisted-call-denied"
+      ]
+    }
+  ],
+  "sourceSha256": {
+    "scripts/check-mcp-readback.mjs": "0e84f6d54e34ae5e33cb4ce530df2a9d99b9a4a05bb40a4be52dba6d7d5d24dd",
+    "dist/src/main.js": "89c495cbf6efce82df933ab64cf47abb9139e5911ac0a424762c46d8590ee6e2",
+    "dist/src/ports/McpFederation.js": "a231372e410c75d114f9ff1253959a528ae24282ffdfe49e9608321328888e21",
+    "dist/src/platform/BoundedHttp.js": "df149fe555c8296c428e878f74af4620640ddd5dfcfebf4347ae95a3711dba2a",
+    "config/mcp-bindings.json": "9e12b4889455d5b6ee54a1007ff8e5e0383cfbdd1be4b7c2620fe001599ae722"
+  },
+  "compiledTreeSha256": "a1f6a463f8b7e2ad7a9d5669f145b3f88fc3e2b0e046367ac6ab97b015299908",
+  "cleanup": {
+    "childStopped": true,
+    "temporaryDirectoryRemoved": true
+  }
+}

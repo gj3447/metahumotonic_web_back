@@ -144,6 +144,15 @@ def verify_stack(docker, work, receipt):
         raise RuntimeError("isolated stores did not start")
     legacy = docker.container("legacy", docker.images[1], "--env", "MHB_NEO4J_LIVE=false")
     require(not docker.inspect("container", legacy, ".HostConfig.PortBindings"), "legacy published a host port")
+    for _ in range(60):
+        try:
+            if docker.run("exec", legacy, "python", "-c",
+                          "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).status)", timeout=5) == "200":
+                break
+        except RuntimeError:
+            time.sleep(0.5)
+    else:
+        raise RuntimeError("private legacy domain did not become ready")
     key, admin = uuid.uuid4().hex + uuid.uuid4().hex, uuid.uuid4().hex + uuid.uuid4().hex
     env = {"MHB_HOST": "0.0.0.0", "MHB_PORT": "8000", "MHB_VERSION": nonce,
            "MHB_NEO4J_LIVE": "false", "MHB_LEGACY_ORIGIN": "http://legacy:8000", "MHB_LEGACY_REQUIRED": "true",
@@ -157,7 +166,11 @@ def verify_stack(docker, work, receipt):
     for index in range(2):
         identity = docker.container(f"platform-{index}", docker.images[0], "--env-file", str(env_file), "--publish", "127.0.0.1::8000")
         replicas.append(identity)
-        bindings = docker.inspect("container", identity, '.NetworkSettings.Ports')["8000/tcp"]
+        ports = docker.inspect("container", identity, '.NetworkSettings.Ports') or {}
+        if "8000/tcp" not in ports:
+            state = docker.inspect("container", identity, ".State")
+            raise RuntimeError(f"platform port missing (state={state.get('Status', 'unknown')}, exit={state.get('ExitCode', 'unknown')})")
+        bindings = ports["8000/tcp"]
         require(len(bindings) == 1 and bindings[0]["HostIp"] == "127.0.0.1", "non-loopback published port")
         origin = "http://127.0.0.1:" + bindings[0]["HostPort"]
         origins.append(origin)
