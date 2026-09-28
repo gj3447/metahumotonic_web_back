@@ -17,7 +17,7 @@ if [[ "$mode" == dry-run ]]; then printf '{"schema":"metahumotonic/wiki-stateful
 for command in ssh scp mktemp; do command -v "$command" >/dev/null || fail "$command is required"; done
 remote() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$runtime_host" "$@"; }; data_remote() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$data_host" "$@"; }
 user_name="$(id -un)"; group_name="$(id -gn)"; runtime_stage=""; data_stage=""
-valid_stage() { [[ "$1" =~ ^/var/tmp/mhb-wiki-stateful-[A-Za-z0-9._-]{6,}$ ]]; }
+valid_stage() { [[ "$1" =~ ^/var/tmp/mhb-wiki-stateful\.[A-Za-z0-9]{6}$ ]]; }
 remove_stage() { local host="$1" stage="$2"; [[ -z "$stage" ]] && return 0; valid_stage "$stage" || return 1; ssh -o BatchMode=yes -o ConnectTimeout=10 "$host" "test ! -L '$stage' && test \"\$(stat -c '%U:%G:%a' '$stage')\" = '$user_name:$group_name:700' && rm -f -- '$stage'/'canary.sh' '$stage'/'runtime.sh' '$stage'/'data.sh' && rmdir -- '$stage'" >/dev/null 2>&1; }
 cleanup_local() { remove_stage "$runtime_host" "$runtime_stage" || true; remove_stage "$data_host" "$data_stage" || true; }; trap cleanup_local EXIT
 runtime_stage="$(remote 'umask 077; mktemp -d /var/tmp/mhb-wiki-stateful.XXXXXX')"; valid_stage "$runtime_stage" || fail 'unsafe runtime staging path'
