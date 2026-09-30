@@ -100,11 +100,30 @@ CI에서는 release 검사 전에 `uv`를 설치한다.
 중단한다. ontology ingress와 snapshot의 공개 범위는 계속 `INTERNAL_ONLY`다.
 기존 공개 데이터의 JSON-LD에만 Nginx MIME 경로를 추가했다.
 
-이 변경은 Neo4j에 새 관계를 기록하지 않았다. 공유 ontology 조회 4-tool과
-이 저장소의 snapshot reader에는 승인된 KG publisher가 없다. 원본 KG에 웹
-관계의 영속화까지 필요하면 SYMPOSIUM 소유자가 이 명시적 대응표를 변경안으로
-삼아 기존 writer의 predicate·권한·transaction·readback 계약을 적용해야 한다.
-그 경우에도 9번을 자동 선택하거나 기존 membership을 삭제하면 안 된다.
+### KG 영속 기록과 남은 연결 제한
+
+2026-09-30 기존 owner-managed **Relay KG**의 제한된 초안 publisher로
+`metahumotonic-apostle-web-graph-bridge`라는 Note를 저장했다. 정전 레코드를
+수정하는 경로가 아니며 immutable revision을 가진 `SECONDARY_AI`,
+`PENDING_OR_PRELIMINARY`, `review_required=true` 기록이다. 준비 주체 Codex와
+publisher의 기록 주체 `agent:chatgpt`를 본문에서 구분했다.
+저장 UID는 `sym:Note:chatgpt-metahumotonic-apostle-web-graph-bridge`이며
+revision 2에서 아래의 미완료 edge를 명시했다.
+
+Note → 기존 `MetaHumotonic_WebPlatform` 및 `SA_metahumotonic_web_back`에
+`REFERENCES` 두 개를 기록하고 본문·endpoint·방향·관계 상태를 다시 읽었다.
+관계 상태는 **PROPOSED**이며 ACTIVE나 정전 판정으로 표기하지 않는다.
+
+기존 `메타휴모토닉_12사도` WorldSetting과 `ENTITY_12사도`는 읽기 API에서
+유일한 대상으로 조회되지만, 동일 UID를 사용한 `ABOUT` 연결을 writer가
+`Target is not available`로 거부했다. 원인은 확정하지 않았고 원본 속성·
+공개 범위·UID를 수정해 우회하지 않았다. 이 **12사도 직접 ABOUT edge**는
+소유자의 writer 대상 결속 확인이 남아 있다. 같은 사도의 대체 노드를 새로
+만들지 않았으며, 대응 명세와 미완료 edge를 초안 본문에 보존했다.
+
+기존 node·membership·authority·9번 선택은 변경하지 않았다. 추후 소유자가
+대상 결속을 해결하면 같은 초안에서 기존 ABOUT publisher를 재사용할 수 있다.
+이 publisher는 동일 link 재시도에 idempotent하며 기존 관계를 덮어쓰지 않는다.
 
 참조: [SKOS](https://www.w3.org/TR/skos-reference/),
 [PROV-O](https://www.w3.org/TR/prov-o/), [SHACL](https://www.w3.org/TR/shacl/).
