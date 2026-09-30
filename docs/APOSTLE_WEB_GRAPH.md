@@ -2,7 +2,8 @@
 
 이 연결은 기존 KG 결속을 가진 SYMPOSIUM projection을 재사용한다. 12개 자리는
 내부 ontology의 식별자로, 공개 설명은 기존 학습 지도의 개념 IRI로, 웹 문서는
-문서 IRI로 구분한다. 새 사도·정전 판정·Neo4j 관계를 만들지 않는다.
+문서 IRI로 구분한다. 새 사도·정전 판정을 만들지 않는다. KG에는 이 연결 명세의
+대상과 관련 웹 애플리케이션을 가리키는 검토 대기 참조만 기록한다.
 
 ## 출처와 소유 범위
 
@@ -100,7 +101,7 @@ CI에서는 release 검사 전에 `uv`를 설치한다.
 중단한다. ontology ingress와 snapshot의 공개 범위는 계속 `INTERNAL_ONLY`다.
 기존 공개 데이터의 JSON-LD에만 Nginx MIME 경로를 추가했다.
 
-### KG 영속 기록과 남은 연결 제한
+### KG 영속 기록과 직접 연결
 
 2026-09-30 기존 owner-managed **Relay KG**의 제한된 초안 publisher로
 `metahumotonic-apostle-web-graph-bridge`라는 Note를 저장했다. 정전 레코드를
@@ -108,22 +109,43 @@ CI에서는 release 검사 전에 `uv`를 설치한다.
 `PENDING_OR_PRELIMINARY`, `review_required=true` 기록이다. 준비 주체 Codex와
 publisher의 기록 주체 `agent:chatgpt`를 본문에서 구분했다.
 저장 UID는 `sym:Note:chatgpt-metahumotonic-apostle-web-graph-bridge`이며
-revision 2에서 아래의 미완료 edge를 명시했다.
+revision 2에서 최초의 연결 제한을, revision 3에서 해결과 운영 범위를 기록했다.
 
 Note → 기존 `MetaHumotonic_WebPlatform` 및 `SA_metahumotonic_web_back`에
 `REFERENCES` 두 개를 기록하고 본문·endpoint·방향·관계 상태를 다시 읽었다.
 관계 상태는 **PROPOSED**이며 ACTIVE나 정전 판정으로 표기하지 않는다.
 
-기존 `메타휴모토닉_12사도` WorldSetting과 `ENTITY_12사도`는 읽기 API에서
-유일한 대상으로 조회되지만, 동일 UID를 사용한 `ABOUT` 연결을 writer가
-`Target is not available`로 거부했다. 원인은 확정하지 않았고 원본 속성·
-공개 범위·UID를 수정해 우회하지 않았다. 이 **12사도 직접 ABOUT edge**는
-소유자의 writer 대상 결속 확인이 남아 있다. 같은 사도의 대체 노드를 새로
-만들지 않았으며, 대응 명세와 미완료 edge를 초안 본문에 보존했다.
+최초 `ABOUT` 요청이 거부된 원인은 대상 두 노드의 legacy lifecycle `UNKNOWN`이다.
+일반 초안 publisher는 `ACTIVE` 대상만 새 연결로 허용한다. 2026-09-30 사용자의
+명시적 실행 승인 후 SYMPOSIUM 소유자의 기존 `kg_publish_bundle.py`로 정확히
+두 `ABOUT` 관계를 추가했다. 대상은 `sym:KG_CREATIVE:메타휴모토닉_12사도`와
+`sym:AbstractNode:entity_12사도`이며 모두 `SECONDARY_AI`, `PROPOSED`,
+`review_required=true`, `ENGINEERING_SUBJECT_REFERENCE_ONLY`다.
 
-기존 node·membership·authority·9번 선택은 변경하지 않았다. 추후 소유자가
-대상 결속을 해결하면 같은 초안에서 기존 ABOUT publisher를 재사용할 수 있다.
-이 publisher는 동일 link 재시도에 idempotent하며 기존 관계를 덮어쓰지 않는다.
+번들은 SYMPOSIUM `kg/bundles/metahumotonic-apostle-web-bridge-2026-09-30.v1.json`,
+커밋은 `b2ea5aa60131aad47d41d0963807d87ac1d6148d`다. 영수증 UID는
+`sym:KG_INFRA:sym-metahumotonic-apostle-web-bridge-2026-09-30-run`이다.
+등록 어휘·유일한 대상·실제 관계 속성 readback을 통과했다. 기존 노드 수정 0,
+관계 추가 2이며 별도 감사 영수증 노드 1개가 생겼다. 원본 두 레코드의 조회
+결과가 적용 전후 동일함을 확인했다. 일반 publisher 정책, membership,
+권위와 9번 선택은 변경하지 않았다.
+
+### 운영 반영 — 2026-09-30
+
+- 백엔드 `99abb0deaf603d2f90fb75d363e576fbf1811d62`: VM100 두 replica에
+  순차 배포 완료. 실제 이미지의 격리 HTTP·CLI·MCP canary, 직접 health/ready,
+  공개 wiki·research 및 비공개 경계 검사를 통과했다.
+- 프런트엔드 `a90c173071b87c1be557886ecc03497980818ceb`: GitHub Actions
+  [36658932094](https://github.com/gj3447/metahumotonic-web/actions/runs/36658932094)
+  성공 후 deploy commit `07dc6c62e35818e991832fa3e157513dbcb4c3a8`을 운영에 반영했다.
+- 운영 Nginx에 사도 JSON-LD exact location만 추가하고 기존 파일을 백업했다.
+  설정 검사·reload 후 원본과 공개 `/apostles/graph.jsonld`가 모두
+  `200 application/ld+json`을 반환한다. 본문 SHA-256은
+  `7f5a4cad8cd7fe8169552ac3a20910590c3178b577e36eb12f0f75c42047199e`다.
+- 내부 ontology snapshot은 운영에 설정되지 않았다. 직접 ontology endpoint는
+  `503 ONTOLOGY_UNAVAILABLE`, 공개 주소는 `404`다. 백엔드 코드 배포를
+  내부 snapshot 서비스 활성화로 해석하면 안 된다. 공개 RDF와 사도·위키 링크는
+  이 비공개 API 없이 사용할 수 있다. snapshot의 발행 상태는 `INTERNAL_ONLY`다.
 
 참조: [SKOS](https://www.w3.org/TR/skos-reference/),
 [PROV-O](https://www.w3.org/TR/prov-o/), [SHACL](https://www.w3.org/TR/shacl/).
