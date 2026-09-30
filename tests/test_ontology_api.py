@@ -277,6 +277,54 @@ async def test_disabled_surface_is_503_and_request_id_is_correlated(client):
     assert body["error"]["request_id"] == response.headers["X-Request-ID"]
 
 
+async def test_apostles_link_selected_slots_to_existing_public_concepts(client):
+    response = await client.get("/api/v1/ontology/apostles", headers=_headers())
+    assert response.status_code == 200
+    body = response.json()
+    assert body["meta"]["publication_status"] == "INTERNAL_ONLY"
+    items = body["data"]["items"]
+    assert [item["position"] for item in items] == list(range(1, 13))
+    omc = items[7]
+    assert omc["public_id"] == _public_id(108)
+    assert omc["entity"]["canonical_abbreviation"] == "OMC"
+    assert omc["web_reference"]["page_url"] == "https://metahumotonic.com/apostles/orbital-cloud/"
+    assert omc["web_reference"]["concept_iri"] == "https://metahumotonic.com/learn/#entity-apostle-8"
+    pending = items[8]
+    assert pending["entity"] is None
+    assert pending["selection_state"] == "CONFLICT_PENDING"
+    assert {c["canonical_name"] for c in pending["candidates"]} == {"예수", "검은 태양신 아텐"}
+    assert all(c["default_servable"] is False for c in pending["candidates"])
+    assert pending["web_reference"]["mapping_status"] == "CONFLICT_REFERENCE_ONLY"
+    assert all(item["web_reference"]["identity_equivalence"] is False for item in items)
+    assert not any(marker in response.text for marker in ("sym:", "stable_ref", "/home/", "sameAs"))
+    cached = await client.get("/api/v1/ontology/apostles", headers=_headers(**{"If-None-Match": response.headers["etag"]}))
+    assert cached.status_code == 304
+    assert cached.headers["cache-control"].startswith("private")
+    assert cached.headers["vary"] == "X-Ontology-Key"
+
+
+async def test_apostle_links_require_key_even_for_conditional_requests(client):
+    valid = await client.get("/api/v1/ontology/apostles", headers=_headers())
+    unauth = await client.get("/api/v1/ontology/apostles", headers={"If-None-Match": valid.headers["etag"]})
+    assert unauth.status_code == 401
+    ontology_runtime.reset()
+    disabled = await client.get("/api/v1/ontology/apostles", headers=_headers())
+    assert disabled.status_code == 503
+
+
+async def test_apostle_links_reject_name_drift_and_do_not_mutate_snapshot(client, ontology_projection):
+    from app.ontology_web import apostle_web_directory
+
+    original = deepcopy(ontology_projection.collections)
+    directory = apostle_web_directory(ontology_projection)
+    directory["items"][0]["entity"]["canonical_name"] = "changed by caller"
+    assert ontology_projection.collections == original
+    ontology_projection.collections["apostles"][0]["entity"]["canonical_name"] = "wrong entity"
+    result = await client.get("/api/v1/ontology/apostles", headers=_headers())
+    assert result.status_code == 503
+    assert result.json()["error"]["code"] == "ONTOLOGY_WEB_MAPPING_MISMATCH"
+
+
 async def test_readiness_fails_closed_if_enabled_runtime_is_unavailable(
     client, monkeypatch
 ):

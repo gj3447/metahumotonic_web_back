@@ -19,6 +19,7 @@ from ..ontology import (
     OntologyProjection,
     ontology_runtime,
 )
+from ..ontology_web import apostle_web_directory
 
 router = APIRouter(prefix="/api/v1/ontology", tags=["ontology"])
 
@@ -174,6 +175,27 @@ def _success(
         content=content,
         headers=_headers(projection, etag=etag, cache_control=cache_control),
     )
+
+
+@router.get("/apostles", response_model=None)
+async def apostles(request: Request) -> Any:
+    projection, auth_error = _authorized_projection(request)
+    if auth_error is not None:
+        return auth_error
+    assert projection is not None
+    try:
+        data = apostle_web_directory(projection)
+    except ValueError:
+        return _error(
+            request, 503, "ONTOLOGY_WEB_MAPPING_MISMATCH",
+            "The ontology roster requires a reviewed web mapping.",
+            projection=projection,
+        )
+    # Bind the ETag to the mapping as well as the source release digest.
+    etag = projection.etag_for("apostles", data)
+    if _etag_matches(request, etag):
+        return _not_modified(projection, etag=etag)
+    return _success(projection, data, etag=etag)
 
 
 @router.get("/search", response_model=None)

@@ -76,6 +76,7 @@ All success responses use this envelope:
 
 Endpoints:
 
+- `GET /api/v1/ontology/apostles` — twelve slots with public editorial web references
 - `GET /api/v1/ontology/search?q=&kind=&limit=&cursor=`
 - `GET /api/v1/ontology/conflicts?subject_public_id=&severity=&status=&limit=&cursor=`
 - `GET /api/v1/ontology/nodes/{public_id}`
@@ -114,6 +115,21 @@ year. Errors are `private, no-store`.
   OMC → six direct commanders, and the two phases → apostle 10.
 
 ## Verification and deployment boundary
+
+The apostle directory joins each validated slot to the existing public learning
+concept and its story/wiki pages. `web_reference` is a separately attributed
+`EDITORIAL_SUMMARY` mapping, with `identity_equivalence=false`. It does not
+reidentify a KG entity as a web page. Slot 9 retains `entity=null`, both
+non-default candidates, and `CONFLICT_REFERENCE_ONLY`; its `/jesus/` URL is a
+reference to the existing editorial edition. See
+[the complete linking contract](APOSTLE_WEB_GRAPH.md).
+
+This endpoint requires the same independent key and private caching as the
+other ontology routes. Its ETag covers both the source digest and the actual
+web mapping. A changed selected name fails with `503
+ONTOLOGY_WEB_MAPPING_MISMATCH` until the route registry is reviewed. No raw KG
+query or write is performed. The frontend explorer checks the matching release
+and slot identities before showing the links.
 
 ```sh
 uv run --extra dev pytest -q
