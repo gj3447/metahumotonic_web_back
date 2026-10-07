@@ -1,0 +1,31 @@
+{
+  "schema": "metahumotonic-license-adoption/v1",
+  "date": "2026-10-07",
+  "repository": "gj3447/metahumotonic_web_back",
+  "base_commit": "9b58bafc2af0305c7e031b0e76c52aa7d337cd06",
+  "base_tree": "25a0e77207383e37b61f49b23bfc7f96d2efe39e",
+  "license": "LicenseRef-MetaHumotonic-1.2",
+  "license_path": "METAHUMOTONIC-LICENSE",
+  "license_sha256": "dc4439a4bc7ea4cb913ba3a5a9ff679a1dc148a03f77a6deba82758c5a92b5a3",
+  "mode": "SCOPED_NEW_WORKS_ONLY",
+  "user_verbatim": "우리 모든 publci 을 메타휴모토닉 라이센스로 변경해줘 ㅇ",
+  "source_authority": "USER_PRIMARY",
+  "drafting_author": "OpenAI Codex",
+  "drafting_authority": "SECONDARY_AI",
+  "prior_grants_preserved": true,
+  "actual_hardware_access_granted": false,
+  "third_party_boundary": "The existing combined distribution is expressly AGPL-3.0-only and contains a pinned AGPL _vendor/ooptdd snapshot. Preserve that distribution and its vendored notices; MHL applies only to separately identified, independently licensable original works.",
+  "preserved_files": [
+    {
+      "original_path": "LICENSE",
+      "path": "licenses/pre-mhl-2026-10-07/LICENSE",
+      "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+    },
+    {
+      "original_path": "NOTICE",
+      "path": "licenses/pre-mhl-2026-10-07/NOTICE",
+      "sha256": "0f84ee69e167b7e17ecbd04054456c3eeab94b0c6a58b7615875da7ffea8a077"
+    }
+  ],
+  "publication_tracking": "This is the prepared adoption record. Git history and remote readback establish publication; no full copyright audit or legal review is claimed."
+}

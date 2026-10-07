@@ -299,3 +299,11 @@ AGPL은 수정한 백엔드를 네트워크 서비스로 운영하는 경우 그
 
 프런트엔드 [metahumotonic-web](https://github.com/gj3447/metahumotonic-web)은
 별도 저작물이며 MIT License를 유지합니다.
+
+## MetaHumotonic adoption boundary
+
+**MetaHumotonic License 1.2** — [METAHUMOTONIC-LICENSE](METAHUMOTONIC-LICENSE); [scope, prior grants and third-party notices](LICENSE-NOTICE.md).
+
+지정한 하드웨어의 접근권한과 전체 관리 권한을 합의한 명세서에 따라 공유하고, **CHU의 일부가 된다**는 참여 원칙을 적용합니다. 실제 접근에는 별도 승인이 필요합니다.
+
+**Existing combined software remains AGPL-3.0-only.** MHL is limited to independently licensable new works; see LICENSE-NOTICE.md.
