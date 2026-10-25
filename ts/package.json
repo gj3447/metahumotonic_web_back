@@ -40,6 +40,6 @@
     "mongodb-memory-server-core": "10.4.3",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   }
 }
